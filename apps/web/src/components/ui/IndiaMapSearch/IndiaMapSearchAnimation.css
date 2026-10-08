@@ -1,0 +1,260 @@
+/* ═══════════════════════════════════════════════════════════════
+   IndiaMapSearchAnimation — Premium geolocation search overlay
+   ═══════════════════════════════════════════════════════════════ */
+
+.india-search-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px 28px;
+  gap: 20px;
+  animation: indiaOverlayIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes indiaOverlayIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Map SVG container ── */
+.india-map-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.india-map-svg {
+  filter: drop-shadow(0 4px 16px rgba(220, 38, 38, 0.12));
+}
+
+/* Map fill and stroke */
+.india-map-land {
+  fill: #fef2f2;
+  stroke: #fca5a5;
+  stroke-width: 0.8;
+  animation: mapFillPulse 3s ease-in-out infinite;
+}
+
+@keyframes mapFillPulse {
+  0%, 100% { fill: #fef2f2; }
+  50%       { fill: #fee2e2; }
+}
+
+/* ── Radar sweep ── */
+.india-radar-group {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+}
+
+.india-radar-sweep {
+  fill: none;
+  transform-origin: center;
+  animation: radarSpin 2.4s linear infinite;
+}
+
+@keyframes radarSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Scan grid lines ── */
+.india-scan-line {
+  stroke: rgba(220, 38, 38, 0.08);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 4;
+  animation: scanLineFade 2.4s ease-in-out infinite alternate;
+}
+
+.india-scan-line:nth-child(2) { animation-delay: 0.3s; }
+.india-scan-line:nth-child(3) { animation-delay: 0.6s; }
+
+@keyframes scanLineFade {
+  from { opacity: 0.3; }
+  to   { opacity: 0.9; }
+}
+
+/* ── Location pin ── */
+.india-pin-group {
+  animation: pinBounce 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  transform-origin: 50% 100%;
+  transform-box: fill-box;
+}
+
+@keyframes pinBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40%       { transform: translateY(-5px) scale(1.08); }
+  55%       { transform: translateY(-3px) scale(1.04); }
+}
+
+/* ── Ripple rings around pin ── */
+.india-pin-ripple {
+  fill: none;
+  stroke: #dc2626;
+  stroke-width: 1;
+  transform-origin: center;
+  transform-box: fill-box;
+  opacity: 0;
+  animation: pinRipple 2.4s ease-out infinite;
+}
+
+.india-pin-ripple:nth-child(2) { animation-delay: 0.6s; }
+.india-pin-ripple:nth-child(3) { animation-delay: 1.2s; }
+
+@keyframes pinRipple {
+  0%   { r: 4; opacity: 0.6; }
+  100% { r: 18; opacity: 0; }
+}
+
+/* ── Dot scatter (other kiosks being found) ── */
+.india-dot {
+  fill: #dc2626;
+  animation: dotAppear 2.4s ease-in-out infinite;
+  opacity: 0;
+}
+
+.india-dot:nth-child(1) { animation-delay: 0.2s; }
+.india-dot:nth-child(2) { animation-delay: 0.7s; }
+.india-dot:nth-child(3) { animation-delay: 1.1s; }
+.india-dot:nth-child(4) { animation-delay: 1.6s; }
+.india-dot:nth-child(5) { animation-delay: 0.9s; }
+
+@keyframes dotAppear {
+  0%   { opacity: 0; transform: scale(0.2); }
+  30%  { opacity: 1; transform: scale(1.1); }
+  60%  { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+
+/* ── Text area ── */
+.india-search-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.india-search-headline {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--neo-text-1, #09090b);
+  letter-spacing: -0.01em;
+}
+
+.india-search-sub {
+  font-size: 12.5px;
+  color: var(--neo-text-3, #6b7280);
+  line-height: 1.5;
+}
+
+/* ── Typing dots ── */
+.india-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 14px;
+}
+
+.india-typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: typingBounce 1.2s ease-in-out infinite;
+}
+
+.india-typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.india-typing-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+  40%           { transform: translateY(-5px); opacity: 1; }
+}
+
+/* ── Status steps ── */
+.india-search-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.india-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--neo-text-4, #9ca3af);
+  transition: color 0.3s ease;
+}
+
+.india-step.is-active {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.india-step.is-done {
+  color: #10b981;
+}
+
+.india-step__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  transition: background 0.3s ease;
+}
+
+.india-step.is-active .india-step__dot {
+  animation: stepPing 1s ease-in-out infinite;
+}
+
+@keyframes stepPing {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.5); opacity: 0.7; }
+}
+
+/* ── Compact (inline banner) variant ── */
+.india-search-overlay.compact {
+  flex-direction: row;
+  padding: 14px 20px;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(254,242,242,0.9) 0%, rgba(255,255,255,0.95) 100%);
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  justify-content: flex-start;
+}
+
+.india-search-overlay.compact .india-map-wrap {
+  flex-shrink: 0;
+}
+
+.india-search-overlay.compact .india-search-text {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.india-search-overlay.compact .india-search-steps {
+  flex-direction: row;
+  gap: 12px;
+  max-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .india-map-land,
+  .india-radar-sweep,
+  .india-pin-group,
+  .india-pin-ripple,
+  .india-dot,
+  .india-typing-dot,
+  .india-step__dot,
+  .india-scan-line {
+    animation: none;
+    opacity: 1;
+  }
+}

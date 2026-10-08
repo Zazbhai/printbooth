@@ -1,0 +1,72 @@
+/* ──────────────────────────────────────────────────────────────────────────────
+   SectionMagnetBg.css
+   Positions the MagnetLines grid absolutely within its section container.
+   Glide animation is driven entirely by JS (no CSS keyframes, for full control).
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.section-magnet-bg {
+  /* Positioned so section containers need `position: relative` */
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  top: var(--magnet-top, 0px);
+
+  /* Parallax drift: applied via CSS custom prop set from JS */
+  transform: translateY(calc(var(--magnet-scroll-drift, 0px))) scale(1);
+  will-change: transform, opacity;
+}
+
+/* ── Side anchoring ── */
+.section-magnet-bg--right {
+  right: -6vmin;
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.section-magnet-bg--left {
+  left: -6vmin;
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.section-magnet-bg--center {
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+}
+
+/* Soft vignette mask so the grid fades at all four edges */
+.section-magnet-grid {
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 80% at 50% 50%,
+    black 30%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 80% 80% at 50% 50%,
+    black 30%,
+    transparent 100%
+  );
+}
+
+/* ── Ensure all affected section containers have position:relative ── */
+.landing-problem,
+.landing-product,
+.landing-how,
+.cmp-section,
+.dlr-section,
+.landing-tech,
+.landing-final {
+  position: relative;
+  overflow: visible;
+}
+
+/* On mobile, push the grid further back and make it smaller */
+@media (max-width: 768px) {
+  .section-magnet-bg--right { right: -10vmin; }
+  .section-magnet-bg--left  { left: -10vmin; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-magnet-bg { display: none; }
+}

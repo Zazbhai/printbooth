@@ -1,0 +1,54 @@
+# ==============================================================================
+# PrintBooth Robots Directives
+# Optimized for Web Search, Generative Search (GEO) & Answer Engines (AEO)
+# ==============================================================================
+
+User-agent: *
+Allow: /
+Allow: /print
+Allow: /how-it-works
+Allow: /locations
+Allow: /pricing
+Allow: /features
+Allow: /faq
+Allow: /support
+Allow: /request-installation
+Allow: /contact
+Allow: /terms
+Allow: /privacy
+Allow: /refunds
+Allow: /cookies
+
+# Disallow internal order steps and API endpoints
+Disallow: /api/
+Disallow: /print?*step=payment*
+Disallow: /print?*step=status*
+Disallow: /print?*step=success*
+
+# Generative AI & Answer Engine Bots (Explicitly welcomed for GEO & citation)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# Sitemap Index Pointer
+Sitemap: https://printbooth.in/sitemap.xml

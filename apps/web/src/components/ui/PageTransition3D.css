@@ -1,0 +1,250 @@
+/* =========================================================
+   PAGE WIPE CORE
+   Split Page Transition — Mobile Optimized & Responsive
+   - Hardware accelerated compositor layers (will-change, translateZ)
+   - dvh with vh fallbacks for universal mobile browser support
+   - Responsive fluid typography preventing text overflow or accidental wrapping
+   - Mobile landscape & portrait calibrated scaling
+   - Click/tap isolation during transition to prevent double-submits
+========================================================= */
+
+.page-wipe {
+  --wipe-bg: #dc2626;
+  --wipe-color: #ffffff;
+  --wipe-accent: #ffe85c;
+  --wipe-duration: 560ms;
+
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 9999999 !important;
+
+  display: grid !important;
+  grid-template-rows: repeat(5, 20vh) !important;
+  grid-template-rows: repeat(5, 20dvh) !important;
+
+  visibility: hidden;
+  pointer-events: none;
+  contain: strict;
+  overscroll-behavior: none;
+}
+
+/* Prevent accidental clicks or ghost taps during active transition */
+.page-wipe.is-covering,
+.page-wipe.is-covered,
+.page-wipe.is-opening {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+.page-wipe__row {
+  position: relative;
+  height: 20vh;
+  height: 20dvh;
+  overflow: hidden;
+  contain: strict;
+}
+
+.page-wipe__half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  overflow: hidden;
+  background: var(--wipe-bg);
+  will-change: width;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition:
+    width
+    var(--wipe-duration)
+    cubic-bezier(.76, 0, .24, 1);
+  transition-delay: var(--delay);
+}
+
+.page-wipe__half--start {
+  left: 0;
+}
+
+.page-wipe__half--end {
+  right: 0;
+}
+
+/* Center Title & Accent Layer */
+.page-wipe__center {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 180ms ease, transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-wipe.is-covering .page-wipe__center {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 280ms ease 120ms, transform 380ms cubic-bezier(0.16, 1, 0.3, 1) 120ms;
+}
+
+.page-wipe.is-covered .page-wipe__center {
+  opacity: 1;
+  transform: scale(1);
+  transition: none;
+}
+
+.page-wipe.is-opening .page-wipe__center {
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 180ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-wipe__title {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+.page-wipe__title span {
+  display: block;
+  width: auto;
+  max-width: 90vw;
+  padding-inline: 4vw;
+  box-sizing: border-box;
+  color: var(--wipe-color);
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  /* Fluid sizing that scales down smoothly on mobile while staying massive on desktop */
+  font-size: clamp(32px, 9vw, 130px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  text-align: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-wipe__accent-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 14px;
+  border-radius: 50%;
+  background: var(--wipe-accent);
+  opacity: 0;
+  transform: scale(0.3);
+  transition: opacity 160ms ease, transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.page-wipe.is-covering .page-wipe__accent-dot,
+.page-wipe.is-covered .page-wipe__accent-dot {
+  opacity: 1;
+  transform: scale(1);
+  transition-delay: 240ms;
+}
+
+/* Close State */
+.page-wipe.is-covering .page-wipe__half {
+  width: 50%;
+}
+
+/* Fully Covered State */
+.page-wipe.is-covered .page-wipe__half {
+  width: 50%;
+  transition: none;
+}
+
+/* Open State */
+.page-wipe.is-opening .page-wipe__half {
+  width: 0;
+  transition-delay: calc(100ms - var(--delay));
+}
+
+html.is-page-transitioning {
+  overflow: hidden !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* ── Mobile Phone Viewports (Portrait) ── */
+@media (max-width: 480px) {
+  .page-wipe__title span {
+    padding-inline: 12px;
+    font-size: clamp(26px, 11vw, 50px);
+    letter-spacing: -0.04em;
+  }
+
+  .page-wipe__accent-dot {
+    width: 6px;
+    height: 6px;
+    margin-top: 10px;
+  }
+}
+
+/* ── Tablets & Small Laptops ── */
+@media (min-width: 481px) and (max-width: 820px) {
+  .page-wipe__title span {
+    padding-inline: 20px;
+    font-size: clamp(48px, 10vw, 96px);
+  }
+}
+
+/* ── Mobile Landscape (short height, e.g. 320px - 460px high) ── */
+@media (max-height: 500px) {
+  .page-wipe__title span {
+    font-size: clamp(24px, 7vh, 46px);
+    letter-spacing: -0.03em;
+  }
+
+  .page-wipe__accent-dot {
+    width: 6px;
+    height: 6px;
+    margin-top: 8px;
+  }
+}
+
+/* ── Reduced Motion Accessibility ── */
+@media (prefers-reduced-motion: reduce) {
+  .page-wipe {
+    display: none !important;
+  }
+}
+
+/* Layout container */
+.pt3d-wrapper,
+.page-wipe-container {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  perspective: none !important;
+  transform: none !important;
+}
+
+.pt3d-page,
+.page-wipe-content {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  perspective: none !important;
+  transform: none !important;
+}

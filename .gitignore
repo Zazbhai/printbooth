@@ -1,0 +1,45 @@
+# Environment files & Secrets
+.env
+.env.*
+.env.local
+*.env
+*.env.*
+!.env.example
+
+# Node dependencies & build artifacts
+node_modules/
+dist/
+build/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+*.log
+
+# Temporary data & uploads
+temp_jobs/
+scratch/
+uploads/
+*.tmp
+*.log
+*.exe
+*.winmd
+processed_orders.json
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+
+# Standalone Embedded Pi Repository (tracked at https://github.com/Zazbhai/kiosk.git)
+kiosk/

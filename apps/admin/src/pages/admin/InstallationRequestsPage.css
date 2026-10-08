@@ -1,0 +1,1528 @@
+/* ═════════════════════════════════════════════════════════════════════
+   INSTALLATION REQUESTS ADMIN CONSOLE STYLES
+   Adhering to Capitalio Obsidian dark & slate styling with laser-red accents
+   ═════════════════════════════════════════════════════════════════════ */
+
+.installations-page {
+  padding: clamp(16px, 2.5vw, 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Header */
+.installations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.installations-header__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.installations-header__title {
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--clr-text-1, #0f172a);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.installations-header__badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.installations-header__sub {
+  font-size: 13.5px;
+  color: var(--clr-text-3, #64748b);
+  line-height: 1.45;
+}
+
+.installations-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* KPI Summary Cards */
+.installations-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+}
+
+.installations-kpi-card {
+  background: var(--clr-bg-800, #ffffff);
+  border: 1px solid var(--clr-border, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.installations-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.07);
+}
+
+.installations-kpi-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.installations-kpi-card__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--clr-text-3, #64748b);
+}
+
+.installations-kpi-card__icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.installations-kpi-card__val {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--clr-text-1, #0f172a);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.installations-kpi-card__sub {
+  font-size: 11.5px;
+  color: var(--clr-text-4, #94a3b8);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Filter Controls Bar */
+.installations-filters-bar {
+  background: var(--clr-bg-800, #ffffff);
+  border: 1px solid var(--clr-border, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.installations-filters-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Venue Segments */
+.venue-segments {
+  display: flex;
+  align-items: center;
+  background: var(--clr-bg-700, #f1f5f9);
+  padding: 3px;
+  border-radius: 8px;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.venue-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--clr-text-3, #64748b);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.venue-segment-btn:hover {
+  color: var(--clr-text-1, #0f172a);
+}
+
+.venue-segment-btn.active {
+  background: #ffffff;
+  color: var(--clr-text-1, #0f172a);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.venue-segment-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: var(--clr-bg-600, #e2e8f0);
+  color: var(--clr-text-2, #334155);
+}
+
+.venue-segment-btn.active .venue-segment-count {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
+/* Search and dropdown controls */
+.installations-filters-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.installations-search-wrap {
+  position: relative;
+  min-width: 260px;
+  flex: 1 1 280px;
+}
+
+.installations-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--clr-text-4, #94a3b8);
+  pointer-events: none;
+}
+
+.installations-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border-radius: 8px;
+  border: 1px solid var(--clr-border, #e2e8f0);
+  background: var(--clr-bg-900, #f8fafc);
+  font-size: 13px;
+  color: var(--clr-text-1, #0f172a);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.installations-search-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  background: #ffffff;
+}
+
+.installations-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--clr-border, #e2e8f0);
+  background: var(--clr-bg-900, #f8fafc);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--clr-text-2, #334155);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.18s ease;
+}
+
+.installations-select:focus {
+  border-color: #dc2626;
+}
+
+/* Table Card */
+.installations-table-card {
+  background: var(--clr-bg-800, #ffffff);
+  border: 1px solid var(--clr-border, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.installations-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.installations-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.installations-table th {
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--clr-text-3, #64748b);
+  background: var(--clr-bg-700, #f8fafc);
+  border-bottom: 1px solid var(--clr-border, #e2e8f0);
+  white-space: nowrap;
+}
+
+.installations-table td {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--clr-text-2, #334155);
+  border-bottom: 1px solid var(--clr-border, #f1f5f9);
+  vertical-align: middle;
+}
+
+.installations-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.installations-table tbody tr:hover {
+  background-color: rgba(220, 38, 38, 0.02);
+}
+
+.installations-table tbody tr.selected {
+  background-color: rgba(220, 38, 38, 0.05);
+}
+
+/* Table Badges & Pills */
+.req-id-badge {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 12px;
+  color: #0f172a;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  display: inline-block;
+}
+
+.venue-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.venue-type-badge.college {
+  background: rgba(37, 99, 235, 0.09);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+}
+
+.venue-type-badge.merchant {
+  background: rgba(16, 185, 129, 0.09);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.22);
+}
+
+.venue-type-badge.office {
+  background: rgba(100, 116, 139, 0.1);
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+.venue-type-badge.coworking {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.venue-type-badge.library,
+.venue-type-badge.hospital {
+  background: rgba(147, 51, 234, 0.09);
+  color: #7e22ce;
+  border: 1px solid rgba(147, 51, 234, 0.22);
+}
+
+/* Status Pills */
+.install-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.install-status-pill.new {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  animation: pulseNewReq 2s infinite ease-in-out;
+}
+
+@keyframes pulseNewReq {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+.install-status-pill.contacted {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.install-status-pill.site_survey {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+}
+
+.install-status-pill.commercial_quoted {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.install-status-pill.approved {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.install-status-pill.dispatched {
+  background: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #99f6e4;
+}
+
+.install-status-pill.installed {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.install-status-pill.rejected {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Priority Pills */
+.install-priority-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.install-priority-pill.critical {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.install-priority-pill.high {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.install-priority-pill.normal {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.install-priority-pill.low {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+/* Readiness Icons */
+.readiness-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.readiness-icon.ready {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.readiness-icon.pending {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ── Slide-over Detail Drawer (Zero Layout Shift via Portal) ── */
+.installations-drawer-backdrop,
+.installations-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(5, 7, 15, 0.76) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+  animation: drawerFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.installations-drawer,
+.installations-center-modal {
+  width: 100% !important;
+  max-width: 820px !important;
+  max-height: 88vh !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 35px 90px -15px rgba(0, 0, 0, 0.65), 0 0 1px rgba(0, 0, 0, 0.25) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+  margin: auto !important;
+  animation: modalScaleUp 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes modalScaleUp {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.installations-drawer__header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--clr-border, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.installations-drawer__header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.installations-drawer__header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.installations-drawer__close {
+  background: transparent;
+  border: none;
+  color: var(--clr-text-3, #64748b);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.installations-drawer__close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.installations-drawer__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 24px;
+  padding-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: #fbfcfe;
+}
+
+/* Dossier Header Badges */
+.dossier-id-badge {
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #1e293b;
+  background: #e2e8f0;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+}
+
+.priority-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+  display: inline-block;
+  animation: pulsePriority 1.8s infinite ease-in-out;
+}
+
+@keyframes pulsePriority {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* ── 1. Deployment Pipeline Progress Card ── */
+.dossier-pipeline-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dossier-pipeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dossier-pipeline-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.dossier-step-counter {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+
+.dossier-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.dossier-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.dossier-status-pill--pending,
+.dossier-status-pill--received {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.dossier-status-pill--in_review,
+.dossier-status-pill--contacted,
+.dossier-status-pill--survey {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.dossier-status-pill--quoted,
+.dossier-status-pill--approved {
+  background: #faf5ff;
+  color: #7c3aed;
+  border: 1px solid #e9d5ff;
+}
+
+.dossier-status-pill--dispatched {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.dossier-status-pill--installed,
+.dossier-status-pill--live {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.dossier-status-pill--cancelled,
+.dossier-status-pill--rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* 7-Segment Progress Track */
+.dossier-track-rail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.dossier-track-segment {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.dossier-track-segment:hover {
+  transform: scaleY(1.3);
+}
+
+.dossier-track-segment.is-completed {
+  background: #16a34a;
+}
+
+.dossier-track-segment.is-current {
+  background: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
+
+.dossier-track-segment.is-upcoming {
+  background: #e2e8f0;
+}
+
+/* Milestones Row */
+.dossier-milestones-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+}
+
+.dossier-milestone-chip {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dossier-milestone-chip .milestone-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.dossier-milestone-chip .milestone-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dossier-milestone-chip:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.dossier-milestone-chip.is-completed {
+  color: #15803d;
+}
+
+.dossier-milestone-chip.is-completed .milestone-badge {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.dossier-milestone-chip.is-current {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.dossier-milestone-chip.is-current .milestone-badge {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
+
+/* ── 2. Venue Identity & Hardware Serial Hero ── */
+.dossier-venue-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.dossier-venue-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dossier-venue-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.dossier-venue-location {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.dossier-hardware-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dossier-slot-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.dossier-allocated-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #15803d;
+  font-size: 12px;
+}
+
+.dossier-allocated-badge strong {
+  font-family: var(--font-mono, monospace);
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.dossier-release-serial-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.dossier-release-serial-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.dossier-assign-select-wrap {
+  width: 220px;
+}
+
+/* ── 3. Bento Grid: Contact Card & Commercial Specs ── */
+.dossier-bento-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.dossier-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.dossier-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.dossier-contact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dossier-contact-name-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dossier-contact-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dossier-contact-role {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.dossier-contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.dossier-contact-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.dossier-contact-pill--tel {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+.dossier-contact-pill--tel:hover {
+  background: #dbeafe;
+}
+
+.dossier-contact-pill--mail {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.dossier-contact-pill--mail:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* Commercial Specs List */
+.dossier-specs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dossier-spec-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #f1f5f9;
+}
+
+.dossier-spec-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dossier-spec-row .spec-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.dossier-spec-row .spec-value {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.timeline-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.timeline-tag--immediate {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.timeline-tag--within_1_month,
+.timeline-tag--within-1-month {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.timeline-tag--planning_next_quarter,
+.timeline-tag--planning-next-quarter {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+/* ── 4. Technical Readiness Card ── */
+.dossier-card--readiness {
+  gap: 14px;
+}
+
+.dossier-readiness-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.readiness-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  transition: all 0.15s ease;
+}
+
+.readiness-pill.is-ready {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.readiness-pill.is-pending {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.readiness-pill-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+}
+
+.readiness-pill-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.readiness-pill-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.readiness-pill-status {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.readiness-pill.is-ready .readiness-pill-status {
+  color: #16a34a;
+}
+
+.readiness-pill.is-pending .readiness-pill-status {
+  color: #d97706;
+}
+
+.dossier-applicant-quote {
+  background: #f8fafc;
+  border-left: 3px solid #cbd5e1;
+  padding: 10px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+}
+
+.dossier-applicant-quote .quote-label {
+  display: block;
+  font-weight: 700;
+  color: #475569;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+
+.dossier-applicant-quote .quote-content {
+  margin: 0;
+  color: #334155;
+  line-height: 1.45;
+  font-style: italic;
+}
+
+.dossier-section-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+
+/* ── 6. Notes Feed ── */
+.dossier-notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dossier-notes-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dossier-notes-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+.dossier-note-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #dc2626;
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+
+.dossier-note-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.note-author-badge {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.note-time {
+  color: #94a3b8;
+}
+
+.note-text {
+  margin: 0;
+  color: #334155;
+  line-height: 1.45;
+}
+
+/* ── 7. Note Composer Footer (Padded & Elegant) ── */
+.dossier-note-composer-footer {
+  padding: 16px 24px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.03);
+}
+
+.dossier-composer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.composer-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.composer-hint {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.dossier-composer-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12.5px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 56px;
+  max-height: 140px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.dossier-composer-textarea:focus {
+  background: #ffffff;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.dossier-composer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.composer-scope {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.dossier-post-note-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dossier-post-note-btn:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.dossier-post-note-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Modal (Log Manual Inbound Lead) ── */
+.installations-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.installations-modal {
+  width: 100% !important;
+  max-width: 680px !important;
+  max-height: 90vh !important;
+  background: #ffffff !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 35px 90px -15px rgba(0, 0, 0, 0.65), 0 0 1px rgba(0, 0, 0, 0.25) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: auto !important;
+  animation: modalScaleUp 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.installations-modal__header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--clr-border, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.installations-modal__body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.installations-modal__footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--clr-border, #e2e8f0);
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .installations-kpis {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .installations-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .installations-filters-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .installations-search-wrap {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .installations-page {
+    padding: 14px;
+    gap: 16px;
+  }
+
+  .installations-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .installations-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .installations-kpis {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .installations-filters-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .venue-segments {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    width: 100%;
+    padding-bottom: 4px;
+  }
+
+  .venue-segment-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .installations-drawer,
+  .installations-center-modal {
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 12px;
+  }
+
+  .installations-drawer__header {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .installations-drawer__header-left {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .installations-drawer__header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .installations-drawer__body {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .dossier-venue-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .dossier-hardware-slot {
+    align-items: flex-start;
+  }
+
+  .dossier-assign-select-wrap {
+    width: 100%;
+  }
+
+  .dossier-bento-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .dossier-readiness-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .dossier-milestones-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .dossier-milestone-chip {
+    flex: 1 1 calc(25% - 4px);
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+
+  .dossier-note-composer-footer {
+    padding: 12px 14px;
+  }
+
+  .installations-modal-backdrop {
+    padding: 10px;
+  }
+
+  .installations-modal {
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .installations-modal__body {
+    padding: 16px;
+  }
+}
+

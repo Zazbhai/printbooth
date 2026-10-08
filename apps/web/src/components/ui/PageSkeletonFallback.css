@@ -1,0 +1,51 @@
+/* ==========================================================================
+   PageSkeletonFallback.css — Premium Neomorphic Skeleton Loading
+   ========================================================================== */
+
+.neo-skeleton-page {
+  pointer-events: none;
+  user-select: none;
+  animation: neo-skeleton-fadein 0.2s ease-out;
+}
+
+@keyframes neo-skeleton-fadein {
+  from {
+    opacity: 0.8;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Individual bone with luminous Neomorphic shimmer */
+.neo-skeleton-bone {
+  background: linear-gradient(
+    90deg,
+    rgba(163, 177, 198, 0.32) 0%,
+    rgba(255, 255, 255, 0.72) 48%,
+    rgba(163, 177, 198, 0.32) 100%
+  );
+  background-size: 240% 100%;
+  animation: neo-skeleton-shimmer 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  display: block;
+}
+
+@keyframes neo-skeleton-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+/* Dark mode adjustment if dark theme is toggled */
+.dark .neo-skeleton-bone {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.16) 48%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 240% 100%;
+}

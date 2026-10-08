@@ -1,0 +1,1703 @@
+/* ═══════════════════════════════════════════════════
+   KIOSK PAYMENT PAGE — Simple, Anonymous, Touch-First
+   ═══════════════════════════════════════════════════ */
+
+/* ── Test Mode Banner ── */
+.test-mode-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.98) 0%, rgba(253, 230, 138, 0.9) 100%);
+  border: 1.5px solid rgba(217, 119, 6, 0.35);
+  box-shadow: 0 2px 12px rgba(180, 83, 9, 0.12);
+  animation: testModePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes testModePulse {
+  0%, 100% { box-shadow: 0 2px 12px rgba(180, 83, 9, 0.12); }
+  50%       { box-shadow: 0 4px 18px rgba(180, 83, 9, 0.25); }
+}
+
+.test-mode-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.test-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.test-mode-text strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: #92400e;
+  letter-spacing: 0.01em;
+}
+
+.test-mode-text span {
+  font-size: 11.5px;
+  color: #b45309;
+  line-height: 1.5;
+}
+
+.test-mode-text code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  background: rgba(180, 83, 9, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #78350f;
+}
+
+
+
+.kiosk-pay-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 100%;
+  gap: 16px;
+  max-width: 520px;
+  margin: auto auto;
+  width: 100%;
+  padding: 8px 16px 24px;
+  box-sizing: border-box;
+}
+
+/* ── Eyebrow ── */
+.kiosk-pay-header {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.kiosk-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 4px 12px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.06);
+}
+
+.kiosk-eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.6);
+}
+
+/* ── Top Badge Row (Station + Privacy Guarantee) ── */
+.kiosk-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kiosk-station-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(240, 246, 255, 0.65) 100%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  padding: 5px 12px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+.kiosk-station-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+}
+
+.kiosk-privacy-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f766e;
+  background: rgba(204, 251, 241, 0.8);
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  padding: 5px 11px;
+  border-radius: 6px;
+  letter-spacing: 0.01em;
+}
+
+/* ── DOUBLE-BEZEL Hardware Kiosk Shell ── */
+.kiosk-card-shell {
+  padding: 8px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(240, 246, 255, 0.54) 50%, rgba(255, 244, 246, 0.48) 100%);
+  backdrop-filter: blur(30px) saturate(220%) contrast(102%);
+  -webkit-backdrop-filter: blur(30px) saturate(220%) contrast(102%);
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 20px 48px -8px rgba(15, 23, 42, 0.08),
+    0 4px 14px -2px rgba(220, 38, 38, 0.04),
+    inset 0 1.5px 2px rgba(255, 255, 255, 1),
+    inset 0 0 24px rgba(224, 236, 255, 0.45);
+}
+
+/* ── Main Kiosk Glass Card ── */
+.kiosk-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(246, 249, 255, 0.86) 50%, rgba(255, 248, 249, 0.82) 100%);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 22px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Amount Hero ── */
+.kiosk-amount-hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.kiosk-amount-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.kiosk-amount-value {
+  font-size: 64px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  margin: 6px 0 4px;
+}
+
+.kiosk-currency {
+  font-size: 38px;
+  font-weight: 800;
+  color: #dc2626;
+  margin-top: 4px;
+}
+
+.kiosk-amount-sub {
+  font-size: 12.5px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ── Compact Specs Strip ── */
+.kiosk-specs-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  padding: 14px 12px;
+  gap: 8px;
+}
+
+.kiosk-spec-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.kiosk-spec-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(203, 213, 225, 0.6);
+  flex-shrink: 0;
+}
+
+.kiosk-spec-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.kiosk-spec-value {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Action Button Area ── */
+.kiosk-action-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.kiosk-pay-cta {
+  width: 100%;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow:
+    0 10px 28px rgba(220, 38, 38, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.kiosk-pay-cta:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 34px rgba(220, 38, 38, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.25) inset;
+}
+
+.kiosk-pay-cta:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    0 6px 18px rgba(220, 38, 38, 0.3);
+}
+
+.kiosk-pay-cta:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.kiosk-pay-cta.upi {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.3);
+}
+
+/* ── Methods Bar ── */
+.kiosk-methods-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kiosk-method-chip {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  background: rgba(100, 116, 139, 0.08);
+  border: 1px solid rgba(100, 116, 139, 0.12);
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
+/* ── Footer Status & Privacy Text ── */
+.kiosk-footer-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.kiosk-timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: #64748b;
+  background: rgba(100, 116, 139, 0.06);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(100, 116, 139, 0.1);
+}
+
+.kiosk-timer-pill.urgent {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.25);
+  font-weight: 700;
+}
+
+.kiosk-no-info-text {
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* ── Error Box ── */
+.kiosk-error-box {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(254, 242, 242, 0.95);
+  border: 1.5px solid rgba(239, 68, 68, 0.3);
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ── Result Box (Success / Fail) ── */
+.kiosk-result-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 0;
+  gap: 12px;
+}
+
+.kiosk-result-icon.success {
+  color: #16a34a;
+}
+
+.kiosk-result-icon.failed {
+  color: #dc2626;
+}
+
+.kiosk-result-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.kiosk-result-desc {
+  font-size: 14.5px;
+  color: #64748b;
+  max-width: 32ch;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.kiosk-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.09);
+  border: 1.5px solid rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.15s;
+}
+
+.kiosk-retry-btn:hover {
+  background: rgba(220, 38, 38, 0.16);
+  transform: translateY(-1px);
+}
+
+/* ── Spinner ── */
+.kiosk-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: kioskSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes kioskSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Developer Console Drawer (Hidden by default for kiosk) ── */
+.kiosk-dev-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.kiosk-dev-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 100%;
+}
+
+.kiosk-dev-toggle:hover {
+  background: rgba(255, 255, 255, 0.5);
+  color: #334155;
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.kiosk-dev-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.kiosk-dev-badge.test {
+  background: rgba(234, 179, 8, 0.15);
+  color: #b45309;
+}
+
+.kiosk-dev-badge.live {
+  background: rgba(22, 163, 74, 0.15);
+  color: #16a34a;
+}
+
+/* ── Debug Log Panel (Inside Developer Drawer) ── */
+.pay-log-panel {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: var(--font-mono, 'Courier New', monospace);
+}
+
+.pay-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pay-log-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pay-log-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+}
+
+.pay-log-clear {
+  font-size: 11px;
+  color: #475569;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.pay-log-clear:hover {
+  color: #94a3b8;
+}
+
+.pay-log-entries {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 160px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.pay-log-entry {
+  font-size: 11px;
+  line-height: 1.5;
+  display: flex;
+  gap: 8px;
+}
+
+.pay-log-ts {
+  color: #334155;
+  flex-shrink: 0;
+}
+
+.pay-log-msg {
+  flex: 1;
+}
+
+.pay-log-msg.info    { color: #93c5fd; }
+.pay-log-msg.success { color: #4ade80; }
+.pay-log-msg.error   { color: #f87171; }
+.pay-log-msg.warn    { color: #fbbf24; }
+
+/* ── Responsive Mobile/Tablet Adjustments ── */
+@media (max-width: 520px) {
+  .kiosk-card {
+    padding: 24px 18px;
+  }
+  .kiosk-amount-value {
+    font-size: 52px;
+  }
+  .kiosk-currency {
+    font-size: 32px;
+  }
+  .kiosk-pay-cta {
+    min-height: 56px;
+    font-size: 17px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   ADMIN ASSIGNED PAYMENT GATEWAY BANNER (LOCKED / ENFORCED)
+   ═══════════════════════════════════════════════════════ */
+
+.gateway-assigned-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 520px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.82) 100%);
+  border: 1.5px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-sizing: border-box;
+  animation: gatewayBannerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes gatewayBannerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gateway-assigned-left {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+}
+
+.gateway-assigned-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gateway-assigned-icon.razorpay {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(30, 64, 175, 0.06) 100%);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+.gateway-assigned-icon.upiexpress {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.12) 0%, rgba(21, 128, 61, 0.06) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.12);
+}
+
+.gateway-assigned-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.gateway-assigned-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gateway-assigned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4.5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0f766e;
+  background: rgba(204, 251, 241, 0.85);
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.gateway-assigned-station {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.gateway-assigned-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.gateway-assigned-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gateway-unconfigured-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(254, 242, 242, 0.8);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 8px 0;
+}
+
+
+/* UPI Express CTA button colour */
+.kiosk-pay-cta.upie {
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  box-shadow: 0 10px 28px rgba(124, 58, 237, 0.35), 0 1px 0 rgba(255,255,255,0.2) inset;
+}
+
+.kiosk-pay-cta.upie:hover:not(:disabled) {
+  box-shadow: 0 14px 34px rgba(124, 58, 237, 0.48), 0 1px 0 rgba(255,255,255,0.25) inset;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UPI EXPRESS PAYMENT UI (QR + Intent buttons)
+   ═══════════════════════════════════════════════════════ */
+
+.upie-payment-ui {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+}
+
+/* QR Block (desktop) */
+.upie-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.upie-qr-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+}
+
+.upie-qr-frame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 2px solid rgba(226, 232, 240, 0.9);
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.06),
+    0 1px 0 rgba(255,255,255,0.9) inset;
+}
+
+.upie-qr-img {
+  display: block;
+  border-radius: 8px;
+  image-rendering: crisp-edges;
+}
+
+/* Subtle animated pulse ring around QR when polling */
+.upie-qr-pulse-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 26px;
+  border: 2.5px solid rgba(124, 58, 237, 0.4);
+  animation: upieQrPulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes upieQrPulse {
+  0%   { opacity: 1; transform: scale(1); }
+  70%  { opacity: 0; transform: scale(1.06); }
+  100% { opacity: 0; transform: scale(1.06); }
+}
+
+.upie-qr-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.55;
+}
+
+/* Divider between QR and intent buttons */
+.upie-or-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.upie-or-divider::before,
+.upie-or-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(203, 213, 225, 0.5);
+}
+
+/* Mobile headline */
+.upie-mobile-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+}
+
+/* Intent Buttons Grid */
+.upie-intent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.upie-intent-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid rgba(226, 232, 240, 0.9);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  text-decoration: none;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
+  user-select: none;
+}
+
+.upie-intent-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.09);
+  border-color: rgba(124, 58, 237, 0.3);
+  background: rgba(245, 243, 255, 0.95);
+}
+
+.upie-intent-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.upie-intent-emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Polling status bar */
+.upie-polling-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+@media (max-width: 520px) {
+  .gateway-assigned-banner {
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+  .gateway-assigned-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .gateway-assigned-title {
+    font-size: 12.5px;
+  }
+  .gateway-assigned-sub {
+    font-size: 10px;
+    white-space: normal;
+  }
+  .upie-intent-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .upie-intent-btn {
+    padding: 12px 8px;
+    font-size: 13px;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   RAZORPAY WAITING FOR PAYMENT SCREEN
+   ═════════════════════════════════════════════════════════════════════ */
+.rzp-waiting-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  width: 100%;
+  padding: 6px 4px;
+  box-sizing: border-box;
+}
+
+.rzp-waiting-visual {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px auto;
+}
+
+.rzp-waiting-radar-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(220, 38, 38, 0.45);
+  animation: rzpRadarPulse 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.rzp-waiting-radar-pulse.outer {
+  animation-delay: 0.6s;
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+@keyframes rzpRadarPulse {
+  0% {
+    transform: scale(0.65);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.rzp-waiting-icon-core {
+  position: relative;
+  z-index: 2;
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.98) 0%, rgba(254, 226, 226, 0.92) 100%);
+  border: 1.5px solid rgba(220, 38, 38, 0.35);
+  box-shadow:
+    0 12px 28px -6px rgba(220, 38, 38, 0.25),
+    inset 0 1px 2px rgba(255, 255, 255, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc2626;
+}
+
+.rzp-waiting-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.rzp-waiting-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dc2626;
+}
+
+.rzp-waiting-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.8);
+  animation: rzpDotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes rzpDotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+.rzp-waiting-title {
+  font-size: clamp(20px, 3.5vw, 24px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  margin: 4px 0 0 0;
+}
+
+.rzp-waiting-desc {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 380px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.rzp-waiting-notice-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.05);
+  border: 1px solid rgba(220, 38, 38, 0.16);
+  font-size: 11.5px;
+  color: #334155;
+  text-align: left;
+  line-height: 1.4;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rzp-waiting-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.rzp-waiting-cancel-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  transition: color 0.18s ease;
+}
+
+.rzp-waiting-cancel-btn:hover {
+  color: #dc2626;
+}
+
+/* ── All UPI Directs Grid ── */
+.upie-all-directs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.upie-direct-app-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1.5px solid rgba(226, 232, 240, 0.95);
+  color: #0f172a;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.upie-direct-app-btn:hover {
+  border-color: rgba(220, 38, 38, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+}
+
+.upie-direct-app-btn.full-width {
+  grid-column: 1 / -1;
+}
+
+.upie-direct-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(241, 245, 249, 0.9);
+  color: #64748b;
+  letter-spacing: 0.04em;
+}
+
+/* ── Dynamic Razorpay Direct Methods Hub ── */
+.rzp-dynamic-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.rzp-summary-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.9));
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.rzp-summary-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.rzp-summary-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.rzp-summary-price {
+  font-size: 24px;
+  font-weight: 800;
+  color: #dc2626;
+  letter-spacing: -0.02em;
+}
+
+.rzp-summary-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.rzp-summary-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+.rzp-summary-station {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.rzp-dynamic-header {
+  text-align: left;
+  margin-top: 2px;
+}
+
+.rzp-dynamic-heading {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 2px 0;
+  letter-spacing: -0.01em;
+}
+
+.rzp-dynamic-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 4px 0;
+}
+
+/* ── Methods List ── */
+.rzp-methods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+}
+
+.rzp-method-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1.5px solid rgba(226, 232, 240, 0.95);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.rzp-method-item:hover {
+  border-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.rzp-method-item:active {
+  transform: scale(0.985);
+}
+
+.rzp-method-item.loading {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.rzp-method-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.rzp-method-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.rzp-method-item:hover .rzp-method-icon {
+  transform: scale(1.06);
+}
+
+.rzp-method-icon.upi {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.rzp-method-icon.card {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.rzp-method-icon.wallet {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.rzp-method-icon.bank {
+  background: rgba(147, 51, 234, 0.1);
+  color: #7e22ce;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.rzp-method-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.rzp-method-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rzp-method-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rzp-badge-fast {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #15803d;
+  background: rgba(240, 253, 244, 0.95);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  padding: 1.5px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.rzp-badge-muted {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #64748b;
+  background: rgba(241, 245, 249, 0.9);
+  padding: 1.5px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.rzp-method-desc {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rzp-method-arrow {
+  color: #cbd5e1;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.rzp-method-item:hover .rzp-method-arrow {
+  transform: translateX(3px);
+  color: #dc2626;
+}
+
+/* ── UPI Direct Chips ── */
+.rzp-upi-direct-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(226, 232, 240, 0.9);
+}
+
+.rzp-app-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.rzp-app-chip:hover {
+  background: #ffffff;
+  border-color: #dc2626;
+  color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.1);
+}
+
+.rzp-app-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.rzp-app-dot.gpay {
+  background: #0f9d58;
+}
+
+.rzp-app-dot.phonepe {
+  background: #5f259f;
+}
+
+.rzp-app-dot.paytm {
+  background: #00b9f5;
+  font-size: 7px;
+}
+
+.rzp-app-chip.qr-chip {
+  color: #dc2626;
+}
+
+.rzp-connecting-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 4px;
+  animation: fadeIn 0.2s ease;
+}
+
+@media (max-width: 480px) {
+  .rzp-upi-direct-chips {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Mobile Dedicated UPI Directs Container ── */
+.mobile-upi-direct-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.mobile-upi-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.mobile-upi-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mobile-upi-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.mobile-upi-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.mobile-upi-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.mobile-upi-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1.5px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #0f172a;
+  width: 100%;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.mobile-upi-card:hover {
+  border-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.09);
+}
+
+.mobile-upi-card:active {
+  transform: scale(0.985);
+}
+
+.mobile-upi-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-upi-card-logo {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 11px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+.mobile-upi-card-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.mobile-upi-card-logo.icon {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.mobile-upi-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.mobile-upi-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.mobile-upi-card-sub {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.mobile-upi-card-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: #15803d;
+  background: rgba(240, 253, 244, 0.95);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.mobile-more-options-wrap {
+  margin-top: 6px;
+  width: 100%;
+}
+
+.mobile-toggle-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(241, 245, 249, 0.7);
+  border: 1px dashed rgba(203, 213, 225, 0.9);
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.mobile-toggle-more-btn:hover {
+  background: rgba(241, 245, 249, 1);
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+/* ── PC / Laptop: Supported Apps row under QR Code ── */
+.upie-qr-supported-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  width: 100%;
+}
+
+.upie-qr-supported-text {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.upie-qr-supported-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.upie-qr-supported-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 8px;
+  padding: 4px 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.upie-qr-supported-badge img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: block;
+}
+
+.upie-qr-supported-badge span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.upie-qr-supported-badge.generic {
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.upie-qr-supported-badge.generic span {
+  color: #64748b;
+}
+
+/* ── App Chip Images ── */
+.upi-app-chip-img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+
+

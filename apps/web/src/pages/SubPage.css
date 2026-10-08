@@ -1,0 +1,1289 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SubPage.css — Neomorphism Design System for PrintBooth Sub-pages
+   Matches the landing page's #e0e5ec neumorphic palette.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Neomorphism Tokens ─────────────────────────────────────────── */
+:root {
+  --neo-bg:          #e0e5ec;
+  --neo-light:       #ffffff;
+  --neo-dark:        #a3b1c6;
+  --neo-text-1:      #09090b;
+  --neo-text-2:      #1f2937;
+  --neo-text-3:      #374151;
+  --neo-text-4:      #6b7280;
+  --neo-accent:      #dc2626;
+  --neo-accent-lt:   #ef4444;
+  --neo-accent-dim:  rgba(220, 38, 38, 0.10);
+  --neo-accent-glow: rgba(220, 38, 38, 0.22);
+  --neo-success:     #059669;
+  --neo-success-dim: rgba(5, 150, 105, 0.12);
+  --neo-warning:     #d97706;
+  --neo-warning-dim: rgba(217, 119, 6, 0.12);
+  --neo-info:        #0284c7;
+  --neo-info-dim:    rgba(2, 132, 199, 0.12);
+
+  /* Raised (extruded) shadow */
+  --neo-raised:
+    6px 6px 14px #b8bec7,
+    -6px -6px 14px #ffffff;
+
+  --neo-raised-hover:
+    8px 8px 20px #b0b8c2,
+    -8px -8px 20px #ffffff;
+
+  /* Inset (pressed) shadow */
+  --neo-inset:
+    inset 5px 5px 10px #b8bec7,
+    inset -5px -5px 10px #ffffff;
+
+  --neo-inset-sm:
+    inset 3px 3px 7px #c5cdd7,
+    inset -3px -3px 7px #ffffff;
+
+  /* Flat */
+  --neo-flat:
+    2px 2px 5px #c8cfd8,
+    -2px -2px 5px #f8fafc;
+
+  /* Card */
+  --neo-card:
+    9px 9px 22px #b5bcc5,
+    -9px -9px 22px #ffffff;
+
+  --neo-card-hover:
+    12px 12px 28px #adb5be,
+    -12px -12px 28px #ffffff,
+    0 0 0 1.5px rgba(220, 38, 38, 0.18);
+
+  /* Accent glow raised */
+  --neo-accent-raised:
+    6px 6px 14px var(--neo-accent-glow),
+    -6px -6px 14px #ffffff,
+    0 0 18px var(--neo-accent-glow);
+}
+
+/* ─── Neomorphism Skeleton Loaders (Boneyard) ───────────────────────── */
+.neo-skeleton-bone {
+  background: linear-gradient(90deg, #d3dae4 0%, #eef3f8 50%, #d3dae4 100%);
+  background-size: 200% 100%;
+  animation: neo-skeleton-shimmer 1.8s ease-in-out infinite;
+  box-shadow: inset 2px 2px 5px #c0c8d3, inset -2px -2px 5px #ffffff;
+}
+
+@keyframes neo-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Base Page ───────────────────────────────────────────────────── */
+.sub-page {
+  min-height: 100dvh;
+  background: var(--neo-bg);
+  color: var(--neo-text-1);
+}
+
+/* ─── Hero Section ────────────────────────────────────────────────── */
+.sub-hero {
+  background: var(--neo-bg);
+  padding-top: calc(var(--nav-height, 64px) + 60px);
+  padding-bottom: 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sub-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 60% at 50% -10%, rgba(220, 38, 38, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(220, 38, 38, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.sub-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.2), transparent);
+}
+
+.sub-hero__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.sub-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--neo-accent);
+  font-family: var(--font-mono, monospace);
+  background: var(--neo-bg);
+  box-shadow: var(--neo-flat);
+  border-radius: 6px;
+  padding: 6px 14px;
+  width: fit-content;
+  margin-bottom: 4px;
+}
+
+.sub-hero__eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--neo-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--neo-accent-glow);
+  animation: neo-pulse 2s infinite;
+}
+
+@keyframes neo-pulse {
+  0%, 100% { box-shadow: 0 0 6px var(--neo-accent-glow); }
+  50%       { box-shadow: 0 0 14px var(--neo-accent-glow); }
+}
+
+.sub-hero__title {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  color: var(--neo-text-1);
+}
+
+.sub-hero__title-accent {
+  background: linear-gradient(135deg, var(--neo-accent-lt), var(--neo-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sub-hero__sub {
+  font-size: 17px;
+  color: var(--neo-text-3);
+  max-width: 55ch;
+  line-height: 1.65;
+}
+
+/* ─── Content Area ────────────────────────────────────────────────── */
+.sub-content {
+  padding-block: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+/* ─── Section Heading ─────────────────────────────────────────────── */
+.sub-heading {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--neo-text-1);
+  letter-spacing: -0.015em;
+  margin-bottom: 20px;
+}
+
+/* ─── Neomorphism Cards ───────────────────────────────────────────── */
+.neo-card {
+  background: var(--neo-bg);
+  border-radius: 20px;
+  box-shadow: var(--neo-card);
+  padding: 28px;
+  transition:
+    box-shadow 0.28s var(--ease-smooth, cubic-bezier(0.4,0,0.2,1)),
+    transform  0.28s var(--ease-smooth, cubic-bezier(0.4,0,0.2,1));
+}
+
+.neo-card:hover {
+  box-shadow: var(--neo-card-hover);
+  transform: translateY(-2px);
+}
+
+.neo-card-sm {
+  background: var(--neo-bg);
+  border-radius: 14px;
+  box-shadow: var(--neo-raised);
+  padding: 20px;
+  transition:
+    box-shadow 0.25s ease,
+    transform  0.25s ease;
+}
+
+.neo-card-sm:hover {
+  box-shadow: var(--neo-raised-hover);
+  transform: translateY(-2px);
+}
+
+.neo-card-inset {
+  background: var(--neo-bg);
+  border-radius: 16px;
+  box-shadow: var(--neo-inset);
+  padding: 24px;
+}
+
+/* ─── Neomorphism Table ───────────────────────────────────────────── */
+.neo-table-wrap {
+  background: var(--neo-bg);
+  border-radius: 20px;
+  box-shadow: var(--neo-card);
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.neo-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.neo-table thead th {
+  background: rgba(163, 177, 198, 0.14);
+  padding: 18px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--neo-text-3);
+  border-bottom: 1px solid rgba(163, 177, 198, 0.28);
+}
+
+.neo-table tbody td {
+  padding: 20px 24px;
+  font-size: 15px;
+  color: var(--neo-text-2);
+  border-bottom: 1px solid rgba(163, 177, 198, 0.18);
+  transition: background 0.15s ease;
+}
+
+.neo-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.neo-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* ─── Pricing Grid ────────────────────────────────────────────────── */
+.neo-pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+
+/* ─── Neomorphism Inputs ──────────────────────────────────────────── */
+.neo-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--neo-bg);
+  border: none;
+  border-radius: 12px;
+  box-shadow: var(--neo-inset-sm);
+  color: var(--neo-text-1);
+  font-family: var(--font-sans, sans-serif);
+  font-size: 15px;
+  outline: none;
+  transition: box-shadow 0.22s ease;
+}
+
+.neo-input:focus {
+  box-shadow:
+    var(--neo-inset-sm),
+    0 0 0 2.5px var(--neo-accent-dim),
+    0 0 12px var(--neo-accent-glow);
+}
+
+.neo-input::placeholder {
+  color: var(--neo-text-4);
+}
+
+.neo-textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.6;
+}
+
+/* ─── Neomorphism Buttons ─────────────────────────────────────────── */
+.neo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 26px;
+  border-radius: 12px;
+  border: none;
+  font-family: var(--font-sans, sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  color: var(--neo-text-2);
+  transition:
+    box-shadow 0.22s ease,
+    transform  0.18s ease,
+    color      0.18s ease;
+  text-decoration: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.neo-btn:hover {
+  box-shadow: var(--neo-raised-hover);
+  transform: translateY(-1px);
+  color: var(--neo-text-1);
+}
+
+.neo-btn:active {
+  box-shadow: var(--neo-inset);
+  transform: translateY(1px);
+}
+
+.neo-btn-primary {
+  background: linear-gradient(145deg, #e4392a, #c8201c);
+  color: #ffffff;
+  box-shadow:
+    6px 6px 14px rgba(180, 28, 28, 0.45),
+    -3px -3px 8px rgba(255, 100, 100, 0.2);
+}
+
+.neo-btn-primary:hover {
+  box-shadow:
+    8px 8px 20px rgba(180, 28, 28, 0.5),
+    -4px -4px 10px rgba(255, 100, 100, 0.25),
+    0 0 18px var(--neo-accent-glow);
+  transform: translateY(-2px);
+  color: #ffffff;
+}
+
+.neo-btn-primary:active {
+  box-shadow:
+    inset 4px 4px 10px rgba(120, 0, 0, 0.45),
+    inset -2px -2px 6px rgba(255, 80, 80, 0.2);
+  transform: translateY(1px);
+}
+
+.neo-btn-sm {
+  padding: 8px 18px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+.neo-btn-lg {
+  padding: 16px 34px;
+  font-size: 17px;
+  border-radius: 14px;
+}
+
+/* ─── Form Group ─────────────────────────────────────────────────── */
+.neo-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo-form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neo-text-3);
+  letter-spacing: 0.02em;
+}
+
+.neo-form-error {
+  font-size: 12px;
+  color: var(--neo-accent);
+  font-weight: 500;
+}
+
+/* ─── Icon Badge ──────────────────────────────────────────────────── */
+.neo-icon-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neo-accent);
+  flex-shrink: 0;
+  transition: box-shadow 0.22s ease;
+}
+
+.neo-icon-badge-sm {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+/* ─── Pill Tag ────────────────────────────────────────────────────── */
+.neo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-flat);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neo-text-3);
+  letter-spacing: 0.04em;
+}
+
+/* ─── Divider ─────────────────────────────────────────────────────── */
+.neo-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(163,177,198,0.6), transparent);
+  border: none;
+  margin-block: 4px;
+}
+
+/* ─── FAQ Accordion ───────────────────────────────────────────────── */
+.neo-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo-faq-item {
+  background: var(--neo-bg);
+  border-radius: 16px;
+  box-shadow: var(--neo-raised);
+  overflow: hidden;
+  transition: box-shadow 0.25s ease;
+}
+
+.neo-faq-item[open] {
+  box-shadow:
+    var(--neo-inset-sm),
+    0 0 0 2px rgba(220, 38, 38, 0.15),
+    0 0 14px rgba(220, 38, 38, 0.06);
+}
+
+.neo-faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 20px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--neo-text-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  user-select: none;
+  transition: color 0.18s ease;
+}
+
+.neo-faq-item[open] summary {
+  color: var(--neo-accent);
+}
+
+.neo-faq-item summary::-webkit-details-marker { display: none; }
+
+.neo-faq-chevron {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-flat);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neo-text-4);
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+  transition: color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.neo-faq-item[open] .neo-faq-chevron {
+  color: var(--neo-accent);
+  box-shadow: var(--neo-inset-sm);
+}
+
+.neo-faq-body {
+  padding: 0 24px 20px;
+  font-size: 14px;
+  color: var(--neo-text-3);
+  line-height: 1.75;
+}
+
+/* ─── Legal Content ───────────────────────────────────────────────── */
+.neo-legal-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.neo-legal-updated {
+  font-size: 12px;
+  color: var(--neo-text-4);
+  margin-bottom: 4px;
+  font-family: var(--font-mono, monospace);
+}
+
+.neo-legal-section {
+  background: var(--neo-bg);
+  border-radius: 18px;
+  box-shadow: var(--neo-raised);
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: box-shadow 0.25s ease;
+}
+
+.neo-legal-section:hover {
+  box-shadow: var(--neo-raised-hover);
+}
+
+.neo-legal-section h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--neo-text-1);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.neo-legal-section h2::before {
+  content: '';
+  width: 4px;
+  height: 18px;
+  background: linear-gradient(180deg, var(--neo-accent-lt), var(--neo-accent));
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.neo-legal-section p,
+.neo-legal-section li {
+  font-size: 14px;
+  color: var(--neo-text-3);
+  line-height: 1.8;
+}
+
+.neo-legal-section ul {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo-legal-section a {
+  color: var(--neo-accent-lt);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ─── Support Grid ────────────────────────────────────────────────── */
+.neo-support-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.neo-support-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.neo-support-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.neo-contact-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 0;
+}
+
+.neo-contact-row:not(:last-child) {
+  border-bottom: 1px solid rgba(163, 177, 198, 0.4);
+}
+
+.neo-contact-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--neo-text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.neo-contact-value {
+  font-size: 15px;
+  color: var(--neo-text-1);
+  font-weight: 500;
+}
+
+.neo-contact-value a {
+  color: var(--neo-accent-lt);
+  text-decoration: none;
+}
+
+.neo-contact-value a:hover {
+  text-decoration: underline;
+}
+
+/* ─── Contact Page Channel Grid ──────────────────────────────────── */
+.neo-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.neo-channel-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.neo-channel-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.neo-channel-card__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--neo-text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.neo-channel-card__value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--neo-text-1);
+}
+
+.neo-channel-card__value a {
+  color: var(--neo-accent-lt);
+  text-decoration: none;
+}
+
+.neo-channel-card__sub {
+  font-size: 13px;
+  color: var(--neo-text-4);
+  line-height: 1.5;
+}
+
+/* ─── Success Banner ──────────────────────────────────────────────── */
+.neo-success-banner {
+  background: var(--neo-bg);
+  border-radius: 20px;
+  box-shadow: var(--neo-inset);
+  padding: 40px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.neo-success-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neo-success);
+  margin-bottom: 4px;
+}
+
+.neo-success-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--neo-text-1);
+}
+
+.neo-success-sub {
+  font-size: 14px;
+  color: var(--neo-text-3);
+  line-height: 1.65;
+}
+
+/* ─── Info Banner ─────────────────────────────────────────────────── */
+.neo-info-banner {
+  background: var(--neo-bg);
+  border-radius: 14px;
+  box-shadow: var(--neo-inset-sm);
+  padding: 18px 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  font-size: 14px;
+  color: var(--neo-text-3);
+  line-height: 1.65;
+}
+
+.neo-info-banner.info   { border-left: 3px solid var(--neo-info);    }
+.neo-info-banner.warn   { border-left: 3px solid var(--neo-warning);  }
+.neo-info-banner.success{ border-left: 3px solid var(--neo-success);  }
+.neo-info-banner.error  { border-left: 3px solid var(--neo-accent);   }
+
+.neo-info-banner__icon { flex-shrink: 0; margin-top: 2px; }
+
+/* ─── Stats Row ───────────────────────────────────────────────────── */
+.neo-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.neo-stat {
+  background: var(--neo-bg);
+  border-radius: 16px;
+  box-shadow: var(--neo-raised);
+  padding: 20px 24px;
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.neo-stat:hover {
+  box-shadow: var(--neo-raised-hover);
+  transform: translateY(-2px);
+}
+
+.neo-stat__value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--neo-accent);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.neo-stat__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neo-text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* ─── Refund Scenario Cards ───────────────────────────────────────── */
+.neo-scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo-scenario {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.neo-scenario__num {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--neo-accent);
+  flex-shrink: 0;
+}
+
+.neo-scenario__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.neo-scenario__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--neo-text-1);
+}
+
+.neo-scenario__outcome {
+  font-size: 14px;
+  color: var(--neo-text-3);
+  line-height: 1.65;
+}
+
+/* ─── Cookie Category Cards ───────────────────────────────────────── */
+.neo-cookie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.neo-cookie-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo-cookie-card__type {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--neo-accent);
+}
+
+.neo-cookie-card__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--neo-text-1);
+}
+
+.neo-cookie-card__desc {
+  font-size: 13px;
+  color: var(--neo-text-3);
+  line-height: 1.65;
+  flex: 1;
+}
+
+.neo-cookie-card__badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-flat);
+  width: fit-content;
+}
+
+.neo-cookie-card__badge.required { color: var(--neo-accent); }
+.neo-cookie-card__badge.optional { color: var(--neo-success); }
+.neo-cookie-card__badge.none     { color: var(--neo-text-4); }
+
+/* ─── Quick Links ─────────────────────────────────────────────────── */
+.neo-quick-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.neo-quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neo-text-3);
+  background: var(--neo-bg);
+  box-shadow: var(--neo-flat);
+  border-radius: 10px;
+  padding: 8px 16px;
+  text-decoration: none;
+  transition: box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.neo-quick-link:hover {
+  box-shadow: var(--neo-raised);
+  color: var(--neo-accent);
+  transform: translateY(-1px);
+}
+
+/* ─── How It Works Steps ──────────────────────────────────────────── */
+.neo-hiw-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.neo-hiw-step {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.neo-hiw-step__left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  flex-shrink: 0;
+}
+
+.neo-hiw-step__num {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--neo-accent);
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.neo-hiw-step__line {
+  width: 2px;
+  flex: 1;
+  min-height: 36px;
+  background: linear-gradient(180deg, rgba(163,177,198,0.6), rgba(163,177,198,0.1));
+  border-radius: 2px;
+  margin: 8px 0;
+}
+
+.neo-hiw-step__card {
+  flex: 1;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.neo-hiw-step:last-child .neo-hiw-step__card {
+  margin-bottom: 0;
+}
+
+.neo-hiw-step__icon-wrap {
+  flex-shrink: 0;
+}
+
+.neo-hiw-step__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--neo-text-1);
+  letter-spacing: -0.015em;
+  margin-bottom: 6px;
+}
+
+.neo-hiw-step__body {
+  font-size: 14px;
+  color: var(--neo-text-3);
+  line-height: 1.7;
+  max-width: 62ch;
+}
+
+/* ─── Locations Grid ──────────────────────────────────────────────── */
+.neo-locations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.neo-location-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.neo-location-card__id {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--neo-text-4);
+  letter-spacing: 0.06em;
+}
+
+.neo-location-card__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--neo-text-1);
+  letter-spacing: -0.01em;
+}
+
+.neo-location-card__type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neo-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-top: 2px;
+}
+
+.neo-location-card__address {
+  font-size: 13px;
+  color: var(--neo-text-3);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+
+.neo-location-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--neo-text-4);
+  flex-wrap: wrap;
+}
+
+/* ─── Features Grid ───────────────────────────────────────────────── */
+.neo-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.neo-feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo-feature-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--neo-text-1);
+  letter-spacing: -0.01em;
+}
+
+.neo-feature-card__desc {
+  font-size: 13px;
+  color: var(--neo-text-3);
+  line-height: 1.65;
+}
+
+/* ─── Request Installation Compact Layout ────────────────────────── */
+.neo-install-compact-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.neo-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.neo-install-trust-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-flat);
+  font-size: 13px;
+  color: var(--neo-text-3);
+  text-align: center;
+}
+
+.neo-install-trust-bar a {
+  color: var(--neo-text-1);
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.15s ease;
+}
+
+.neo-install-trust-bar a:hover {
+  color: var(--neo-accent);
+}
+
+@media (max-width: 640px) {
+  .neo-form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .neo-install-trust-bar {
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+  }
+}
+
+.neo-install-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+/* Venue type pills */
+.neo-venue-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.neo-venue-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neo-text-3);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  user-select: none;
+}
+
+.neo-venue-pill:hover {
+  box-shadow: var(--neo-raised-hover);
+  color: var(--neo-text-1);
+  transform: translateY(-1px);
+}
+
+.neo-venue-pill--selected {
+  box-shadow: var(--neo-inset-sm);
+  color: var(--neo-accent);
+  transform: translateY(0);
+}
+
+/* Range slider */
+.neo-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-inset-sm);
+  outline: none;
+  cursor: pointer;
+}
+
+.neo-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  border: 2px solid var(--neo-accent);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+.neo-range::-webkit-slider-thumb:hover {
+  box-shadow: var(--neo-accent-raised);
+}
+
+.neo-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  border: 2px solid var(--neo-accent);
+  cursor: pointer;
+}
+
+/* Checkbox */
+.neo-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--neo-text-3);
+  cursor: pointer;
+  line-height: 1.55;
+}
+
+.neo-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-inset-sm);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 1px;
+  position: relative;
+  transition: box-shadow 0.18s ease;
+}
+
+.neo-checkbox:checked {
+  background: var(--neo-accent);
+  box-shadow: inset 2px 2px 5px rgba(100, 0, 0, 0.4), inset -1px -1px 3px rgba(255, 80, 80, 0.2);
+}
+
+.neo-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Spinner */
+.neo-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.3);
+  border-top-color: #ffffff;
+  animation: spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .neo-install-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .neo-support-grid    { grid-template-columns: 1fr; }
+  .neo-contact-grid    { grid-template-columns: 1fr; }
+  .neo-stats           { flex-direction: column; }
+  .neo-legal-section   { padding: 22px 20px; }
+  .neo-card            { padding: 20px; }
+  .neo-venue-grid      { grid-template-columns: 1fr 1fr; }
+  .neo-features-grid   { grid-template-columns: 1fr; }
+  .neo-pricing-grid    { grid-template-columns: 1fr; }
+  .neo-hiw-step        { gap: 16px; }
+  .neo-hiw-step__card  { flex-direction: column; gap: 12px; }
+  .sub-hero {
+    padding-top: calc(var(--nav-height, 64px) + 36px);
+    padding-bottom: 40px;
+  }
+}

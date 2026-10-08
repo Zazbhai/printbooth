@@ -1,0 +1,104 @@
+import { getKioskPrintUrl } from './config.js'
+
+// Only the real local kiosk (PB-001) is in the fallback.
+// PB-002/003/004 were removed — they had no real hardware and always showed
+// as ONLINE, misleading customers into selecting stations that can't print.
+// Additional kiosks must be added via the Admin dashboard and stored in MongoDB.
+export const fallbackKiosks: any[] = [
+  {
+    id: 'PB-001',
+    kioskId: 'PB-001',
+    name: 'PrintBooth — MIT ADT University',
+    location: 'Loni Kalbhor, Pune',
+    address: 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
+    lat: 18.4912,
+    lng: 74.0253,
+    printer: 'Brother DCP-T420W Printer USB',
+    printerModel: 'Brother DCP-T420W Printer USB',
+    printerStatus: 'READY',
+    paper: 250,
+    paperLevel: 250,
+    toner: 92,
+    tonerLevel: 92,
+    status: 'ONLINE',
+    queue: 0,
+    todayPages: 0,
+    todayRevenue: 0,
+    merchantId: 'M-001',
+    kioskPhotoUrl: 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
+    qrCodeUrl: getKioskPrintUrl('PB-001'),
+    paymentGateway: 'upiexpress',
+    upiExpressApiKey: '',
+    upiExpressUpiId: 'printbooth@okaxis',
+    razorpayKeyId: '',
+    razorpayKeySecret: '',
+    pricing: { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
+    deviceSecret: 'pb_sec_4b0894a6cc6ade322aa4f01151fbef9d35f79b18b48d7a7b',
+  },
+]
+
+export const fallbackMerchants: any[] = [
+  {
+    merchantId: 'M-001',
+    name: 'Rahul Sharma',
+    storeName: 'MIT ADT Campus Print Hub',
+    email: 'rahul.adt@printbooth.in',
+    phone: '+91 98234 56789',
+    whatsapp: '+919823456789',
+    supportHours: '8:30 AM - 9:30 PM (Mon-Sat)',
+    supportNote: 'Ground Floor, Central Reading Hall (Counter #1, next to turnstiles)',
+    kioskId: 'PB-001',
+    address: 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
+    lat: 18.4912,
+    lng: 74.0253,
+    kioskPhotoUrl: 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
+    qrCodeUrl: getKioskPrintUrl('PB-001'),
+    pricing: { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
+    paymentGateway: 'upiexpress',
+    upiExpressApiKey: '',
+    upiExpressUpiId: 'printbooth@okaxis',
+    razorpayKeyId: '',
+    razorpayKeySecret: '',
+    commissionRate: 0.0,
+    payoutModel: '100% Direct Payout (0% Platform Cut)',
+    todayEarnings: 0,
+    wtdEarnings: 0,
+    mtdEarnings: 0,
+    totalEarnings: 0,
+    bankName: 'State Bank of India',
+    bankAccountLast4: '0001',
+    autoPayoutEnabled: true,
+    username: 'rahul_adt',
+    password: 'merchant123',
+    requirePasswordChange: false,
+    isBlocked: false,
+    status: 'ACTIVE',
+  },
+]
+
+export const fallbackOrders: any[] = []
+
+export const fallbackActivities: any[] = []
+
+export function getFallbackAdminSummary(period: string) {
+  const periodMap: Record<string, any> = {
+    '1D': { todayPrints: 0, todayRevenue: '₹0', activeKiosks: '0 / 1 active', activeKiosksCount: 0, totalKiosksCount: 1, fleetHealth: '0%', pendingAlertsCount: 0 },
+    '1W': { todayPrints: 0, todayRevenue: '₹0', activeKiosks: '0 / 1 active', activeKiosksCount: 0, totalKiosksCount: 1, fleetHealth: '0%', pendingAlertsCount: 0 },
+    '1M': { todayPrints: 0, todayRevenue: '₹0', activeKiosks: '0 / 1 active', activeKiosksCount: 0, totalKiosksCount: 1, fleetHealth: '0%', pendingAlertsCount: 0 },
+    '1Y': { todayPrints: 0, todayRevenue: '₹0', activeKiosks: '0 / 1 active', activeKiosksCount: 0, totalKiosksCount: 1, fleetHealth: '0%', pendingAlertsCount: 0 },
+  }
+  return periodMap[period] || periodMap['1D']
+}
+
+export const fallbackNotifications: any[] = [
+  {
+    notificationId: 'NOTIF-001',
+    title: 'Zero Commission Payout Engine Activated',
+    message: 'PrintBooth operates on a 100% direct merchant revenue model. All student and customer payments are transferred directly to your merchant account with 0% platform commission cut.',
+    type: 'INFO',
+    target: 'ALL',
+    createdBy: 'Platform Administrator',
+    readBy: [],
+    createdAt: new Date(Date.now() - 3600 * 1000 * 4),
+  },
+]

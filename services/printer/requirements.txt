@@ -1,0 +1,4 @@
+# PrintBooth CUPS Service Dependencies
+# Note: pycups requires CUPS development headers (libcups2-dev) on Linux/Raspberry Pi
+pycups>=2.0.1; sys_platform != "win32"
+requests>=2.31.0

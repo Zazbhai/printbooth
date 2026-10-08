@@ -1,0 +1,1078 @@
+/* ================================================================
+   PRINTBOOTH — LUXURY SMART HUB NEOMORPHISM (SOFT UI) SYSTEM
+   Based on reference:
+   --bg: #e0e5ec; --light-shadow: #ffffff; --dark-shadow: #a3b1c6;
+   Layered physical depth, high-curvature bezels, frosted glass panels,
+   skeuomorphic dial controls, and inset pressed states.
+   ================================================================ */
+
+:root {
+  /* Exact Reference Color Palette */
+  --bg: #e0e5ec;
+  --light-shadow: #ffffff;
+  --dark-shadow: #a3b1c6;
+  --dark-shadow-deep: #92a2b9;
+  --accent: #dc2626;
+  --accent-light: #ef4444;
+  --glass: rgba(255, 255, 255, 0.45);
+
+  /* Semantic Landing Tokens */
+  --pb-bg: #e0e5ec;
+  --pb-surface: #e0e5ec;
+  --pb-surface-2: #d1d9e6;
+  --pb-surface-3: #c2cddc;
+  --pb-white: #1e293b;
+  --pb-text-muted: #5a6b82;
+  --pb-muted: #5a6b82;
+  --pb-muted-light: #334155;
+  --pb-border: rgba(163, 177, 198, 0.35);
+  --pb-border-light: rgba(255, 255, 255, 0.65);
+  --pb-border-strong: rgba(163, 177, 198, 0.6);
+  --pb-red: #dc2626;
+  --pb-red-light: #ef4444;
+  --pb-red-dark: #b91c1c;
+  --pb-red-glow: rgba(220, 38, 38, 0.3);
+
+  /* Reference Shadow Stacks */
+  --neo-shadow-slab: 20px 20px 60px var(--dark-shadow), -20px -20px 60px var(--light-shadow);
+  --neo-shadow-dial: 10px 10px 20px var(--dark-shadow), -10px -10px 20px var(--light-shadow);
+  --neo-shadow-card: 6px 6px 14px var(--dark-shadow), -6px -6px 14px var(--light-shadow);
+  --neo-shadow-card-hover: 10px 10px 22px var(--dark-shadow-deep), -10px -10px 22px var(--light-shadow);
+  --neo-shadow-button: 6px 6px 12px var(--dark-shadow), -6px -6px 12px var(--light-shadow);
+  --neo-shadow-button-hover: 8px 8px 18px var(--dark-shadow-deep), -8px -8px 18px var(--light-shadow);
+  --neo-shadow-active: inset 4px 4px 8px var(--dark-shadow), inset -4px -4px 8px var(--light-shadow);
+  --neo-shadow-inset: inset 4px 4px 8px var(--dark-shadow), inset -4px -4px 8px var(--light-shadow);
+  --neo-shadow-inset-sm: inset 2.5px 2.5px 5px var(--dark-shadow), inset -2.5px -2.5px 5px var(--light-shadow);
+  --neo-shadow-inset-deep: inset 6px 6px 14px var(--dark-shadow), inset -6px -6px 14px var(--light-shadow);
+  --neo-shadow-pill: 5px 5px 12px var(--dark-shadow), -5px -5px 12px var(--light-shadow);
+}
+
+/* ──────────── 1. BODY & CANVAS FOUNDATION ──────────── */
+body {
+  background-color: var(--bg) !important;
+}
+
+.landing-page {
+  background: var(--bg) !important;
+  color: #1e293b !important;
+}
+
+/* Eliminate all red/pink background patches, spots, and fuzzy overlays */
+.landing-parallax-spotlight,
+.landing-parallax-grid,
+.landing-parallax-ambient-spot-1,
+.landing-parallax-ambient-spot-2,
+.hero-vignette-overlay {
+  display: none !important;
+}
+
+/* ──────────── 2. PRE-TAG BADGES WITH LED INDICATORS ──────────── */
+.problem-pre-tag,
+.product-pre-tag,
+.workflow-pre-tag,
+.cmp-pre-tag,
+.dlr-pre-tag,
+.dlr-eyebrow,
+.final-pre-tag,
+.tech-eyebrow {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 7px 16px !important;
+  background: var(--bg) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--neo-shadow-inset-sm) !important;
+  color: var(--accent) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  font-family: var(--pb-font, 'Segoe UI', Roboto, sans-serif) !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  transition: all 0.25s ease !important;
+}
+
+/* Indicator LED (exact match to reference indicator) */
+.product-tag-dot,
+.workflow-tag-dot,
+.cmp-tag-dot,
+.dlr-tag-dot,
+.final-tag-dot,
+.tech-tag-dot {
+  width: 6px !important;
+  height: 6px !important;
+  background: var(--accent) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 10px var(--accent) !important;
+  flex-shrink: 0 !important;
+}
+
+.problem-tag-icon-wrap {
+  color: var(--accent) !important;
+}
+
+/* ──────────── 3. FLOATING NAVBAR (NEUMORPHIC PILL + GLASS) ──────────── */
+.landing-nav-pill {
+  background: rgba(224, 229, 236, 0.78) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.landing-nav-wrapper.is-scrolled .landing-nav-pill {
+  background: rgba(224, 229, 236, 0.95) !important;
+  box-shadow: var(--neo-shadow-dial) !important;
+}
+
+.landing-nav__brand {
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  transition: all 0.25s ease !important;
+}
+
+.landing-nav__brand:hover {
+  background: var(--bg) !important;
+  box-shadow: 4px 4px 8px var(--dark-shadow), -4px -4px 8px var(--light-shadow) !important;
+}
+
+.landing-nav__link {
+  color: #475569 !important;
+  padding: 8px 18px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  font-weight: 650 !important;
+  transition: all 0.25s ease !important;
+}
+
+.landing-nav__link:hover {
+  background: var(--bg) !important;
+  color: var(--accent) !important;
+  box-shadow: 4px 4px 10px var(--dark-shadow), -4px -4px 10px var(--light-shadow) !important;
+  transform: translateY(-1px) !important;
+}
+
+.landing-nav__link.is-active {
+  background: var(--bg) !important;
+  color: var(--accent) !important;
+  box-shadow: var(--neo-shadow-active) !important;
+  text-decoration: none !important;
+}
+
+/* Mobile hamburger trigger */
+.landing-nav__expand-trigger {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 50% !important;
+  box-shadow: var(--neo-shadow-button) !important;
+  transition: all 0.25s ease !important;
+}
+
+.landing-nav__expand-trigger:hover {
+  box-shadow: var(--neo-shadow-button-hover) !important;
+}
+
+.landing-nav__expand-trigger:active {
+  box-shadow: var(--neo-shadow-active) !important;
+}
+
+.landing-nav__hamburger.landing-nav__expand-container {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: var(--neo-shadow-slab) !important;
+  border-radius: 30px !important;
+}
+
+.landing-nav__expand-link {
+  border-radius: 16px !important;
+  padding: 12px 16px !important;
+  transition: all 0.25s ease !important;
+}
+
+.landing-nav__expand-link:hover {
+  background: var(--bg) !important;
+  box-shadow: 4px 4px 10px var(--dark-shadow), -4px -4px 10px var(--light-shadow) !important;
+}
+
+.landing-nav__expand-link.is-active {
+  box-shadow: var(--neo-shadow-active) !important;
+  color: var(--accent) !important;
+}
+
+/* ──────────── 4. BUTTONS (TACTILE NEUMORPHIC EXTRUSION & INSET CLICKS) ──────────── */
+.shimmer-button {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--neo-shadow-button) !important;
+  color: #1e293b !important;
+  font-weight: 750 !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.shimmer-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--neo-shadow-button-hover) !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.shimmer-button:active {
+  transform: translateY(1px) scale(0.98) !important;
+  box-shadow: var(--neo-shadow-active) !important;
+}
+
+/* Primary Button (Crimson Neomorphic with physical depth) */
+.shimmer-button--primary {
+  --bg: #dc2626 !important;
+  background: linear-gradient(145deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 
+    6px 6px 14px rgba(220, 38, 38, 0.38),
+    -6px -6px 14px var(--light-shadow),
+    inset 0 1px 1px rgba(255, 255, 255, 0.5) !important;
+}
+
+.shimmer-button--primary:hover {
+  background: linear-gradient(145deg, #f87171 0%, #dc2626 100%) !important;
+  box-shadow: 
+    8px 8px 20px rgba(220, 38, 38, 0.5),
+    -8px -8px 20px var(--light-shadow),
+    inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+}
+
+.shimmer-button--primary:active {
+  transform: translateY(1px) scale(0.98) !important;
+  box-shadow: 
+    inset 4px 4px 8px rgba(153, 27, 27, 0.65),
+    inset -4px -4px 8px rgba(248, 113, 113, 0.4) !important;
+}
+
+/* Ghost / Secondary Button */
+.shimmer-button--ghost {
+  --bg: #e0e5ec !important;
+  background: var(--bg) !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-shadow-button) !important;
+}
+
+.shimmer-button--ghost:hover {
+  color: var(--accent) !important;
+  box-shadow: var(--neo-shadow-button-hover) !important;
+}
+
+.shimmer-button--ghost:active {
+  box-shadow: var(--neo-shadow-active) !important;
+  color: var(--accent) !important;
+}
+
+/* ──────────── 5. HERO SPEC TILES ──────────── */
+.hero-specs-strip {
+  gap: 16px !important;
+}
+
+.hero-spec-item {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 25px !important;
+  padding: 14px 20px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.hero-spec-item::before {
+  display: none !important;
+}
+
+.hero-spec-item:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+}
+
+.hero-spec-code {
+  color: #5a6b82 !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.08em !important;
+}
+
+.hero-spec-val {
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+}
+
+@media (max-width: 768px) {
+  .hero-specs-strip {
+    gap: clamp(4px, 1.4vw, 8px) !important;
+    margin-bottom: 12px !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .hero-spec-item {
+    padding: clamp(6px, 1.2vh, 10px) clamp(2px, 1vw, 6px) !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    min-width: 0 !important;
+    min-height: clamp(52px, 7vh, 66px) !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+
+  .hero-spec-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    width: 100% !important;
+    margin-bottom: 2px !important;
+  }
+
+  .hero-spec-icon {
+    width: clamp(11px, 2.8vw, 13px) !important;
+    height: clamp(11px, 2.8vw, 13px) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .hero-spec-code {
+    font-size: clamp(7.5px, 2.1vw, 9px) !important;
+    letter-spacing: 0.03em !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    max-width: 100% !important;
+    text-align: center !important;
+    line-height: 1.15 !important;
+    word-break: normal !important;
+  }
+
+  .hero-spec-val {
+    font-size: clamp(9.5px, 2.6vw, 12px) !important;
+    font-weight: 800 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    max-width: 100% !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    word-break: normal !important;
+  }
+
+
+  /* Responsive Neomorphic Card Paddings & Radii */
+  .problem-fault-card {
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+    border-left: 4px solid var(--accent) !important;
+    box-sizing: border-box !important;
+  }
+
+  .fault-icon-badge {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+  }
+
+  .fault-icon {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+
+  .product-spec-card {
+    padding: 12px 16px !important;
+    border-radius: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .spec-id {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .spec-status {
+    padding: 2.5px 8px !important;
+    font-size: 8px !important;
+    border-radius: 5px !important;
+  }
+
+  .roadmap-card-glass {
+    padding: 10px 14px !important;
+    border-radius: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .dlr-pillar-card {
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+    box-sizing: border-box !important;
+  }
+
+  .dlr-pillar-tag {
+    padding: 3px 9px !important;
+    font-size: 8px !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* Universal text preservation across all mobile cards and badges */
+  .hero-spec-code,
+  .hero-spec-val,
+  .fault-title,
+  .fault-desc,
+  .fault-badge,
+  .spec-title,
+  .spec-detail,
+  .spec-status,
+  .step-main-title,
+  .step-desc,
+  .cmp-text-old,
+  .cmp-text-neo,
+  .cmp-sub-tag,
+  .tech-item__title,
+  .tech-item__spec,
+  .tech-item__tag,
+  .dlr-pillar-title,
+  .dlr-pillar-desc,
+  .dlr-pillar-tag {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+  }
+}
+
+
+/* ──────────── 6. SECTION 1: PROBLEM FAULT CARDS (MATCHING CONTROL-CARD) ──────────── */
+.problem-fault-card {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-left: 5px solid var(--accent) !important;
+  border-radius: 25px !important;
+  padding: 20px 24px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.problem-fault-card::before {
+  display: none !important;
+}
+
+.problem-fault-card:hover {
+  transform: translateX(8px) translateY(-2px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+  border-left-color: var(--accent) !important;
+}
+
+.fault-icon-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.fault-icon-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 9px !important;
+  background: var(--bg) !important;
+  box-shadow: var(--neo-shadow-inset-sm) !important;
+  color: var(--accent) !important;
+  transition: all 0.25s ease !important;
+}
+
+.fault-icon {
+  width: 16px !important;
+  height: 16px !important;
+  color: var(--accent) !important;
+  flex-shrink: 0 !important;
+}
+
+.problem-fault-card:hover .fault-icon-badge {
+  color: var(--accent-light, #ef4444) !important;
+  box-shadow: var(--neo-shadow-inset) !important;
+  transform: scale(1.06) !important;
+}
+
+.fault-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  color: #5a6b82 !important;
+  font-weight: 650 !important;
+}
+
+.fault-title {
+  color: #1e293b !important;
+  font-weight: 750 !important;
+}
+
+.fault-desc {
+  color: #5a6b82 !important;
+  line-height: 1.55 !important;
+}
+
+/* ──────────── 7. SECTION 2: PRODUCT SPEC CARDS (2x2 BENTO TILES) ──────────── */
+.product-spec-card {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 25px !important;
+  padding: 22px 24px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.product-spec-card::before {
+  display: none !important;
+}
+
+.product-spec-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+}
+
+.spec-id {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: var(--bg) !important;
+  box-shadow: var(--neo-shadow-inset-sm) !important;
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+}
+
+.spec-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  color: var(--accent) !important;
+  font-weight: 700 !important;
+}
+
+.spec-title {
+  color: #1e293b !important;
+  font-weight: 750 !important;
+}
+
+.spec-detail {
+  color: #5a6b82 !important;
+  line-height: 1.55 !important;
+}
+
+/* ──────────── 8. SECTION 3: ROADMAP & SKEUOMORPHIC DIALS ──────────── */
+.roadmap-card-glass {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 25px !important;
+  padding: 16px 20px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.roadmap-card-glass::before {
+  display: none !important;
+}
+
+.roadmap-step-card.step-pos--up:hover .roadmap-card-glass,
+.roadmap-step-card.step-pos--up:focus-visible .roadmap-card-glass {
+  transform: translateY(-6px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+}
+
+.roadmap-step-card.step-pos--down:hover .roadmap-card-glass,
+.roadmap-step-card.step-pos--down:focus-visible .roadmap-card-glass {
+  transform: translateY(6px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+}
+
+/* Step Node Dial (exact match to dial-inner from reference) */
+.roadmap-node-circle {
+  background: var(--bg) !important;
+  border-radius: 50% !important;
+  box-shadow: var(--neo-shadow-dial) !important;
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease !important;
+}
+
+.roadmap-step-card:hover .roadmap-node-circle,
+.roadmap-step-card:focus-visible .roadmap-node-circle {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-shadow-active) !important;
+  color: var(--accent) !important;
+  transform: scale(1.1) rotate(15deg) !important;
+}
+
+.step-main-title {
+  color: #1e293b !important;
+  font-weight: 750 !important;
+}
+
+.step-visual-slot {
+  background: var(--bg) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--neo-shadow-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+@media (max-width: 900px) {
+  .step-visual-slot {
+    border-radius: 50% !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    max-width: 48px !important;
+    max-height: 48px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+  }
+}
+
+/* ──────────── 9. SECTION 4: COMPARISON GRAND SLAB + FROSTED PANEL ──────────── */
+/* The Master Slab + Glass Panel layering from reference */
+.cmp-frosted-stage {
+  background: var(--bg) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  overflow: hidden !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+}
+
+.cmp-frosted-stage::before {
+  display: none !important;
+}
+
+.cmp-table-head {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-bottom: 1px solid rgba(163, 177, 198, 0.4) !important;
+  box-shadow: inset 0 2px 4px rgba(163, 177, 198, 0.15) !important;
+}
+
+.cmp-item-row {
+  border-top: 1px solid rgba(163, 177, 198, 0.25) !important;
+  transition: all 0.25s ease !important;
+}
+
+.cmp-item-row:hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+.cmp-sub-tag,
+.cmp-badge-mini {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  background: rgba(220, 38, 38, 0.08) !important;
+  border: 1px solid rgba(220, 38, 38, 0.2) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  color: var(--accent) !important;
+  font-weight: 750 !important;
+  -webkit-text-fill-color: var(--accent) !important;
+}
+
+.cmp-sub-tag::before,
+.cmp-badge-mini::before {
+  display: none !important;
+}
+
+.cmp-stat-card {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 14px !important;
+  padding: 16px 18px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.28s ease !important;
+}
+
+@media (max-width: 860px) {
+  .cmp-stat-card {
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    box-shadow: var(--neo-shadow-card) !important;
+    box-sizing: border-box !important;
+  }
+
+  .cmp-sub-tag,
+  .cmp-badge-mini {
+    padding: 2px 6px !important;
+    font-size: 8.5px !important;
+    border-radius: 4px !important;
+  }
+}
+
+.cmp-stat-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+}
+
+/* ──────────── 10. SECTION 5: DEALER PILLAR CARDS ──────────── */
+.dlr-pillar-card {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 25px !important;
+  padding: 26px 24px !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.dlr-pillar-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+}
+
+.dlr-pillar-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+  background: var(--bg) !important;
+  box-shadow: var(--neo-shadow-inset-sm) !important;
+  color: var(--accent) !important;
+  -webkit-text-fill-color: var(--accent) !important;
+  font-weight: 800 !important;
+  margin-bottom: 12px !important;
+}
+
+.dlr-pillar-title {
+  color: #1e293b !important;
+  font-weight: 750 !important;
+}
+
+.dlr-pillar-desc {
+  color: #5a6b82 !important;
+  line-height: 1.6 !important;
+}
+
+.dlr-mailto {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 12px 22px !important;
+  border-radius: 10px !important;
+  background: var(--bg) !important;
+  box-shadow: var(--neo-shadow-button) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  color: #334155 !important;
+  font-weight: 650 !important;
+  transition: all 0.25s ease !important;
+}
+
+.dlr-mailto:hover {
+  color: var(--accent) !important;
+  box-shadow: var(--neo-shadow-button-hover) !important;
+  transform: translateY(-1px) !important;
+}
+
+.dlr-mailto:active {
+  box-shadow: var(--neo-shadow-active) !important;
+}
+
+/* ──────────── 11. SECTION 6: TECHNOLOGY HARDWARE MODULES ──────────── */
+.tech-item {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  padding: 22px 20px !important;
+  border-radius: 20px !important;
+  background-color: var(--bg) !important;
+  background-image: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: var(--neo-shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  margin-bottom: 12px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.tech-item::before {
+  display: none !important;
+}
+
+.tech-item:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: var(--neo-shadow-card-hover) !important;
+  border-color: rgba(220, 38, 38, 0.35) !important;
+}
+
+.tech-item__badge-wrap {
+  display: flex !important;
+  align-items: center !important;
+  margin-bottom: 14px !important;
+}
+
+.tech-item__num {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: var(--neo-shadow-inset-sm) !important;
+  color: var(--accent) !important;
+  transition: all 0.25s ease !important;
+}
+
+.tech-item:hover .tech-item__num {
+  color: var(--accent-light, #ef4444) !important;
+  box-shadow: var(--neo-shadow-inset) !important;
+}
+
+.tech-item__icon {
+  width: 20px !important;
+  height: 20px !important;
+  color: var(--accent) !important;
+}
+
+.tech-item__title {
+  font-size: 16px !important;
+  font-weight: 750 !important;
+  color: #1e293b !important;
+  line-height: 1.3 !important;
+  margin: 0 0 6px 0 !important;
+  letter-spacing: -0.015em !important;
+}
+
+.tech-item__spec {
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  color: #5a6b82 !important;
+  margin: 0 !important;
+}
+
+.tech-item__tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+  font-size: 10.5px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.04em !important;
+  background: var(--bg) !important;
+  color: var(--accent) !important;
+  -webkit-text-fill-color: var(--accent) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: var(--neo-shadow-inset-sm) !important;
+  margin-top: 12px !important;
+  width: fit-content !important;
+}
+
+/* ──────────── 12. SECTION 7: FINAL CTA & TELEMETRY BAY ──────────── */
+.final-telemetry-console {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 30px !important;
+  padding: 20px 24px !important;
+  box-shadow: var(--neo-shadow-inset-deep) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.final-telemetry-console::before {
+  display: none !important;
+}
+
+.console-row {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 16px !important;
+  padding: 10px 16px !important;
+  box-shadow: 3px 3px 8px var(--dark-shadow), -3px -3px 8px var(--light-shadow) !important;
+  transition: all 0.25s ease !important;
+}
+
+.console-row:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 4px 4px 10px var(--dark-shadow-deep), -4px -4px 10px var(--light-shadow) !important;
+}
+
+.console-key {
+  color: #5a6b82 !important;
+  font-weight: 700 !important;
+}
+
+.console-val {
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+}
+
+/* Footer: Delegated to LandingFooter.css */
+
+
+/* ──────────── 13. SIDE SECTION INDICATOR (COMPACT & SMALL) ──────────── */
+.section-indicator {
+  right: clamp(10px, 1.5vw, 20px) !important;
+}
+
+.section-indicator__track {
+  background: rgba(224, 229, 236, 0.9) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  border-radius: 8px !important;
+  padding: 8px 4px !important;
+  box-shadow:
+    inset 1.5px 1.5px 3px rgba(163, 177, 198, 0.45),
+    inset -1.5px -1.5px 3px rgba(255, 255, 255, 0.8),
+    0 4px 12px rgba(0, 0, 0, 0.03) !important;
+  gap: 5px !important;
+}
+
+.section-indicator__item {
+  min-height: 20px !important;
+  padding: 2px 5px !important;
+  margin: 0 !important;
+  gap: 5px !important;
+  border-radius: 6px !important;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.section-indicator__item:hover {
+  transform: scale(1.05) !important;
+}
+
+.section-indicator__num {
+  font-size: 9px !important;
+  font-weight: 750 !important;
+  width: 12px !important;
+  line-height: 1 !important;
+  letter-spacing: 0.04em !important;
+}
+
+.section-indicator__bar {
+  width: 10px !important;
+  height: 2px !important;
+  background: #cbd5e1 !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0.5px 0.5px 1.5px var(--dark-shadow) !important;
+}
+
+.section-indicator__item:hover .section-indicator__bar {
+  width: 18px !important;
+  background: var(--accent) !important;
+  box-shadow: 0 0 6px var(--accent) !important;
+}
+
+.section-indicator__item.is-active .section-indicator__num {
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+}
+
+.section-indicator__item.is-active .section-indicator__bar {
+  width: 16px !important;
+  background: var(--accent) !important;
+  box-shadow: 0 0 8px var(--accent) !important;
+}
+
+.section-indicator__label {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--neo-shadow-button) !important;
+  color: #1e293b !important;
+  padding: 3px 8px !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* ──────────── 14. LOADING SCREEN (CLEAN LIGHT THEME) ──────────── */
+.loading-screen {
+  background: radial-gradient(ellipse 90% 70% at 50% 25%, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%) !important;
+}
+
+.printer-chassis {
+  background: #ffffff !important;
+  border: 1.5px solid rgba(226, 232, 240, 0.95) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 48px -10px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff !important;
+}
+
+.printer-output-slot {
+  background: #f1f5f9 !important;
+  box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.05) !important;
+  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+}
+
+.printer-progress-bar,
+.printer-progress-track {
+  background: #e2e8f0 !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  border: none !important;
+  border-radius: 9999px !important;
+}
+
+/* ──────────── 15. SCANNER BACKGROUND LAYER ──────────── */
+.landing-scanner-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 1;
+  overflow: hidden;
+  transition: opacity 0.5s ease;
+}
+
+.landing-scanner-bg canvas {
+  width: 100%;
+  height: 100%;
+  filter: contrast(1.08) saturate(1.1);
+}
+
+/* ──────────── 16. TEXT LOOP RIBBON ──────────── */
+.landing-textloop-container {
+  width: 100%;
+  position: relative;
+  z-index: 10;
+  margin: 0;
+  overflow: hidden;
+  filter: none;
+  pointer-events: auto;
+}
+
+

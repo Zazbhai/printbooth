@@ -1,0 +1,60 @@
+[
+  {
+    "id": "TKT-2689",
+    "senderType": "MERCHANT",
+    "title": "🔑 Merchant Password Reset: rahul_adt",
+    "category": "GENERAL_INQUIRY",
+    "priority": "HIGH",
+    "status": "OPEN",
+    "requesterName": "rahul_adt",
+    "requesterEmail": "rahul.adt@printbooth.in",
+    "requesterPhone": "+91 98234 56789",
+    "kioskId": "PB-001",
+    "createdAt": "2026-10-07T21:00:57.879Z",
+    "updatedAt": "2026-10-07T21:00:57.879Z",
+    "assignedTo": "Ops Support",
+    "hardwareTelemetry": {
+      "printerStatus": "READY",
+      "paperLevel": 100,
+      "tonerLevel": 100
+    },
+    "messages": [
+      {
+        "id": "msg-1791406857878",
+        "sender": "MERCHANT",
+        "senderName": "rahul_adt",
+        "text": "Merchant password change requested for account [rahul_adt]. Reason / Note: Forgot password during station shift turnover.",
+        "timestamp": "2026-10-07T21:00:57.878Z"
+      }
+    ]
+  },
+  {
+    "id": "TKT-1790",
+    "senderType": "USER",
+    "title": "Paper tray jam at reading hall",
+    "category": "PAPER_JAM",
+    "priority": "HIGH",
+    "status": "OPEN",
+    "requesterName": "Pooja Patil",
+    "requesterEmail": "pooja.p@gmail.com",
+    "requesterPhone": "+91 98989 12345",
+    "kioskId": "PB-001",
+    "createdAt": "2026-10-05T13:10:29.638Z",
+    "updatedAt": "2026-10-05T13:10:29.638Z",
+    "assignedTo": "Ops Support",
+    "hardwareTelemetry": {
+      "printerStatus": "READY",
+      "paperLevel": 100,
+      "tonerLevel": 100
+    },
+    "messages": [
+      {
+        "id": "msg-1791205829639",
+        "sender": "CUSTOMER",
+        "senderName": "Pooja Patil",
+        "text": "Printer reported paper jam while printing 10 copies.",
+        "timestamp": "2026-10-05T13:10:29.638Z"
+      }
+    ]
+  }
+]

@@ -1,0 +1,74 @@
+/* ═══════════════════════════════════════════════════════════════
+   Luminous Crimson & Rose Meteors Shower
+   ═══════════════════════════════════════════════════════════════ */
+
+.meteors-field-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+@keyframes meteor-tilted-fall {
+  0% {
+    transform: rotate(var(--tilt, 20deg)) translateY(0);
+    opacity: 0;
+  }
+  6% {
+    opacity: var(--meteor-opacity, 0.78);
+  }
+  85% {
+    opacity: var(--meteor-opacity, 0.78);
+  }
+  100% {
+    transform: rotate(var(--tilt, 20deg)) translateY(calc(115vh + 150px));
+    opacity: 0;
+  }
+}
+
+.meteor-head {
+  position: absolute;
+  pointer-events: none;
+  width: var(--meteor-size, 1.8px);
+  height: var(--meteor-size, 1.8px);
+  border-radius: 9999px;
+  background-color: #ffffff;
+  transform: rotate(var(--tilt, 20deg));
+  transform-origin: center center;
+  opacity: 0; /* Hidden during animationDelay */
+  /* Fine celestial spark with gentle ambient halo for frosted glass diffusion */
+  box-shadow: 
+    0 0 2px 0.5px #ffffff,
+    0 0 5px 1.5px rgba(255, 65, 105, 0.75),
+    0 0 12px 3.5px rgba(239, 68, 68, 0.35);
+  animation-name: meteor-tilted-fall;
+  /* Natural gravitational freefall acceleration */
+  animation-timing-function: cubic-bezier(0.45, 0.05, 0.85, 0.55);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+  z-index: 1;
+}
+
+/* Fine, elegant tapered tail trailing behind the tilted descent */
+.meteor-tail {
+  position: absolute;
+  pointer-events: none;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--tail-thickness, 1.3px);
+  height: var(--tail-length, 70px);
+  /* Natural incandescent trail fading smoothly */
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 65, 105, 0.85) 15%,
+    rgba(239, 68, 68, 0.45) 45%,
+    rgba(244, 63, 94, 0.15) 75%,
+    transparent 100%
+  );
+  filter: drop-shadow(0 0 3px rgba(220, 38, 38, 0.45));
+  border-radius: 9999px;
+}

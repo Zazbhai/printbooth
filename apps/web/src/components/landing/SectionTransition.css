@@ -1,0 +1,216 @@
+/* ═════════════════════════════════════════════════════════════════════
+   SECTION TRANSITION SYSTEM: Hardware-Accelerated GSAP Power4 Transitions
+   Transitions supported:
+   1. slideUp: Snappy vertical entrance with scale momentum (0.8 -> 1)
+   2. fade: Atmospheric scale zoom-in (1.4 -> 1) with autoAlpha
+   3. zoom: Cinematic zoom expansion (1.8 -> 1)
+   4. flipX: 3D perspective pitch orbit (rotateX: 75deg -> 0deg)
+   5. flipY: 3D perspective yaw orbit (rotateY: 75deg -> 0deg)
+   (Horizontal 'slide' is explicitly skipped to optimize landing page flow)
+   ═════════════════════════════════════════════════════════════════════ */
+
+.section-transition-container {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  height: auto;
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  flex: 1 1 auto;
+  perspective: 1200px;
+  -webkit-perspective: 1200px;
+}
+
+/* Hardware-accelerated smooth section wrapper */
+.section-transition-content {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  flex: 1 1 auto;
+  transform-origin: 50% 50%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: 
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Active State (Universal) ── */
+.section-transition-container.is-active .section-transition-content {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  will-change: auto;
+}
+
+/* ── Inactive States (Universal Baseline) ── */
+.section-transition-container.is-inactive .section-transition-content,
+.section-transition-container.is-passed .section-transition-content,
+.section-transition-container.is-upcoming .section-transition-content {
+  pointer-events: none;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   1. SLIDE UP TRANSITION (Crisp vertical kinetic flow, NO scale jitter)
+   ═════════════════════════════════════════════════════════════════════ */
+.section-transition-container.effect-slideUp.is-passed .section-transition-content {
+  opacity: 0;
+  transform: translate3d(0, -32px, 0);
+}
+
+.section-transition-container.effect-slideUp.is-upcoming .section-transition-content {
+  opacity: 0;
+  transform: translate3d(0, 32px, 0);
+}
+
+.section-transition-container.effect-slideUp.direction-down.is-active .section-transition-content {
+  animation: slideUpEnterDown 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.section-transition-container.effect-slideUp.direction-up.is-active .section-transition-content {
+  animation: slideUpEnterUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slideUpEnterDown {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 32px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideUpEnterUp {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -32px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   2. FADE TRANSITION (Clean fade & subtle glide, NO font distortion)
+   ═════════════════════════════════════════════════════════════════════ */
+.section-transition-container.effect-fade.is-passed .section-transition-content,
+.section-transition-container.effect-fade.is-upcoming .section-transition-content {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+}
+
+.section-transition-container.effect-fade.is-active .section-transition-content {
+  animation: fadeCleanEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fadeCleanEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   3. ZOOM & 3D FLIP FALLBACKS (Clean, stable motion without blur)
+   ═════════════════════════════════════════════════════════════════════ */
+.section-transition-container.effect-zoom.is-passed .section-transition-content,
+.section-transition-container.effect-zoom.is-upcoming .section-transition-content,
+.section-transition-container.effect-flipX.is-passed .section-transition-content,
+.section-transition-container.effect-flipX.is-upcoming .section-transition-content,
+.section-transition-container.effect-flipY.is-passed .section-transition-content,
+.section-transition-container.effect-flipY.is-upcoming .section-transition-content {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+}
+
+.section-transition-container.effect-zoom.is-active .section-transition-content,
+.section-transition-container.effect-flipX.is-active .section-transition-content,
+.section-transition-container.effect-flipY.is-active .section-transition-content {
+  animation: slideUpEnterDown 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════
+   MOBILE & TABLET: SILKY-SMOOTH, JITTER-FREE SCROLL ANIMATIONS (≤1024px)
+   Replaces heavy 3D flips/zooms with a fluid GPU-composited fade & rise entrance.
+   ═════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .section-transition-container {
+    perspective: none !important;
+    -webkit-perspective: none !important;
+    width: 100%;
+    height: auto !important;
+    min-height: 100% !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    flex: 1 1 auto;
+    overflow: visible !important;
+  }
+
+  .section-transition-content {
+    width: 100%;
+    height: auto !important;
+    min-height: 100% !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    flex: 1 1 auto;
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+    transform-origin: center center;
+    /* Clean, non-jittering presentation during section snaps */
+    animation: none !important;
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  /* Keep all sections fully visible on mobile so scroll-snapping between sections is seamless */
+  .section-transition-container.mobile-tab-unrevealed .section-transition-content,
+  .section-transition-container.mobile-tab-revealed .section-transition-content,
+  .section-transition-container.mobile-tab-hero .section-transition-content,
+  .section-transition-container.is-inactive .section-transition-content,
+  .section-transition-container.is-passed .section-transition-content,
+  .section-transition-container.is-upcoming .section-transition-content {
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-transition-content {
+    transition: opacity 0.2s ease !important;
+    animation: none !important;
+    transform: none !important;
+  }
+  
+  .section-transition-container .section-transition-content {
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+  }
+}
+

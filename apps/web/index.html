@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PrintBooth — Self-Service Printing Made Simple</title>
+    <meta name="description" content="PrintBooth is India's autonomous self-service printing kiosk network. Upload documents in your browser, pay via UPI, and collect prints in under 90 seconds." />
+    <meta name="author" content="PrintBooth" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="theme-color" content="#06110D" />
+    <link rel="canonical" href="https://printbooth.in/" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PrintBooth" />
+    <meta property="og:url" content="https://printbooth.in/" />
+    <meta property="og:title" content="PrintBooth — Autonomous Self-Service Printing Kiosks" />
+    <meta property="og:description" content="Autonomous walk-up printing kiosks. Direct browser upload, instant UPI QR payments, zero-cloud data retention, and automated release in under 90s." />
+    <meta property="og:image" content="https://printbooth.in/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="PrintBooth — Self-Service Printing Kiosks" />
+    <meta property="og:locale" content="en_IN" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@PrintBooth" />
+    <meta name="twitter:title" content="PrintBooth — Autonomous Self-Service Printing Kiosks" />
+    <meta name="twitter:description" content="Upload in browser, pay via UPI, and collect your prints instantly at any walk-up PrintBooth kiosk." />
+    <meta name="twitter:image" content="https://printbooth.in/og-image.svg" />
+
+    <!-- Structured Data (Schema.org Graph for SEO, GEO & AEO) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://printbooth.in/#organization",
+          "name": "PrintBooth",
+          "alternateName": "PrintBooth Technologies",
+          "url": "https://printbooth.in/",
+          "logo": "https://printbooth.in/favicon.svg",
+          "description": "Autonomous, self-service walk-up printing kiosks across India. Direct browser upload, instant UPI scan-to-pay, zero-cloud data retention, and automatic hardware document dispensing.",
+          "telephone": "+91-9090636363",
+          "email": "support@printbooth.in",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Homeseva Jijai Nagar, Kothrud",
+            "addressLocality": "Pune",
+            "addressRegion": "Maharashtra",
+            "postalCode": "411058",
+            "addressCountry": "IN"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+91-9090636363",
+            "contactType": "customer service",
+            "areaServed": "IN",
+            "availableLanguage": ["English", "Hindi", "Marathi"]
+          }
+        },
+        {
+          "@type": "LocalBusiness",
+          "@id": "https://printbooth.in/#localbusiness",
+          "name": "PrintBooth Automated Printing",
+          "url": "https://printbooth.in/",
+          "telephone": "+91-9090636363",
+          "priceRange": "₹2 - ₹20",
+          "currenciesAccepted": "INR",
+          "paymentAccepted": "UPI, Google Pay, PhonePe, Paytm, BHIM",
+          "parentOrganization": {
+            "@id": "https://printbooth.in/#organization"
+          }
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://printbooth.in/#webapp",
+          "name": "PrintBooth Web App",
+          "url": "https://printbooth.in/print",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "All (Web browser, iOS, Android, macOS, Windows)",
+          "offers": {
+            "@type": "Offer",
+            "price": "2.00",
+            "priceCurrency": "INR"
+          }
+        },
+        {
+          "@type": "HowTo",
+          "@id": "https://printbooth.in/#howto",
+          "name": "How to Print Documents Using PrintBooth",
+          "description": "Print documents at any PrintBooth kiosk in under 2 minutes without registering or downloading an app.",
+          "totalTime": "PT2M",
+          "step": [
+            {
+              "@type": "HowToStep",
+              "position": 1,
+              "name": "Upload Documents",
+              "text": "Open printbooth.in on your phone or computer and upload your files (PDF, JPG, PNG, DOCX, PPT)."
+            },
+            {
+              "@type": "HowToStep",
+              "position": 2,
+              "name": "Configure Settings",
+              "text": "Select your station location, paper size, color mode (B&W or Color), single/double-sided, and copy count."
+            },
+            {
+              "@type": "HowToStep",
+              "position": 3,
+              "name": "Pay with UPI",
+              "text": "Scan the dynamic on-screen QR code using any UPI app like GPay, PhonePe, or Paytm."
+            },
+            {
+              "@type": "HowToStep",
+              "position": 4,
+              "name": "Collect Your Prints",
+              "text": "The kiosk hardware prints and dispenses your pages immediately into the output tray. Files are then purged for privacy."
+            }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://printbooth.in/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Do I need an account or mobile app to use PrintBooth?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. PrintBooth requires no mobile app installation and no account registration. You upload directly through any modern web browser and track your print job anonymously using an Order ID."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What payment methods are supported at PrintBooth kiosks?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "PrintBooth supports all standard UPI payment applications in India, including Google Pay, PhonePe, Paytm, BHIM, and bank UPI apps via dynamic on-screen QR codes."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Are uploaded documents secure and private?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. PrintBooth enforces a strict zero-cloud data retention policy. Your document is temporarily encrypted solely for spooling and printing, and is automatically and permanently purged from the queue upon dispense."
+              },
+            {
+              "@type": "Question",
+              "name": "How much does printing cost?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Standard A4 Black & White printing starts at ₹2 per page. Color printing and duplex options are priced transparently on-screen with no subscriptions, setup costs, or hidden charges."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What happens if a paper jam or hardware error occurs?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "If a hardware interruption occurs, the merchant hosting the kiosk can immediately reprint the queued job on-site or issue an instant direct refund referencing your Order ID."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800;900&family=Orbitron:wght@700;900&family=Poppins:wght@400;500&display=swap" rel="stylesheet" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- ⚡ Critical inline styles for the PrintBooth loading animation -->
+    <style>
+      :root {
+        --ink: #0a0f13;
+        --yellow: #f3b023;
+        --purple: #7f17b2;
+        --darkblue: #3253ec;
+        --cyan: #00c2f2;
+        --skyblue: #29c2ff;
+        --bg: #e0e5ec;
+        box-sizing: border-box;
+      }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+        min-height: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        overscroll-behavior: none;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #root {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Branded Three.js splash shown while bundle downloads */
+      #pb-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: var(--bg);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.5s ease, visibility 0.5s ease;
+      }
+
+      #pb-splash.pb-splash--hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      canvas#bg {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+      }
+
+      /* Stage */
+      .stage {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        perspective: 1400px;
+        padding: 2rem 1.2rem;
+        text-align: center;
+        opacity: 0;
+      }
+      .stage.live {
+        opacity: 1;
+      }
+
+      .word {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        line-height: 0.9;
+        position: relative;
+      }
+      .word.top {
+        font-size: clamp(2.6rem, 10vw, 8rem);
+        letter-spacing: -0.01em;
+      }
+      .word.bottom {
+        font-size: clamp(1.4rem, 5.2vw, 4.2rem);
+        margin-top: 0.28em;
+        letter-spacing: 0.22em;
+        padding-left: 0.22em;
+      }
+
+      .letter {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        color: var(--ink);
+        display: inline-block;
+        position: relative;
+        opacity: 0;
+        filter: blur(14px);
+        transform: scale(0.4) translateY(30px) rotateY(50deg);
+        will-change: transform, opacity, filter;
+      }
+      .letter.in {
+        animation: land 0.78s cubic-bezier(0.17, 0.84, 0.3, 1.1) forwards;
+      }
+      @keyframes land {
+        0% {
+          opacity: 0;
+          filter: blur(14px);
+          transform: scale(0.4) translateY(30px) rotateY(50deg);
+          text-shadow: 0 0 0 rgba(0, 0, 0, 0);
+        }
+        55% {
+          opacity: 1;
+          filter: blur(0px);
+          text-shadow: 0 0 22px rgba(41, 194, 255, 0.55);
+        }
+        100% {
+          opacity: 1;
+          filter: blur(0px);
+          transform: scale(1) translateY(0) rotateY(0deg);
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+      }
+
+      .shard {
+        background: linear-gradient(124deg, var(--yellow) 0%, var(--yellow) 18%, var(--purple) 42%, var(--darkblue) 60%, var(--cyan) 76%, var(--skyblue) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+        position: relative;
+        overflow: hidden;
+      }
+      .shard::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -60%;
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.9) 50%, transparent 70%);
+        mix-blend-mode: screen;
+        animation: sheen 3.6s ease-in-out 1.6s infinite;
+      }
+      @keyframes sheen {
+        0%, 55% { left: -60%; }
+        100% { left: 140%; }
+      }
+
+      .scanline {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -10%;
+        width: 12%;
+        background: linear-gradient(90deg, transparent, rgba(41, 194, 255, 0.35), rgba(123, 23, 178, 0.35), transparent);
+        filter: blur(2px);
+        pointer-events: none;
+        opacity: 0;
+      }
+      .scanline.sweep {
+        animation: sweep 1.1s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+      }
+      @keyframes sweep {
+        0% { left: -15%; opacity: 1; }
+        85% { opacity: 0.8; }
+        100% { left: 105%; opacity: 0; }
+      }
+
+      .tagline {
+        margin-top: 1.1em;
+        letter-spacing: 0.32em;
+        font-size: clamp(0.62rem, 2vw, 1.05rem);
+        color: var(--ink);
+        font-weight: 400;
+        font-family: 'Poppins', sans-serif;
+        opacity: 0;
+        transition: opacity 1s ease, transform 1s ease;
+        transform: translateY(10px);
+        display: flex;
+        align-items: center;
+        gap: 0.6em;
+        text-transform: uppercase;
+      }
+      .tagline.in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .tagline .dot {
+        width: 0.42em;
+        height: 0.42em;
+        border-radius: 50%;
+        background: var(--skyblue);
+        display: inline-block;
+        box-shadow: 0 0 8px rgba(41, 194, 255, 0.8);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .letter { animation: none !important; opacity: 1 !important; filter: none !important; transform: none !important; }
+        .tagline { transition: none; opacity: 1; transform: none; }
+        .shard::after, .scanline { animation: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Splash overlay — Three.js converging particles & 3D text reveal -->
+    <div id="pb-splash" aria-hidden="true">
+      <canvas id="bg"></canvas>
+      <div class="stage" id="stage">
+        <div class="scanline" id="scanline"></div>
+        <div class="word top" id="wordTop"></div>
+        <div class="word bottom" id="wordBottom"></div>
+        <div class="tagline" id="tagline">
+          <span>Smart</span><span class="dot"></span><span>Self-Service</span><span class="dot"></span><span>Printing</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Splash animation & dismissal -->
+    <script>
+      (function () {
+        // Build Word Spans
+        var TOP = "PRINTING";
+        var BOTTOM = "BOOTH";
+        var shardIndices = new Set([3]); // 'N'
+
+        function buildWord(str, el, shard) {
+          if (!el) return;
+          for (var i = 0; i < str.length; i++) {
+            var span = document.createElement('span');
+            span.className = 'letter' + (shard && shard.has(i) ? ' shard' : '');
+            span.textContent = str[i];
+            span.style.animationDelay = (i * 0.06) + 's';
+            el.appendChild(span);
+          }
+        }
+
+        buildWord(TOP, document.getElementById('wordTop'), shardIndices);
+        buildWord(BOTTOM, document.getElementById('wordBottom'));
+
+        var stage = document.getElementById('stage');
+        var scanline = document.getElementById('scanline');
+        var tagline = document.getElementById('tagline');
+
+        // Reveal stage immediately (no 1 to 100 loading bar)
+        if (stage) stage.classList.add('live');
+        if (scanline) {
+          void scanline.offsetWidth;
+          scanline.classList.add('sweep');
+        }
+        var letters = document.querySelectorAll('#pb-splash .letter');
+        for (var j = 0; j < letters.length; j++) {
+          void letters[j].offsetWidth;
+          letters[j].classList.add('in');
+        }
+        setTimeout(function () {
+          if (tagline) tagline.classList.add('in');
+        }, 600);
+
+        // Three.js particles
+        var convergence = 0;
+        var startT = performance.now();
+        var duration = 1200;
+        function tickConvergence(now) {
+          var t = Math.min(1, (now - startT) / duration);
+          convergence = t;
+          if (t < 1) {
+            requestAnimationFrame(tickConvergence);
+          }
+        }
+        requestAnimationFrame(tickConvergence);
+
+        function initParticles() {
+          if (typeof THREE === 'undefined') return;
+          var canvas = document.getElementById('bg');
+          if (!canvas) return;
+
+          var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          var scene = new THREE.Scene();
+          var camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+          camera.position.z = 22;
+
+          function resize() {
+            if (!document.getElementById('pb-splash')) return;
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+          }
+          resize();
+          window.addEventListener('resize', resize);
+
+          var palette = [0xf3b023, 0x7f17b2, 0x3253ec, 0x00c2f2, 0x29c2ff];
+          var COUNT = 320;
+          var geo = new THREE.BufferGeometry();
+          var targetPos = new Float32Array(COUNT * 3);
+          var startPos  = new Float32Array(COUNT * 3);
+          var drawPos   = new Float32Array(COUNT * 3);
+          var colors    = new Float32Array(COUNT * 3);
+          var speeds    = new Float32Array(COUNT);
+          var tmpColor  = new THREE.Color();
+
+          for (var i = 0; i < COUNT; i++) {
+            var tx = (Math.random() - 0.5) * 46;
+            var ty = (Math.random() - 0.5) * 26;
+            var tz = (Math.random() - 0.5) * 18 - 4;
+            targetPos[i * 3] = tx; targetPos[i * 3 + 1] = ty; targetPos[i * 3 + 2] = tz;
+            var push = 2.4 + Math.random() * 2.2;
+            startPos[i * 3] = tx * push; startPos[i * 3 + 1] = ty * push; startPos[i * 3 + 2] = tz * push - 6;
+            drawPos[i * 3] = startPos[i * 3]; drawPos[i * 3 + 1] = startPos[i * 3 + 1]; drawPos[i * 3 + 2] = startPos[i * 3 + 2];
+            tmpColor.setHex(palette[i % palette.length]);
+            colors[i * 3] = tmpColor.r; colors[i * 3 + 1] = tmpColor.g; colors[i * 3 + 2] = tmpColor.b;
+            speeds[i] = 0.15 + Math.random() * 0.35;
+          }
+          geo.setAttribute('position', new THREE.BufferAttribute(drawPos, 3));
+          geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+          var mat = new THREE.PointsMaterial({
+            size: 0.17, vertexColors: true, transparent: true, opacity: 0.7,
+            depthWrite: false, blending: THREE.AdditiveBlending
+          });
+          var points = new THREE.Points(geo, mat);
+          scene.add(points);
+
+          function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+          var ambientT = 0;
+          var clock = new THREE.Clock();
+
+          function animate() {
+            var splash = document.getElementById('pb-splash');
+            if (!splash) {
+              renderer.dispose();
+              geo.dispose();
+              mat.dispose();
+              return;
+            }
+            requestAnimationFrame(animate);
+            var dt = clock.getDelta();
+            var arr = geo.attributes.position.array;
+            if (convergence < 1) {
+              var e = easeOutCubic(convergence);
+              for (var i = 0; i < COUNT; i++) {
+                arr[i * 3]     = startPos[i * 3]     + (targetPos[i * 3]     - startPos[i * 3])     * e;
+                arr[i * 3 + 1] = startPos[i * 3 + 1] + (targetPos[i * 3 + 1] - startPos[i * 3 + 1]) * e;
+                arr[i * 3 + 2] = startPos[i * 3 + 2] + (targetPos[i * 3 + 2] - startPos[i * 3 + 2]) * e;
+              }
+            } else {
+              ambientT += dt;
+              for (var i = 0; i < COUNT; i++) {
+                arr[i * 3 + 1] = targetPos[i * 3 + 1] + Math.sin(ambientT * speeds[i] + i) * 0.35;
+                arr[i * 3]     = targetPos[i * 3]     + Math.cos(ambientT * 0.15 + i) * 0.25;
+                arr[i * 3 + 2] = targetPos[i * 3 + 2];
+              }
+              points.rotation.y = Math.sin(ambientT * 0.05) * 0.15;
+              points.rotation.z = ambientT * 0.01;
+            }
+            geo.attributes.position.needsUpdate = true;
+            mat.opacity = 0.35 + 0.35 * Math.min(1, convergence) + (convergence >= 1 ? Math.sin(ambientT * 1.3) * 0.08 : 0);
+            renderer.render(scene, camera);
+          }
+          animate();
+        }
+
+        if (window.THREE) {
+          initParticles();
+        } else {
+          window.addEventListener('load', function () {
+            if (window.THREE) initParticles();
+          });
+        }
+
+        // Dismiss the splash when React root mounts
+        var splashStart = performance.now();
+        function dismissSplash() {
+          var splash = document.getElementById('pb-splash');
+          if (!splash || splash.classList.contains('pb-splash--hidden')) return;
+          splash.classList.add('pb-splash--hidden');
+          setTimeout(function () {
+            if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+          }, 550);
+        }
+
+        function checkReady() {
+          var elapsed = performance.now() - splashStart;
+          var remaining = Math.max(0, 850 - elapsed);
+          setTimeout(dismissSplash, remaining);
+        }
+
+        var observer = new MutationObserver(function () {
+          var root = document.getElementById('root');
+          if (root && root.childElementCount > 0) {
+            observer.disconnect();
+            checkReady();
+          }
+        });
+        observer.observe(document.getElementById('root'), { childList: true, subtree: false });
+
+        // Safety fallback: always dismiss after 5s
+        setTimeout(dismissSplash, 5000);
+      })();
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,1113 @@
+import { useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  CurrencyInr,
+  Printer,
+  Monitor,
+  TrendUp,
+  Package,
+  CheckCircle,
+  FileText,
+  CalendarBlank,
+  Clock,
+  ArrowUpRight,
+  WifiHigh,
+  WifiSlash,
+  PlugsConnected,
+  Megaphone,
+  Storefront,
+  ShieldCheck,
+  Tag,
+  ArrowsClockwise,
+  Warning,
+  X,
+  Copy,
+} from '@phosphor-icons/react'
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from 'recharts'
+import { ActivityDropdown } from '@/components/ui/activity-dropdown'
+import { Skeleton } from 'boneyard-js/react'
+import { useDashboardSkeleton } from '../../hooks/useDashboardSkeleton'
+import { MerchantDashboardSkeletonFallback } from '../../components/ui/DashboardSkeletonFallback'
+import { useActiveMerchant } from '@/lib/merchantContext'
+import {
+  getMerchantDashboard,
+  postPaperRefill,
+  getMerchantNotifications,
+  markMerchantNotificationRead,
+  markAllMerchantNotificationsRead,
+  sendCupsTestPrint,
+  cleanPrinterHeads,
+  getMerchantNetwork,
+  type IKioskNetworkTelemetry,
+} from '@/lib/api'
+import './MerchantDashboardPage.css'
+
+export default function MerchantDashboardPage() {
+  const { activeKioskId, activeMerchant } = useActiveMerchant()
+  const [period, setPeriod] = useState<'1D' | '1W' | '1M' | '1Y'>('1D')
+  const [refillRequested, setRefillRequested] = useState(false)
+  const [dbData, setDbData] = useState<any>(null)
+  const [network, setNetwork] = useState<IKioskNetworkTelemetry | null>(null)
+  const [fetching, setFetching] = useState(true)
+  const [testPrintLoading, setTestPrintLoading] = useState(false)
+  const [cleanHeadsLoading, setCleanHeadsLoading] = useState(false)
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const handleCopyText = (id: string, text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopiedId(id)
+    setTimeout(() => {
+      setCopiedId((curr) => (curr === id ? null : curr))
+    }, 2000)
+  }
+
+  useEffect(() => {
+    let mounted = true
+    setFetching(true)
+    async function fetchMerchantData() {
+      try {
+        const [data, netData] = await Promise.all([
+          getMerchantDashboard(activeKioskId, period),
+          getMerchantNetwork(activeKioskId),
+        ])
+        if (mounted && data) {
+          setDbData(data)
+        }
+        if (mounted && netData) {
+          setNetwork(netData)
+        }
+      } finally {
+        if (mounted) {
+          setFetching(false)
+        }
+      }
+    }
+    fetchMerchantData()
+    return () => {
+      mounted = false
+    }
+  }, [activeKioskId, period])
+
+  const isDataReady = Boolean(dbData) && !fetching
+  const loading = useDashboardSkeleton(isDataReady, 60)
+
+  // ──────── Notifications & Admin Broadcasts ────────
+  const [notifications, setNotifications] = useState<any[]>([])
+
+  const loadNotifs = async () => {
+    const data = await getMerchantNotifications(activeKioskId, activeMerchant?.merchantId)
+    if (Array.isArray(data)) {
+      setNotifications(data)
+    }
+  }
+
+  useEffect(() => {
+    loadNotifs()
+  }, [activeKioskId, activeMerchant?.merchantId])
+
+  useEffect(() => {
+    const handleRead = (e: any) => {
+      const readId = e.detail?.id
+      if (readId) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.notificationId === readId || String(n._id) === readId ? { ...n, isRead: true } : n))
+        )
+      }
+    }
+    const handleBroadcastSent = async () => {
+      loadNotifs()
+    }
+    window.addEventListener('pb:notification-read', handleRead)
+    window.addEventListener('pb:broadcast-sent', handleBroadcastSent)
+    return () => {
+      window.removeEventListener('pb:notification-read', handleRead)
+      window.removeEventListener('pb:broadcast-sent', handleBroadcastSent)
+    }
+  }, [activeKioskId, activeMerchant?.merchantId])
+
+  const handleDismissNotif = async (notifId: string) => {
+    await markMerchantNotificationRead(notifId, activeMerchant?.merchantId)
+    setNotifications((prev) =>
+      prev.map((n) => (n.notificationId === notifId || String(n._id) === notifId ? { ...n, isRead: true } : n))
+    )
+  }
+
+  const handleMarkNotifUnread = (notifId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.notificationId === notifId || String(n._id) === notifId ? { ...n, isRead: false } : n))
+    )
+  }
+
+  const handleDismissAllNotifs = async () => {
+    await markAllMerchantNotificationsRead(activeMerchant?.merchantId)
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+  }
+
+  // ──────── One-Click Hardware Automation Actions ────────
+  const handleTestPrint = async () => {
+    setTestPrintLoading(true)
+    try {
+      await sendCupsTestPrint(activeKioskId)
+      setActionFeedback('Test page job dispatched to CUPS hardware spooler!')
+      setTimeout(() => setActionFeedback(null), 4000)
+    } catch (err: any) {
+      alert(`Test print error: ${err.message || 'Printer offline'}`)
+    } finally {
+      setTestPrintLoading(false)
+    }
+  }
+
+  const handleCleanHeads = async () => {
+    setCleanHeadsLoading(true)
+    try {
+      await cleanPrinterHeads(activeKioskId)
+      setActionFeedback('Thermal head micro-priming cycle initiated!')
+      setTimeout(() => setActionFeedback(null), 4000)
+    } catch (err: any) {
+      alert(`Cleaning error: ${err.message || 'Printer offline'}`)
+    } finally {
+      setCleanHeadsLoading(false)
+    }
+  }
+
+  const handleRefill = async () => {
+    setRefillRequested(true)
+    await postPaperRefill(activeKioskId, 'Tray 1 Paper refill requested by host merchant')
+    setActionFeedback('Paper replenishment request sent to PrintBooth Logistics!')
+    setTimeout(() => setActionFeedback(null), 4000)
+  }
+
+  // ──────── Computed Values strictly from Database & Telemetry ────────
+  const kioskInfo = dbData?.kiosk || {
+    kioskId: activeKioskId,
+    name: activeMerchant?.storeName || 'PrintBooth Station',
+    location: (activeMerchant as any)?.location || 'Central Reading Hall, MIT ADT Campus',
+    address: activeMerchant?.address || 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
+    paperLevel: 85,
+    tonerLevel: 92,
+    printerModel: activeMerchant?.printerModel || 'Brother DCP-T420W',
+    printerName: 'PrintBooth_Printer',
+    status: 'ONLINE',
+    pricing: { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
+  }
+
+  const isKioskOnline = kioskInfo.status === 'ONLINE'
+  const merchantInfo = dbData?.merchant || activeMerchant || {
+    name: activeMerchant?.name || 'PrintBooth Partner',
+    storeName: activeMerchant?.storeName || 'PrintBooth Partner Store',
+    bankName: activeMerchant?.bankName || 'State Bank of India',
+    bankAccountLast4: activeMerchant?.bankAccountLast4 || '9012',
+    autoPayoutEnabled: true,
+  }
+
+  const pricing = kioskInfo.pricing || { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 }
+
+  const recentStoreOrders = Array.isArray(dbData?.recentOrders) ? dbData.recentOrders : []
+
+  const hourlyChartData = useMemo(() => {
+    if (Array.isArray(dbData?.hourlyThroughput) && dbData.hourlyThroughput.length > 0) {
+      return dbData.hourlyThroughput.map((item: any) => ({
+        time: item.hour || item.time,
+        earnings: Number(item.earnings || item.revenue || 0),
+        prints: Number(item.prints || 0),
+      }))
+    }
+    return [
+      { time: '9 AM', earnings: 0, prints: 0 },
+      { time: '11 AM', earnings: 0, prints: 0 },
+      { time: '1 PM', earnings: 0, prints: 0 },
+      { time: '3 PM', earnings: 0, prints: 0 },
+      { time: '5 PM', earnings: 0, prints: 0 },
+    ]
+  }, [dbData])
+
+  const todayEarningsVal = dbData?.metrics?.todayEarnings || '₹0.00'
+
+  const formattedToday = new Date().toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+
+  // Synchronized activities for dropdown
+  const merchantActivities = useMemo(() => {
+    const list: any[] = []
+    const sourceNotifs = notifications.length > 0
+      ? notifications
+      : [
+          {
+            notificationId: 'NOTIF-001',
+            title: 'Zero Commission Payout Engine Activated',
+            message: 'PrintBooth operates on a 100% direct merchant revenue model. All student and customer print payments are transferred directly to your merchant account with 0% platform commission cut.',
+            type: 'INFO',
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          },
+          {
+            notificationId: 'NOTIF-002',
+            title: 'Automated Hardware Diagnostics Online',
+            message: 'Your printer hardware and paper stock monitoring system is actively syncing with PrintBooth Logistics. Paper refills and technical maintenance are automatically queued.',
+            type: 'MAINTENANCE',
+            createdAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
+            isRead: true,
+          },
+        ]
+
+    sourceNotifs.forEach((notif) => {
+      const id = notif.notificationId || notif._id
+      list.push({
+        id,
+        icon: <Megaphone size={16} weight="bold" />,
+        iconBg: notif.type === 'ALERT'
+          ? 'bg-rose-50 text-rose-600'
+          : notif.type === 'WARNING' || notif.type === 'MAINTENANCE'
+          ? 'bg-amber-50 text-amber-600'
+          : 'bg-blue-50 text-blue-600',
+        title: notif.title || 'Platform Announcement',
+        description: notif.message,
+        time: notif.createdAt ? new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today',
+        isRead: Boolean(notif.isRead),
+        type: notif.type,
+        source: 'Corporate Merchant Operations Desk',
+      })
+    })
+    return list
+  }, [notifications])
+
+  return (
+    <Skeleton
+      name="merchant-dashboard"
+      loading={loading}
+      animate="shimmer"
+      color="rgba(15, 23, 42, 0.06)"
+      darkColor="rgba(255, 255, 255, 0.08)"
+      transition={300}
+      fallback={<MerchantDashboardSkeletonFallback />}
+    >
+      <div className="merchant-dashboard-wrap">
+        {/* ─── Hero Header & Identity Bar ─── */}
+        <div className="merchant-hero-card">
+          <div className="merchant-hero-top">
+            <div className="merchant-venue-identity">
+              <div className="merchant-venue-avatar">
+                {activeMerchant?.kioskPhotoUrl ? (
+                  <img src={activeMerchant.kioskPhotoUrl} alt="Store Kiosk" />
+                ) : (
+                  <Storefront size={26} color="#059669" weight="duotone" />
+                )}
+              </div>
+
+              <div>
+                <div className="merchant-venue-title-row">
+                  <h1 className="merchant-venue-name">{merchantInfo.storeName}</h1>
+                  <span
+                    className="merchant-station-badge merchant-copyable-target"
+                    onClick={() => handleCopyText('kiosk-id', activeKioskId)}
+                    title="Click to copy station identifier"
+                  >
+                    {activeKioskId}
+                    <Copy size={11} className="copy-hint-icon" />
+                    {copiedId === 'kiosk-id' && <span className="merchant-copy-bubble">Copied ✓</span>}
+                  </span>
+                  <span className={`merchant-status-beacon-pill ${isKioskOnline ? 'online' : 'offline'}`}>
+                    <span className={`merchant-live-dot ${isKioskOnline ? 'online' : 'offline'}`} />
+                    <span>{isKioskOnline ? 'Hardware Spooler Online & Ready' : 'Station Offline (Powered Off)'}</span>
+                  </span>
+                </div>
+
+                <div className="merchant-venue-sub">
+                  <span>{kioskInfo.address}</span>
+                  <span>•</span>
+                  <Link
+                    to="/merchant/kiosks"
+                    style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    title="View Raspberry Pi Network & Hardware Details"
+                  >
+                    {network?.activeConnectionType === 'ETHERNET' ? (
+                      <>
+                        <PlugsConnected size={14} color="#10b981" weight="fill" />
+                        <span style={{ color: '#10b981', fontWeight: 600 }}>Ethernet (Cable) • IP {network.primaryIp}</span>
+                      </>
+                    ) : network?.activeConnectionType === 'WIFI' ? (
+                      <>
+                        <WifiHigh size={14} color="#10b981" weight="bold" />
+                        <span style={{ color: '#10b981', fontWeight: 600 }}>Wi-Fi ({network.wifi.ssid || 'Connected'}) • IP {network.primaryIp}</span>
+                      </>
+                    ) : network?.activeConnectionType === 'OFFLINE' ? (
+                      <>
+                        <WifiSlash size={14} color="#ef4444" />
+                        <span style={{ color: '#ef4444', fontWeight: 600 }}>Network Offline</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiHigh size={14} color="#059669" weight="bold" />
+                        <span>Campus IoT Network • IP 192.168.1.4</span>
+                      </>
+                    )}
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="merchant-hero-controls">
+              <div className="merchant-period-switch">
+                {(['1D', '1W', '1M', '1Y'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`merchant-period-btn ${period === p ? 'active' : ''}`}
+                    onClick={() => setPeriod(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 8,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#334155',
+                }}
+              >
+                <CalendarBlank size={14} color="#059669" />
+                <span>Today, {formattedToday}</span>
+              </div>
+
+              <div className="activity-dropdown-anchor">
+                <ActivityDropdown
+                  items={merchantActivities}
+                  onMarkRead={(id) => handleDismissNotif(String(id))}
+                  onMarkUnread={(id) => handleMarkNotifUnread(String(id))}
+                  onMarkAllRead={handleDismissAllNotifs}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Quick-Ticker */}
+          <div className="merchant-pricing-strip">
+            <div className="pricing-pills-row">
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', marginRight: 4 }}>
+                Active Kiosk Pricing:
+              </span>
+              <div className="pricing-pill-item">
+                <span>B&W Single</span>
+                <strong>₹{pricing.bwSingle.toFixed(2)}</strong>
+              </div>
+              <div className="pricing-pill-item">
+                <span>B&W Double</span>
+                <strong>₹{pricing.bwDouble.toFixed(2)}</strong>
+              </div>
+              <div className="pricing-pill-item">
+                <span>Color Single</span>
+                <strong>₹{pricing.colorSingle.toFixed(2)}</strong>
+              </div>
+              <div className="pricing-pill-item">
+                <span>Color Double</span>
+                <strong>₹{pricing.colorDouble.toFixed(2)}</strong>
+              </div>
+            </div>
+
+            <a href="/merchant/pricing" className="pricing-edit-link">
+              <Tag size={13} weight="bold" />
+              <span>Modify Page Pricing Rates &rarr;</span>
+            </a>
+          </div>
+        </div>
+
+        {/* ─── Kiosk Printer Offline Quick Alert ─── */}
+        {!isKioskOnline && (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderLeft: '5px solid #dc2626',
+              borderRadius: 12,
+              padding: '14px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 14,
+              flexWrap: 'wrap',
+              boxShadow: '0 4px 16px rgba(220, 38, 38, 0.06)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#dc2626',
+                  flexShrink: 0,
+                }}
+              >
+                <Printer size={20} weight="fill" />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#991b1b' }}>
+                  Station {activeKioskId} Printer is Currently Offline
+                </div>
+                <div style={{ fontSize: 12, color: '#7f1d1d' }}>
+                  Customer print requests cannot be processed. Ensure the Raspberry Pi is powered on with the printer connected via USB.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Feedback Toast ─── */}
+        {actionFeedback && (
+          <div
+            style={{
+              background: '#ecfdf5',
+              border: '1px solid #10b981',
+              borderRadius: 10,
+              padding: '10px 16px',
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#065f46',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <CheckCircle size={18} weight="fill" color="#10b981" />
+            <span>{actionFeedback}</span>
+          </div>
+        )}
+
+        {/* ─── Operations Broadcasts Ribbon (unread only) ─── */}
+        {(() => {
+          const unreadNotifs = notifications.filter((n) => !n.isRead)
+          if (unreadNotifs.length === 0) return null
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {unreadNotifs.slice(0, 3).map((n) => {
+                const id = n.notificationId || n._id
+                const accentColor = n.type === 'ALERT' ? '#dc2626' : n.type === 'WARNING' ? '#d97706' : '#2563eb'
+                const bgColor = n.type === 'ALERT' ? '#fef2f2' : n.type === 'WARNING' ? '#fffbeb' : '#eff6ff'
+                const borderColor = n.type === 'ALERT'
+                  ? 'rgba(239,68,68,0.25)'
+                  : n.type === 'WARNING'
+                  ? 'rgba(245,158,11,0.25)'
+                  : 'rgba(59,130,246,0.25)'
+                return (
+                  <div
+                    key={id}
+                    className="broadcast-ribbon-item"
+                    style={{
+                      background: bgColor,
+                      border: `1px solid ${borderColor}`,
+                    }}
+                  >
+                    {/* Left: icon + content */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                      <Megaphone size={17} weight="fill" color={accentColor} style={{ flexShrink: 0 }} />
+                      <div style={{ minWidth: 0 }}>
+                        <span className="broadcast-ribbon-badge" style={{ background: '#ffffff', color: '#0f172a' }}>
+                          {n.type} NOTICE
+                        </span>
+                        <strong style={{ fontSize: 13, color: '#0f172a', marginRight: 8 }}>{n.title}</strong>
+                        <span style={{ fontSize: 12, color: '#475569' }}>{n.message}</span>
+                      </div>
+                    </div>
+
+                    {/* Right: close X */}
+                    <button
+                      type="button"
+                      className="broadcast-ribbon-close"
+                      aria-label="Dismiss notification"
+                      onClick={() => handleDismissNotif(id)}
+                    >
+                      <X size={14} weight="bold" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
+        {/* ─── Machine Offline High-Visibility Emergency Banner ─── */}
+        {!isKioskOnline && (
+          <div className="merchant-offline-warning-banner" id="merchant-machine-offline-banner">
+            <div className="offline-banner-left">
+              <div className="offline-pulse-icon-box">
+                <Warning size={24} weight="fill" />
+                <span className="offline-pulse-dot" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 className="offline-banner-title">
+                  <span>⚠️ Machine {activeKioskId} is Powered Off or Offline</span>
+                </h3>
+                <p className="offline-banner-desc">
+                  Your PrintBooth station is not responding to our server. Customers visiting your counter cannot print documents until the station is turned on.
+                </p>
+                <div className="offline-checklist-grid">
+                  <div className="offline-checklist-item">
+                    <span>⚡ 1. Check main electrical switch & Raspberry Pi cable</span>
+                  </div>
+                  <div className="offline-checklist-item">
+                    <span>📶 2. Check shop Wi-Fi router / LAN Ethernet cable</span>
+                  </div>
+                  <div className="offline-checklist-item">
+                    <span>🖨️ 3. Ensure printer power LED is illuminated</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="offline-banner-actions">
+              <button
+                type="button"
+                className="btn-recheck-connection"
+                id="btn-recheck-hardware-status"
+                onClick={async () => {
+                  setFetching(true)
+                  try {
+                    const data = await getMerchantDashboard(activeKioskId, period)
+                    if (data) setDbData(data)
+                  } finally {
+                    setFetching(false)
+                  }
+                }}
+              >
+                <ArrowsClockwise size={14} className={fetching ? 'animate-spin' : ''} />
+                <span>Re-check Hardware</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 4 Core Executive Metric Cards ─── */}
+        <div className="merchant-metrics-grid">
+          {/* Card 1: Net Store Revenue — always visible */}
+          <div className="merchant-metric-card">
+            <div>
+              <div className="merchant-metric-header">
+                <span className="merchant-metric-label">Store Net Revenue ({period})</span>
+                <div className="merchant-icon-badge emerald">
+                  <CurrencyInr size={18} weight="bold" />
+                </div>
+              </div>
+
+              <div className="merchant-metric-value-row">
+                <div className="merchant-metric-value">{todayEarningsVal}</div>
+                <span className="merchant-metric-unit">net cut</span>
+              </div>
+
+              <div className="merchant-metric-subtext">
+                <span style={{ color: '#059669', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <TrendUp size={13} weight="bold" /> 100% Direct Payout
+                </span>
+                <span>• 0% Platform Fee</span>
+              </div>
+            </div>
+
+            <div
+              className="merchant-payout-chip"
+              onClick={() => handleCopyText('payout-acc', `${merchantInfo.bankName} Account ending ${merchantInfo.bankAccountLast4}`)}
+              title="Click to copy payout account reference"
+              style={{ position: 'relative' }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
+                <ShieldCheck size={14} weight="fill" color="#059669" />
+                <span>{merchantInfo.bankName} ••{merchantInfo.bankAccountLast4}</span>
+                <Copy size={12} className="copy-hint-icon" />
+              </span>
+              <span style={{ color: '#059669', fontWeight: 700 }}>Instant UPI Active</span>
+              {copiedId === 'payout-acc' && <span className="merchant-copy-bubble">Copied ✓</span>}
+            </div>
+          </div>
+
+          {/* Card 2: Print Throughput — real data only, offline mask */}
+          <div className="merchant-metric-card hw-offline-card" style={{ position: 'relative', overflow: 'hidden' }}>
+            {!isKioskOnline && <div className="hw-offline-mini-mask"><WifiSlash size={22} weight="bold" color="#ef4444" /><span>Hardware Offline</span></div>}
+            <div style={{ opacity: isKioskOnline ? 1 : 0.18, pointerEvents: isKioskOnline ? 'auto' : 'none' }}>
+              <div className="merchant-metric-header">
+                <span className="merchant-metric-label">Total Print Volume</span>
+                <div className="merchant-icon-badge indigo">
+                  <Printer size={18} weight="bold" />
+                </div>
+              </div>
+
+              <div className="merchant-metric-value-row">
+                <div className="merchant-metric-value">
+                  {isKioskOnline ? (dbData?.metrics?.todayPrints ?? '—') : '—'}
+                </div>
+                <span className="merchant-metric-unit">pages printed</span>
+              </div>
+
+              <div className="merchant-metric-subtext">
+                {isKioskOnline ? (
+                  <><span style={{ fontWeight: 600, color: '#0f172a' }}>{dbData?.metrics?.totalOrdersCount ?? '—'} completed orders</span><span>• live telemetry</span></>
+                ) : (
+                  <span style={{ color: '#94a3b8' }}>Data unavailable while offline</span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginTop: 10, paddingTop: 8, borderTop: '1px solid #f1f5f9', opacity: isKioskOnline ? 1 : 0.18 }}>
+              <span>B&W: <strong>{isKioskOnline && dbData?.metrics?.bwPages ? `${dbData.metrics.bwPages} pgs` : '—'}</strong></span>
+              <span>Color: <strong>{isKioskOnline && dbData?.metrics?.colorPages ? `${dbData.metrics.colorPages} pgs` : '—'}</strong></span>
+            </div>
+          </div>
+
+          {/* Card 3: Machine & Spooler Diagnostic */}
+          <div className="merchant-metric-card hw-offline-card" style={{ position: 'relative', overflow: 'hidden' }}>
+            {!isKioskOnline && <div className="hw-offline-mini-mask"><WifiSlash size={22} weight="bold" color="#ef4444" /><span>Hardware Offline</span></div>}
+            <div style={{ opacity: isKioskOnline ? 1 : 0.18, pointerEvents: isKioskOnline ? 'auto' : 'none' }}>
+              <div className="merchant-metric-header">
+                <span className="merchant-metric-label">{activeKioskId} Terminal Status</span>
+                <div className="merchant-icon-badge violet">
+                  <Monitor size={18} weight="bold" />
+                </div>
+              </div>
+
+              <div className="merchant-metric-value-row">
+                <div className="merchant-metric-value" style={{ fontSize: 20 }}>
+                  {isKioskOnline ? 'Ready & Nominal' : 'Spooler Offline'}
+                </div>
+              </div>
+
+              <div className="merchant-metric-subtext">
+                <span>{kioskInfo.printerModel || kioskInfo.printerName}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, opacity: isKioskOnline ? 1 : 0.18 }}>
+              <button
+                type="button"
+                className="hw-action-btn primary"
+                onClick={handleTestPrint}
+                disabled={testPrintLoading || !isKioskOnline}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                <Printer size={13} weight="bold" />
+                <span>{testPrintLoading ? 'Testing...' : 'Test Print'}</span>
+              </button>
+              <button
+                type="button"
+                className="hw-action-btn"
+                onClick={handleCleanHeads}
+                disabled={cleanHeadsLoading || !isKioskOnline}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                <ArrowsClockwise size={13} weight="bold" />
+                <span>{cleanHeadsLoading ? 'Cleaning...' : 'Clean Heads'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Card 4: Consumables & Stock Levels */}
+          <div className="merchant-metric-card hw-offline-card" style={{ position: 'relative', overflow: 'hidden' }}>
+            {!isKioskOnline && <div className="hw-offline-mini-mask"><WifiSlash size={22} weight="bold" color="#ef4444" /><span>Hardware Offline</span></div>}
+            <div style={{ opacity: isKioskOnline ? 1 : 0.18, pointerEvents: isKioskOnline ? 'auto' : 'none' }}>
+              <div className="merchant-metric-header">
+                <span className="merchant-metric-label">Paper Tray &amp; Ink Tank</span>
+                <div className="merchant-icon-badge amber">
+                  <Package size={18} weight="bold" />
+                </div>
+              </div>
+
+              <div style={{ margin: '8px 0 4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, color: '#0f172a' }}>
+                  <span>Paper Tray 1 (A4)</span>
+                  <span style={{ color: !isKioskOnline ? '#94a3b8' : kioskInfo.paperLevel < 30 ? '#dc2626' : '#059669' }}>
+                    {isKioskOnline ? `${kioskInfo.paperLevel}% (~${Math.round((kioskInfo.paperLevel / 100) * 500)} sheets)` : 'Unavailable'}
+                  </span>
+                </div>
+                <div className="capacity-bar-track">
+                  <div
+                    className={`capacity-bar-fill ${isKioskOnline ? (kioskInfo.paperLevel < 30 ? 'red' : 'emerald') : 'slate'}`}
+                    style={{ width: isKioskOnline ? `${kioskInfo.paperLevel}%` : '0%' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ margin: '8px 0 4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, color: '#0f172a' }}>
+                  <span>Continuous CISS Ink</span>
+                  <span style={{ color: isKioskOnline ? '#059669' : '#94a3b8' }}>
+                    {isKioskOnline ? `${kioskInfo.tonerLevel}% nominal` : 'Unavailable'}
+                  </span>
+                </div>
+                <div className="capacity-bar-track">
+                  <div
+                    className="capacity-bar-fill emerald"
+                    style={{ width: isKioskOnline ? `${kioskInfo.tonerLevel}%` : '0%' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="hw-action-btn"
+              onClick={handleRefill}
+              disabled={refillRequested || !isKioskOnline}
+              style={{ width: '100%', justifyContent: 'center', marginTop: 8, opacity: isKioskOnline ? 1 : 0.4 }}
+            >
+              <Package size={14} weight="bold" />
+              <span>{refillRequested ? 'Refill Dispatched ✓' : 'Request Paper Stock'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ─── Two-Column Interactive Grid ─── */}
+        <div className="merchant-interactive-grid">
+          {/* Left Column: Hourly Print Demand & Footfall Revenue Chart */}
+          <div className="merchant-content-card">
+            <div className="card-title-row">
+              <div>
+                <h3 className="card-title-heading">
+                  <TrendUp size={18} color="#059669" weight="bold" />
+                  <span>Daily Store Earnings &amp; Print Footfall</span>
+                </h3>
+                <p className="card-title-sub">
+                  Hourly revenue credited directly to your store account with 0% platform deductions
+                </p>
+              </div>
+
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: '#059669',
+                  background: '#ecfdf5',
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  border: '1px solid #a7f3d0',
+                }}
+              >
+                100% Host Revenue
+              </span>
+            </div>
+
+            {/* Recharts Area Chart */}
+            <div style={{ height: 260, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={hourlyChartData} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
+                  <defs>
+                    <linearGradient id="merchRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#059669" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#059669" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="time"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                    tickFormatter={(val) => `₹${val}`}
+                    width={45}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                      fontSize: 12,
+                      color: '#0f172a',
+                    }}
+                    formatter={(val: any) => [`₹${val}.00`, 'Store Revenue']}
+                  />
+                  <Area
+                    dataKey="earnings"
+                    stroke="#059669"
+                    strokeWidth={2.5}
+                    fill="url(#merchRevenueGrad)"
+                    type="monotone"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Peak Hours Annotation Strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Peak Campus Rush</span>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>12:00 PM – 2:00 PM</div>
+                <span style={{ fontSize: 11, color: '#059669' }}>45 pages printed</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Evening Study Rush</span>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>6:00 PM – 8:00 PM</div>
+                <span style={{ fontSize: 11, color: '#059669' }}>90 pages printed</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Avg Job Speed</span>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>4.8 sec / page</div>
+                <span style={{ fontSize: 11, color: '#059669' }}>Zero queue delays</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Hardware Command Deck & Consumables — full offline overlay */}
+          <div className="merchant-content-card" style={{ position: 'relative', overflow: 'hidden' }}>
+            {/* ── Offline Full Overlay with Mascot Animation ── */}
+            {!isKioskOnline && (
+              <div className="hw-full-offline-overlay">
+                {/* Animated SVG Printer Mascot */}
+                <div className="hw-offline-mascot">
+                  <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="hw-offline-mascot-svg">
+                    {/* Printer body */}
+                    <rect x="15" y="45" width="90" height="45" rx="8" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2"/>
+                    {/* Paper slot */}
+                    <rect x="35" y="62" width="50" height="6" rx="3" fill="#e2e8f0"/>
+                    {/* Paper coming out — animated */}
+                    <rect x="38" y="55" width="44" height="12" rx="2" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1.5" className="hw-mascot-paper"/>
+                    {/* Screen/LED on printer */}
+                    <rect x="22" y="52" width="16" height="8" rx="2" fill="#fecaca"/>
+                    <circle cx="30" cy="56" r="3" fill="#ef4444" className="hw-mascot-blink"/>
+                    {/* Paper tray below */}
+                    <rect x="25" y="88" width="70" height="8" rx="4" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5"/>
+                    {/* X marks on top */}
+                    <line x1="52" y1="30" x2="60" y2="38" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round"/>
+                    <line x1="60" y1="30" x2="52" y2="38" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round"/>
+                    {/* Wifi slash icon */}
+                    <circle cx="85" cy="22" r="14" fill="#fef2f2" stroke="#fecaca" strokeWidth="1.5"/>
+                    <line x1="77" y1="14" x2="93" y2="30" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M79 20 Q85 15 91 20" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                    <path d="M81 23 Q85 19 89 23" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                    <circle cx="85" cy="26" r="1.5" fill="#ef4444"/>
+                  </svg>
+                </div>
+                <div className="hw-offline-msg">
+                  <span className="hw-offline-title">
+                    <Warning size={16} weight="fill" color="#ef4444" />
+                    Printer Offline
+                  </span>
+                  <span className="hw-offline-sub">Hardware telemetry unavailable. Ink levels, spooler status, and diagnostics will resume when the kiosk reconnects.</span>
+                </div>
+                <div className="hw-offline-reconnect-pill">
+                  <span className="hw-offline-reconnect-dot" />
+                  Awaiting connection to {activeKioskId}…
+                </div>
+              </div>
+            )}
+            {/* Content (blurred when offline) */}
+            <div style={{ filter: isKioskOnline ? 'none' : 'blur(3px)', opacity: isKioskOnline ? 1 : 0.15, pointerEvents: isKioskOnline ? 'auto' : 'none', transition: 'filter 0.3s ease, opacity 0.3s ease' }}>
+            <div className="card-title-row">
+              <div>
+                <h3 className="card-title-heading">
+                  <Printer size={18} color="#2563eb" weight="bold" />
+                  <span>Hardware &amp; Wireless Hub</span>
+                </h3>
+                <p className="card-title-sub">Real-time terminal probe &amp; ink telemetry</p>
+              </div>
+
+              <span className="badge badge-online">CUPS IPP Active</span>
+            </div>
+
+            {/* Ink Reservoir Gauges */}
+            <div>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>
+                Continuous Ink Tank System (CISS)
+              </span>
+              <div className="ink-cmyk-row" style={{ marginTop: 6 }}>
+                <div className="ink-cmyk-item">
+                  <div className="ink-dot k" />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>Black</span>
+                  <span style={{ fontSize: 11, color: '#059669' }}>95%</span>
+                </div>
+                <div className="ink-cmyk-item">
+                  <div className="ink-dot c" />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>Cyan</span>
+                  <span style={{ fontSize: 11, color: '#059669' }}>90%</span>
+                </div>
+                <div className="ink-cmyk-item">
+                  <div className="ink-dot m" />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>Magenta</span>
+                  <span style={{ fontSize: 11, color: '#059669' }}>88%</span>
+                </div>
+                <div className="ink-cmyk-item">
+                  <div className="ink-dot y" />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>Yellow</span>
+                  <span style={{ fontSize: 11, color: '#059669' }}>94%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Telemetry Key-Value Table */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+                <span style={{ color: '#64748b' }}>Assigned Station</span>
+                <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'var(--font-mono, monospace)' }}>{activeKioskId}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+                <span style={{ color: '#64748b' }}>Printer Driver</span>
+                <span style={{ fontWeight: 600, color: '#0f172a' }}>HP PCL-3 V4 Spooler</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+                <span style={{ color: '#64748b' }}>Wi-Fi Connection</span>
+                <span style={{ fontWeight: 600, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <WifiHigh size={14} weight="bold" />
+                  <span>MIT-Campus-IoT-5G (92%)</span>
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Spooler Latency</span>
+                <span style={{ fontWeight: 600, color: '#0f172a' }}>14 ms (Real-time PnP)</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <a href={`/merchant/kiosks?kioskId=${activeKioskId}`} style={{ flex: 1, textDecoration: 'none' }}>
+                <button type="button" className="hw-action-btn" style={{ width: '100%', justifyContent: 'center' }}>
+                  <Monitor size={14} weight="bold" />
+                  <span>Station Diagnostics</span>
+                </button>
+              </a>
+              <a href="/merchant/earnings" style={{ flex: 1, textDecoration: 'none' }}>
+                <button type="button" className="hw-action-btn primary" style={{ width: '100%', justifyContent: 'center' }}>
+                  <CurrencyInr size={14} weight="bold" />
+                  <span>Payout Ledger</span>
+                </button>
+              </a>
+            </div>
+            </div>{/* end blur wrapper */}
+          </div>
+        </div>
+
+        {/* ─── Recent Store Orders Live Ledger ─── */}
+        <div className="merchant-content-card">
+          <div className="card-title-row">
+            <div>
+              <h3 className="card-title-heading">
+                <FileText size={18} color="#059669" weight="bold" />
+                <span>Recent Store Print Orders</span>
+              </h3>
+              <p className="card-title-sub">
+                Live stream of customer documents printed at Station {activeKioskId}
+              </p>
+            </div>
+
+            <a href="/merchant/orders" style={{ textDecoration: 'none' }}>
+              <button type="button" className="hw-action-btn">
+                <span>View Full Store Orders Ledger</span>
+                <ArrowUpRight size={13} weight="bold" />
+              </button>
+            </a>
+          </div>
+
+          <div className="orders-table-wrapper">
+            <table className="merchant-data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 140 }}>Order ID</th>
+                  <th>Document &amp; File Name</th>
+                  <th style={{ width: 160 }}>Print Format</th>
+                  <th style={{ width: 110 }}>Pages</th>
+                  <th style={{ width: 120 }}>Gross Total</th>
+                  <th style={{ width: 160 }}>Your Store Cut</th>
+                  <th style={{ textAlign: 'right', width: 130 }}>Time &amp; Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentStoreOrders.map((order: any) => {
+                  const id = order.id || order.orderNumber
+                  const fileName = order.file || order.fileName || 'document.pdf'
+                  const format = order.format || 'B&W Single Sided'
+                  const pages = order.pages || order.totalPages || 1
+                  const copies = order.copies || 1
+                  const total = order.total || order.grossTotal || `₹${order.amount || 20}`
+                  const cut = order.merchantCut || order.storeRevenue || total
+                  const timeStr = order.time || (order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent')
+
+                  return (
+                    <tr key={id}>
+                      <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, color: '#0f172a' }}>
+                        <span
+                          className="merchant-copyable-target"
+                          onClick={() => handleCopyText(id, id)}
+                          title="Click to copy Order ID"
+                        >
+                          {id}
+                          <Copy size={11} className="copy-hint-icon" />
+                          {copiedId === id && <span className="merchant-copy-bubble">Copied ✓</span>}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <FileText size={16} color="#059669" weight="duotone" />
+                          <span style={{ fontWeight: 600, color: '#0f172a' }}>{fileName}</span>
+                        </div>
+                      </td>
+
+                      <td>
+                        <span
+                          className={`badge ${format.includes('Color') ? 'badge-accent' : 'badge-secondary'}`}
+                          style={{ fontSize: 11 }}
+                        >
+                          {format}
+                        </span>
+                      </td>
+
+                      <td style={{ color: '#475569', fontWeight: 600 }}>
+                        {pages} {pages === 1 ? 'page' : 'pages'} {copies > 1 ? `(${copies}x)` : ''}
+                      </td>
+
+                      <td style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'var(--font-mono, monospace)' }}>
+                        {total}
+                      </td>
+
+                      <td>
+                        <span style={{ fontWeight: 800, color: '#059669', fontFamily: 'var(--font-mono, monospace)' }}>
+                          +{cut}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>(100%)</span>
+                      </td>
+
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                          <span className="badge badge-online">
+                            <CheckCircle size={12} weight="fill" />
+                            <span>COMPLETED</span>
+                          </span>
+                          <span style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Clock size={11} />
+                            <span>{timeStr}</span>
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Skeleton>
+  )
+}

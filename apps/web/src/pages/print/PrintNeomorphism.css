@@ -1,0 +1,1045 @@
+/* ================================================================
+   PRINTBOOTH — LUXURY SOFT UI / NEOMORPHISM SYSTEM FOR /print
+   Based on exact tactile reference palette:
+   --bg: #e0e5ec; --light-shadow: #ffffff; --dark-shadow: #a3b1c6;
+   Layered physical depth, high-curvature bezels, sunken sockets,
+   extruded control buttons, tactile dials, and vivid red accents.
+   ================================================================ */
+
+:root {
+  /* Exact Reference Color Palette */
+  --bg: #e0e5ec;
+  --light-shadow: #ffffff;
+  --dark-shadow: #a3b1c6;
+  --dark-shadow-deep: #8f9fb6;
+  --accent: #dc2626;
+  --accent-light: #ef4444;
+  --accent-dark: #b91c1c;
+
+  /* Neomorphic Shadow Stacks */
+  --neo-slab: 14px 14px 28px var(--dark-shadow), -14px -14px 28px var(--light-shadow);
+  --neo-card: 7px 7px 16px var(--dark-shadow), -7px -7px 16px var(--light-shadow);
+  --neo-card-hover: 10px 10px 22px var(--dark-shadow-deep), -10px -10px 22px var(--light-shadow);
+  --neo-button: 5px 5px 12px var(--dark-shadow), -5px -5px 12px var(--light-shadow);
+  --neo-button-hover: 7px 7px 16px var(--dark-shadow-deep), -7px -7px 16px var(--light-shadow);
+  --neo-active: inset 4px 4px 8px var(--dark-shadow), inset -4px -4px 8px var(--light-shadow);
+  --neo-inset: inset 4px 4px 8px var(--dark-shadow), inset -4px -4px 8px var(--light-shadow);
+  --neo-inset-sm: inset 2.5px 2.5px 5px var(--dark-shadow), inset -2.5px -2.5px 5px var(--light-shadow);
+  --neo-inset-deep: inset 6px 6px 14px var(--dark-shadow), inset -6px -6px 14px var(--light-shadow);
+  --neo-pill: 5px 5px 12px var(--dark-shadow), -5px -5px 12px var(--light-shadow);
+  --neo-red-glow: 0 0 12px rgba(220, 38, 38, 0.45);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   1. CANVAS, BODY & LAYOUT FOUNDATION
+   ═══════════════════════════════════════════════════════════════ */
+
+body:has(.print-layout),
+body:has(#print-top-back) {
+  background-color: var(--bg) !important;
+}
+
+.print-layout {
+  background-color: var(--bg) !important;
+  color: #1e293b !important;
+  position: relative !important;
+}
+
+/* Remove any background gradients / patches */
+.print-layout::before {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   2. FLOATING TOP-LEFT BACK BUTTON
+   ═══════════════════════════════════════════════════════════════ */
+
+.print-top-back-btn {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow: var(--neo-button) !important;
+  color: #1e293b !important;
+  border-radius: 10px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.print-top-back-btn:hover {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-button-hover) !important;
+  color: var(--accent) !important;
+  border-color: rgba(255, 255, 255, 0.95) !important;
+  transform: translateX(-2px) !important;
+}
+
+.print-top-back-btn:active {
+  box-shadow: var(--neo-inset) !important;
+  transform: translateX(0) scale(0.97) !important;
+}
+
+.print-top-back-icon {
+  color: var(--accent) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3. FLOATING COMPACT OVAL FROSTED/NEUMORPHIC HEADER
+   ═══════════════════════════════════════════════════════════════ */
+
+.print-header__inner {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--neo-pill) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.print-header__inner:hover {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-card-hover) !important;
+}
+
+/* Breadcrumb Icons */
+.breadcrumb-icon-btn {
+  border-radius: 8px !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.breadcrumb-icon-btn--done {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  color: #475569 !important;
+}
+
+.breadcrumb-icon-btn--done:hover {
+  color: var(--accent) !important;
+  box-shadow: 4px 4px 9px var(--dark-shadow-deep), -4px -4px 9px var(--light-shadow) !important;
+  transform: scale(1.06) !important;
+}
+
+.breadcrumb-icon-btn--done:active {
+  box-shadow: var(--neo-inset-sm) !important;
+  transform: scale(0.96) !important;
+}
+
+.breadcrumb-icon-btn--active {
+  background: linear-gradient(145deg, #ef4444, #dc2626) !important;
+  border: 1px solid rgba(220, 38, 38, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: 3px 3px 8px rgba(220, 38, 38, 0.45), -2px -2px 6px var(--light-shadow) !important;
+  transform: scale(1.05) !important;
+}
+
+.breadcrumb-icon-btn--disabled {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  color: #94a3b8 !important;
+  opacity: 0.6 !important;
+}
+
+.breadcrumb-mini-sep {
+  color: #8da0b8 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4. EYEBROWS & STATUS PILLS (TACTILE GROOVES WITH LED)
+   ═══════════════════════════════════════════════════════════════ */
+
+.mfp-eyebrow,
+.cfp-eyebrow,
+.kiosk-eyebrow,
+.rv-eyebrow,
+.success-eyebrow,
+.clean-eyebrow {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  color: var(--accent) !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  border-radius: 6px !important;
+  padding: 5px 14px !important;
+}
+
+.mfp-eyebrow-dot,
+.cfp-eyebrow-dot,
+.kiosk-eyebrow-dot,
+.rv-eyebrow-dot,
+.success-eyebrow-dot {
+  background: var(--accent) !important;
+  box-shadow: 0 0 8px var(--accent) !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+}
+
+/* Headings */
+.mfp-title,
+.cfp-title,
+.clean-title,
+.rv-title,
+.kiosk-title {
+  color: #0f172a !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.035em !important;
+}
+
+.mfp-subtitle,
+.cfp-subtitle,
+.clean-subtitle,
+.rv-subtitle,
+.kiosk-subtitle {
+  color: #5a6b82 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5. PRINTER HARDWARE STATUS PILLS & CARDS
+   ═══════════════════════════════════════════════════════════════ */
+
+.mfp-printer-pill,
+.kiosk-station-pill,
+.cfp-status-chip,
+.cfp-counter-chip {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-button) !important;
+  color: #1e293b !important;
+  border-radius: 6px !important;
+}
+
+.mfp-printer-pill.online {
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.mfp-printer-pill-dot.online,
+.kiosk-station-dot,
+.cfp-status-dot {
+  background: #16a34a !important;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6) !important;
+}
+
+.mfp-pill-recheck-btn {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  color: #334155 !important;
+  border-radius: 6px !important;
+}
+
+.mfp-pill-recheck-btn:hover:not(:disabled) {
+  box-shadow: var(--neo-inset-sm) !important;
+  color: var(--accent) !important;
+}
+
+/* Ready banner */
+.mfp-ready-banner {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow: var(--neo-card) !important;
+  border-radius: 20px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6. STEP 1: MULTI-FILE UPLOAD (DROPZONE & FILE CARDS)
+   ═══════════════════════════════════════════════════════════════ */
+
+.mfp-dropzone-shell {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 28px !important;
+  box-shadow: var(--neo-slab) !important;
+  padding: 12px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.mfp-dropzone {
+  background: var(--bg) !important;
+  border: 2px dashed rgba(163, 177, 198, 0.65) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--neo-inset) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.mfp-dropzone:hover,
+.mfp-dropzone.drag-over {
+  border-color: var(--accent) !important;
+  box-shadow: var(--neo-inset), 0 0 16px rgba(220, 38, 38, 0.15) !important;
+}
+
+.mfp-dropzone-icon-wrap {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 22px !important;
+  box-shadow: 6px 6px 14px var(--dark-shadow), -6px -6px 14px var(--light-shadow) !important;
+  color: var(--accent) !important;
+}
+
+.mfp-browse-cta {
+  background: var(--bg) !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: var(--neo-button) !important;
+  font-weight: 750 !important;
+}
+
+.mfp-browse-cta:hover {
+  background: linear-gradient(145deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+  border-color: rgba(220, 38, 38, 0.5) !important;
+  box-shadow: 6px 6px 16px rgba(220, 38, 38, 0.4), -4px -4px 10px var(--light-shadow) !important;
+}
+
+.mfp-format-tag {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: #5a6b82 !important;
+  border-radius: 6px !important;
+}
+
+.mfp-format-tag.pdf {
+  color: var(--accent) !important;
+}
+
+/* File list cards */
+.mfp-file-card {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--neo-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.mfp-file-card:hover {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-card-hover) !important;
+  border-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.mfp-file-card.active {
+  box-shadow: var(--neo-inset) !important;
+  border-color: var(--accent) !important;
+}
+
+.mfp-file-thumb {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 10px !important;
+}
+
+.mfp-file-remove-btn {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  color: var(--accent) !important;
+  border-radius: 50% !important;
+}
+
+.mfp-file-remove-btn:hover {
+  box-shadow: var(--neo-inset-sm) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   7. STEP 2: CONFIRM PAGE (GALLERY SLAB, THUMBS, SPECS)
+   ═══════════════════════════════════════════════════════════════ */
+
+.cfp-gallery-shell {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 28px !important;
+  box-shadow: var(--neo-slab) !important;
+  padding: 10px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.cfp-gallery-stage {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border: 1px solid rgba(163, 177, 198, 0.4) !important;
+  border-radius: 20px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Sheets preview on extruded pedestal */
+.cfp-sheet-card {
+  box-shadow: 10px 10px 24px var(--dark-shadow), -6px -6px 14px var(--light-shadow) !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+.cfp-sheet-card-wrap:hover .cfp-sheet-card {
+  box-shadow: 14px 14px 30px var(--dark-shadow-deep), -8px -8px 18px var(--light-shadow), 0 0 0 1.5px var(--accent) !important;
+}
+
+.cfp-sheet-meta-tag,
+.cfp-hint-text {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  color: #475569 !important;
+  border-radius: 6px !important;
+}
+
+/* Navigation arrows */
+.cfp-nav-btn {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: var(--neo-button) !important;
+  color: #1e293b !important;
+  border-radius: 50% !important;
+}
+
+.cfp-nav-btn:hover {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-button-hover) !important;
+  color: var(--accent) !important;
+  border-color: rgba(220, 38, 38, 0.4) !important;
+  transform: scale(1.08) !important;
+}
+
+.cfp-nav-btn:active {
+  box-shadow: var(--neo-inset) !important;
+  transform: scale(0.96) !important;
+}
+
+/* Tabs */
+.cfp-tab {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-button) !important;
+  color: #334155 !important;
+  border-radius: 12px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.cfp-tab:hover {
+  box-shadow: var(--neo-button-hover) !important;
+  border-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.cfp-tab.active {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border-color: var(--accent) !important;
+  color: #0f172a !important;
+}
+
+.cfp-tab.active .cfp-tab-title {
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+}
+
+.cfp-tab-badge {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: #5a6b82 !important;
+}
+
+.cfp-tab-add {
+  background: var(--bg) !important;
+  border: 1.5px dashed rgba(163, 177, 198, 0.7) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  color: #5a6b82 !important;
+  border-radius: 12px !important;
+}
+
+.cfp-tab-add:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+/* View Mode Switcher Pills */
+.cfp-view-mode-tabs {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 8px !important;
+}
+
+.cfp-view-mode-btn.active {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  color: var(--accent) !important;
+}
+
+.cfp-inspect-btn {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  color: var(--accent) !important;
+}
+
+.cfp-inspect-btn:hover {
+  box-shadow: var(--neo-inset-sm) !important;
+}
+
+/* Thumbnails strip */
+.cfp-thumb-btn {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 3px 3px 7px var(--dark-shadow), -3px -3px 7px var(--light-shadow) !important;
+  border-radius: 8px !important;
+}
+
+.cfp-thumb-btn.active {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border-color: var(--accent) !important;
+}
+
+/* Specs cards */
+.cfp-spec-card {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-card) !important;
+  border-radius: 16px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.cfp-spec-card:hover {
+  box-shadow: var(--neo-card-hover) !important;
+}
+
+.cfp-spec-label {
+  color: #64748b !important;
+  font-weight: 750 !important;
+}
+
+.cfp-spec-value {
+  color: #0f172a !important;
+  font-weight: 750 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   8. STEP 3: SETTINGS PAGE (CAROUSEL CARDS & CONTROLS)
+   ═══════════════════════════════════════════════════════════════ */
+
+.clean-specs-ribbon {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 16px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.specs-ribbon-label {
+  color: #64748b !important;
+  font-weight: 750 !important;
+}
+
+.specs-ribbon-val {
+  color: #0f172a !important;
+  font-weight: 750 !important;
+}
+
+.specs-ribbon-sep {
+  background: rgba(163, 177, 198, 0.4) !important;
+}
+
+/* Multi-file tabs */
+.mfs-file-tab {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-button) !important;
+  color: #334155 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.mfs-file-tab:hover {
+  box-shadow: var(--neo-button-hover) !important;
+}
+
+.mfs-file-tab.active {
+  box-shadow: var(--neo-inset) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.mfs-file-tab-num {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  color: #5a6b82 !important;
+}
+
+.mfs-file-tab.active .mfs-file-tab-num {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.5) !important;
+}
+
+/* Minimal Carousel: Stack container glow removal */
+.carousel-cards-stack::before {
+  display: none !important;
+}
+
+/* Active Expanded Settings Card */
+.expanded-card {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 26px !important;
+  box-shadow: var(--neo-slab) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.card-top-icon-wrap {
+  background: var(--bg) !important;
+  box-shadow: 4px 4px 10px var(--dark-shadow), -4px -4px 10px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  color: var(--accent) !important;
+  border-radius: 8px !important;
+}
+
+.card-main-title {
+  color: #0f172a !important;
+  font-weight: 850 !important;
+}
+
+.card-sub-value {
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+}
+
+/* Secondary (Collapsed) Grid Cards */
+.secondary-card {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--neo-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.secondary-card:hover {
+  background: var(--bg) !important;
+  border-color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: var(--neo-card-hover) !important;
+  transform: translateY(-2px) !important;
+}
+
+.secondary-card-icon-wrap {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 7px var(--dark-shadow), -3px -3px 7px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  color: var(--accent) !important;
+}
+
+/* RubberSegment Controls */
+.rubber-segment {
+  --rs-track: var(--bg) !important;
+  --rs-thumb: linear-gradient(145deg, #ef4444, #dc2626) !important;
+  --rs-ink: #5a6b82 !important;
+  --rs-ink-active: #ffffff !important;
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+}
+
+.rubber-segment__thumb {
+  background: linear-gradient(145deg, #ef4444, #dc2626) !important;
+  box-shadow: 3px 3px 8px rgba(220, 38, 38, 0.4), -2px -2px 6px var(--light-shadow) !important;
+  border: none !important;
+}
+
+.rubber-segment__item[aria-checked='true'] {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+.rubber-segment__item[aria-checked='false'] {
+  color: #5a6b82 !important;
+  font-weight: 600 !important;
+}
+
+/* CustomCopiesControl */
+.ccc-mode-tabs {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+.ccc-mode-tab.active {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow) !important;
+  color: var(--accent) !important;
+}
+
+.ccc-btn-circle {
+  background: var(--bg) !important;
+  box-shadow: 4px 4px 8px var(--dark-shadow), -4px -4px 8px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  color: #1e293b !important;
+}
+
+.ccc-btn-circle:hover {
+  color: var(--accent) !important;
+  box-shadow: 5px 5px 12px var(--dark-shadow-deep), -5px -5px 12px var(--light-shadow) !important;
+}
+
+.ccc-btn-circle:active {
+  box-shadow: var(--neo-inset) !important;
+}
+
+.ccc-count-display {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border: 1px solid rgba(163, 177, 198, 0.4) !important;
+  color: #0f172a !important;
+  font-weight: 850 !important;
+}
+
+/* CustomPagesSlider */
+.cps-quick-btn {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 7px var(--dark-shadow), -3px -3px 7px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  color: #475569 !important;
+}
+
+.cps-quick-btn.active {
+  box-shadow: var(--neo-inset-sm) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+.cps-track {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+}
+
+.cps-range-highlight {
+  background: linear-gradient(90deg, #ef4444, #dc2626) !important;
+}
+
+.cps-thumb {
+  background: var(--bg) !important;
+  box-shadow: 3px 3px 8px var(--dark-shadow), -3px -3px 8px var(--light-shadow) !important;
+  border: 2px solid var(--accent) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   9. BOTTOM FLOATING ACTION BARS & CTA BUTTONS
+   ═══════════════════════════════════════════════════════════════ */
+
+.clean-action-bar,
+.cfp-action-bar,
+.mfp-action-bar,
+.rv-bottom-bar {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 10px 10px 26px var(--dark-shadow), -10px -10px 26px var(--light-shadow) !important;
+  border-radius: 14px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Standout price in bottom dock */
+.price-pill-label,
+.mfp-action-label {
+  color: #64748b !important;
+  font-weight: 800 !important;
+}
+
+.price-pill-breakdown {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: var(--accent) !important;
+}
+
+.price-currency-symbol,
+.mfp-action-count {
+  color: var(--accent) !important;
+  text-shadow: none !important;
+}
+
+.price-pill-amount {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+/* Primary Extruded Red Rectangle Button with Little Rounded Corners */
+.clean-continue-btn,
+.cfp-proceed-btn,
+.mfp-continue-btn,
+.rv-proceed-btn,
+.kiosk-pay-cta {
+  background: linear-gradient(145deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+  box-shadow: 6px 6px 14px rgba(220, 38, 38, 0.4), -4px -4px 10px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 10px !important;
+  font-weight: 800 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.clean-continue-btn:hover,
+.cfp-proceed-btn:hover,
+.mfp-continue-btn:hover,
+.rv-proceed-btn:hover,
+.kiosk-pay-cta:hover:not(:disabled) {
+  box-shadow: 8px 8px 20px rgba(220, 38, 38, 0.5), -5px -5px 14px var(--light-shadow) !important;
+  transform: translateY(-2px) !important;
+}
+
+.clean-continue-btn:active,
+.cfp-proceed-btn:active,
+.mfp-continue-btn:active,
+.rv-proceed-btn:active,
+.kiosk-pay-cta:active:not(:disabled) {
+  box-shadow: inset 4px 4px 8px rgba(153, 27, 27, 0.65), inset -4px -4px 8px rgba(248, 113, 113, 0.4) !important;
+  transform: translateY(0) scale(0.98) !important;
+}
+
+/* Secondary Back / Clear Buttons */
+.cfp-back-btn,
+.rv-back-btn,
+.mfp-clear-all-btn {
+  background: var(--bg) !important;
+  color: #1e293b !important;
+  box-shadow: var(--neo-button) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 10px !important;
+}
+
+.cfp-back-btn:hover,
+.rv-back-btn:hover,
+.mfp-clear-all-btn:hover {
+  box-shadow: var(--neo-button-hover) !important;
+  color: var(--accent) !important;
+}
+
+.cfp-back-btn:active,
+.rv-back-btn:active,
+.mfp-clear-all-btn:active {
+  box-shadow: var(--neo-inset) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   10. STEP 4: REVIEW PAGE (TWIN SLABS & SPEC CARDS)
+   ═══════════════════════════════════════════════════════════════ */
+
+.rv-gallery-shell,
+.rv-summary-shell {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 28px !important;
+  box-shadow: var(--neo-slab) !important;
+  padding: 10px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.rv-gallery-col,
+.rv-summary-col {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border: 1px solid rgba(163, 177, 198, 0.4) !important;
+  border-radius: 20px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.rv-file-tab {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-button) !important;
+  color: #334155 !important;
+  border-radius: 10px !important;
+}
+
+.rv-file-tab.active {
+  box-shadow: var(--neo-inset) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.rv-card {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 16px !important;
+}
+
+.rv-row {
+  border-bottom: 1px solid rgba(163, 177, 198, 0.35) !important;
+}
+
+.rv-row__icon {
+  color: var(--accent) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   11. STEP 5: PAYMENT PAGE (HARDWARE TERMINAL & READOUT)
+   ═══════════════════════════════════════════════════════════════ */
+
+.kiosk-card-shell {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 30px !important;
+  box-shadow: var(--neo-slab) !important;
+  padding: 10px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.kiosk-card {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border: 1px solid rgba(163, 177, 198, 0.4) !important;
+  border-radius: 22px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Inset digital readout */
+.kiosk-amount-hero {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-deep) !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+  border-radius: 20px !important;
+  padding: 16px 20px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.kiosk-amount-label {
+  color: #64748b !important;
+  font-weight: 800 !important;
+}
+
+.kiosk-amount-value {
+  color: #0f172a !important;
+  font-weight: 900 !important;
+}
+
+.kiosk-currency {
+  color: var(--accent) !important;
+}
+
+.kiosk-specs-strip {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-card) !important;
+  border-radius: 16px !important;
+}
+
+.kiosk-spec-divider {
+  background: rgba(163, 177, 198, 0.4) !important;
+}
+
+.kiosk-method-chip,
+.kiosk-timer-pill {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: #5a6b82 !important;
+  border-radius: 6px !important;
+}
+
+.kiosk-privacy-pill {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: #0f766e !important;
+  border-radius: 6px !important;
+}
+
+.kiosk-pay-cta.upi {
+  background: linear-gradient(145deg, #1e293b, #0f172a) !important;
+  box-shadow: 6px 6px 16px var(--dark-shadow), -4px -4px 10px var(--light-shadow) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   12. STEP 6: STATUS & SUCCESS PAGES
+   ═══════════════════════════════════════════════════════════════ */
+
+.mono-stage {
+  background: var(--bg) !important;
+}
+
+.mono-tray {
+  background: var(--bg) !important;
+  box-shadow: 12px 12px 28px var(--dark-shadow), -12px -12px 28px var(--light-shadow) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Success medallion */
+.success-icon-shell {
+  background: var(--bg) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: var(--neo-slab) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.success-icon-core {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-deep) !important;
+  border: 1px solid rgba(163, 177, 198, 0.4) !important;
+  color: #16a34a !important;
+}
+
+/* Success redirect badge - replace blue with brand red */
+.success-redirect-badge {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset-sm) !important;
+  border: 1px solid rgba(220, 38, 38, 0.25) !important;
+  color: var(--accent) !important;
+  border-radius: 6px !important;
+}
+
+.success-redirect-dot {
+  background: var(--accent) !important;
+  box-shadow: 0 0 8px var(--accent) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   13. SELECT KIOSK PAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+.kiosk-search-shell {
+  background: var(--bg) !important;
+  box-shadow: var(--neo-inset) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 10px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.kiosk-search__input {
+  background: transparent !important;
+  color: #0f172a !important;
+}
+
+.kiosk-card-item {
+  background: var(--bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: var(--neo-card) !important;
+  border-radius: 18px !important;
+}
+
+.kiosk-card-item:hover {
+  box-shadow: var(--neo-card-hover) !important;
+}
+
+.kiosk-card-item.selected {
+  box-shadow: var(--neo-inset) !important;
+  border-color: var(--accent) !important;
+}

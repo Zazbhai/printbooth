@@ -1,0 +1,604 @@
+.print-layout {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--clr-bg-900, #e0e5ec);
+  position: relative;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+.print-layout::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(239, 68, 68, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 15% 85%, rgba(59, 130, 246, 0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 35% at 85% 65%, rgba(220, 38, 38, 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(248, 250, 252, 0.9) 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Floating Top-Left Back Button with High Visibility
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Automatically hide navigation and buttons when printer is offline */
+body.printer-offline-active .print-header,
+body.printer-offline-active .print-top-back-btn,
+body.printer-offline-active .print-top-recent-btn,
+body.printer-offline-active header.print-header,
+body.printer-offline-active #print-top-back,
+body.printer-offline-active #header-recent-prints-btn {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.print-top-back-btn {
+  position: fixed;
+  top: 16px;
+  left: 24px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px 0 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(28px) saturate(200%) contrast(102%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) contrast(102%);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  user-select: none;
+  box-shadow:
+    0 10px 28px -4px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1.5px 2px rgba(255, 255, 255, 1);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.print-top-back-btn:hover {
+  background: #ffffff;
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.35);
+  transform: translateX(-3px);
+  box-shadow:
+    0 14px 32px -4px rgba(220, 38, 38, 0.2),
+    0 4px 12px rgba(220, 38, 38, 0.1),
+    inset 0 1.5px 2px #ffffff;
+}
+
+.print-top-back-btn:active {
+  transform: translateX(-1px) scale(0.98);
+}
+
+.print-top-back-icon {
+  color: #dc2626;
+  transition: transform 0.2s ease;
+}
+
+.print-top-back-btn:hover .print-top-back-icon {
+  transform: translateX(-2px);
+}
+
+@media (max-width: 640px) {
+  .print-top-back-btn {
+    top: 12px;
+    left: 12px;
+    height: 38px;
+    padding: 0 12px 0 10px;
+    font-size: 12px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 520px) {
+  .print-top-back-btn {
+    top: 10px;
+    left: 10px;
+    width: 38px;
+    height: 38px;
+    padding: 0 !important;
+    justify-content: center;
+    border-radius: 8px !important;
+  }
+  .print-top-back-text {
+    display: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Floating Top-Right Recent Prints Button (Independent Island)
+   ═══════════════════════════════════════════════════════════════ */
+
+.print-top-recent-btn {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px 0 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(28px) saturate(200%) contrast(102%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) contrast(102%);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  user-select: none;
+  box-shadow:
+    0 10px 28px -4px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1.5px 2px rgba(255, 255, 255, 1);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.print-top-recent-btn:hover {
+  background: #ffffff;
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.35);
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 32px -4px rgba(220, 38, 38, 0.2),
+    0 4px 12px rgba(220, 38, 38, 0.1),
+    inset 0 1.5px 2px #ffffff;
+}
+
+.print-top-recent-btn:active {
+  transform: scale(0.98);
+}
+
+.print-top-recent-icon {
+  color: #dc2626;
+  transition: transform 0.24s ease;
+}
+
+.print-top-recent-btn:hover .print-top-recent-icon {
+  transform: rotate(-25deg);
+}
+
+.print-top-recent-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.7);
+  animation: rcp-pulse 2s infinite;
+}
+
+@keyframes rcp-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.7);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 14px rgba(220, 38, 38, 0.95);
+  }
+}
+
+@media (max-width: 640px) {
+  .print-top-recent-btn {
+    top: 12px;
+    right: 12px;
+    height: 38px;
+    padding: 0 12px 0 10px;
+    font-size: 12px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 520px) {
+  .print-top-recent-btn {
+    top: 10px;
+    right: 10px;
+    width: 38px;
+    height: 38px;
+    padding: 0 !important;
+    justify-content: center;
+    border-radius: 8px !important;
+  }
+  .print-top-recent-text {
+    display: none !important;
+  }
+  .print-top-recent-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    font-size: 9px;
+    padding: 0 3px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Floating Compact Oval Frosted Glass Navbar for /print
+   ═══════════════════════════════════════════════════════════════ */
+
+.print-header {
+  position: relative;
+  z-index: 50;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  padding: 16px 16px 20px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Header Cluster: Groups Breadcrumbs Capsule & Mascot Beside It */
+.print-header__cluster {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .print-header {
+    padding: 12px 56px 14px;
+  }
+  .print-header__cluster {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 520px) {
+  .print-header {
+    padding: 10px 50px 12px;
+  }
+  .print-header__cluster {
+    gap: 6px;
+  }
+}
+
+/* Floating Oval Capsule Container (Centred, Compact, Icon-Only) */
+.print-header__inner {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 44px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.68) 0%, rgba(240, 246, 255, 0.48) 50%, rgba(255, 244, 246, 0.42) 100%);
+  backdrop-filter: blur(30px) saturate(220%) contrast(102%);
+  -webkit-backdrop-filter: blur(30px) saturate(220%) contrast(102%);
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 12px 32px -4px rgba(15, 23, 42, 0.07),
+    0 4px 12px -2px rgba(220, 38, 38, 0.04),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 2px 0 rgba(224, 236, 255, 0.35),
+    inset 0 0 24px rgba(235, 243, 255, 0.45);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.print-header__inner:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84) 0%, rgba(242, 247, 255, 0.65) 50%, rgba(255, 245, 247, 0.58) 100%);
+  border-color: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 16px 36px -4px rgba(15, 23, 42, 0.09),
+    0 6px 16px -2px rgba(220, 38, 38, 0.06),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 1),
+    inset 0 0 24px rgba(235, 243, 255, 0.6);
+}
+
+/* Breadcrumb Wrapper inside Oval */
+.print-header__breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.print-header .breadcrumb-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.print-header .breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Icon Buttons in Breadcrumbs */
+.breadcrumb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  outline: none;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Completed Step (Clickable) */
+.breadcrumb-icon-btn--done {
+  color: #475569;
+  background: rgba(0, 0, 0, 0.035);
+  cursor: pointer;
+}
+
+.breadcrumb-icon-btn--done:hover {
+  background: #fff0f0;
+  color: #dc2626;
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.18);
+}
+
+.breadcrumb-icon-btn--done:active {
+  transform: scale(0.96);
+}
+
+/* Current Active Step (Red Glow Badge) */
+.breadcrumb-icon-btn--active {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  border: 1px solid rgba(220, 38, 38, 0.9) !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.38) !important;
+  transform: scale(1.05);
+  cursor: default;
+}
+
+/* Disabled Future Step */
+.breadcrumb-icon-btn--disabled {
+  color: #94a3b8;
+  background: transparent;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Separator Arrows between Icons */
+.breadcrumb-mini-sep {
+  color: #cbd5e1 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1px;
+}
+
+.breadcrumb-mini-sep svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.2;
+}
+
+/* Stepper (Fallback/Utility) */
+.print-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper-step__indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--clr-border-strong);
+  background: var(--clr-surface-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--clr-text-3);
+  flex-shrink: 0;
+  transition: all var(--dur-normal);
+}
+
+.stepper-step.active .stepper-step__indicator {
+  background: var(--clr-accent-dim);
+  border-color: var(--clr-accent);
+  color: var(--clr-accent-light);
+}
+
+.stepper-step.done .stepper-step__indicator {
+  background: var(--clr-success-dim);
+  border-color: var(--clr-success);
+  color: var(--clr-success);
+}
+
+.stepper-step__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--clr-text-3);
+  transition: color var(--dur-normal);
+}
+
+.stepper-step.active .stepper-step__label {
+  color: var(--clr-text-1);
+}
+
+.stepper-step.done .stepper-step__label {
+  color: var(--clr-text-2);
+}
+
+.stepper-connector {
+  width: 32px;
+  height: 1px;
+  background: var(--clr-border);
+  margin-inline: 8px;
+  flex-shrink: 0;
+}
+
+/* Main content */
+.print-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: calc(100dvh - 64px);
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+.print-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 760px;
+  padding: 8px 16px 24px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Review page needs full width — break out of narrow container */
+.print-content:has(.rv-root) {
+  max-width: 100%;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Settings & Confirm pages — natural scroll with clearance for sticky bottom dock */
+.print-content:has(.clean-settings-container),
+.print-content:has(.cfp-root) {
+  padding-block: 4px 110px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Responsive Behavior ── */
+@media (max-width: 640px) {
+  .print-content:has(.clean-settings-container) {
+    padding-block: 4px 120px;
+    padding-inline: 8px;
+  }
+
+  .print-header__inner {
+    height: 38px;
+    padding: 3px 8px;
+  }
+
+  .print-header .breadcrumb-list {
+    gap: 2px;
+  }
+
+  .breadcrumb-icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .breadcrumb-icon-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .breadcrumb-mini-sep svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .print-content {
+    padding-block: 20px;
+    padding-inline: 12px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Recent Prints Slide-over Drawer / Modal
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Slide-over Drawer / Modal */
+.print-recent-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: flex-end;
+  animation: rcp-fade-in 0.25s ease both;
+}
+
+.print-recent-drawer-card {
+  width: min(680px, 94vw);
+  height: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(36px) saturate(220%);
+  -webkit-backdrop-filter: blur(36px) saturate(220%);
+  border-left: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    -16px 0 48px -8px rgba(0, 0, 0, 0.18),
+    -4px 0 16px rgba(0, 0, 0, 0.05);
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  animation: rcp-slide-left 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes rcp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rcp-slide-left {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (max-width: 640px) {
+  .print-recent-drawer-card {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+

@@ -1,0 +1,19 @@
+{
+  "breakpoints": [375, 768, 1280],
+  "out": "./src/bones",
+  "wait": 800,
+  "routes": [
+    "/features",
+    "/pricing",
+    "/how-it-works",
+    "/locations",
+    "/faq",
+    "/support",
+    "/contact",
+    "/request-installation",
+    "/terms",
+    "/privacy",
+    "/cookies",
+    "/refunds"
+  ]
+}

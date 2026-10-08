@@ -1,0 +1,205 @@
+/* ══════════════════════════════════════════════════════════
+   MascotUnavailable — Cute Sleeping PrintBooth Bot Animation
+   ══════════════════════════════════════════════════════════ */
+
+.mascot-unavailable {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  user-select: none;
+  text-align: center;
+}
+
+/* Size Variants */
+.mascot-unavailable--sm .mascot-avatar-wrap {
+  width: 50px;
+  height: 50px;
+}
+
+.mascot-unavailable--md .mascot-avatar-wrap {
+  width: 64px;
+  height: 64px;
+}
+
+.mascot-unavailable--lg {
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.mascot-unavailable--lg .mascot-avatar-wrap {
+  width: 92px;
+  height: 92px;
+}
+
+/* Avatar Wrap with Floating Physics */
+.mascot-avatar-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mascot-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: mascotHoverFloat 3.6s ease-in-out infinite;
+}
+
+/* Floating animation for body */
+@keyframes mascotHoverFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3.5px);
+  }
+}
+
+/* Shadow breathing in sync */
+.mascot-shadow {
+  animation: mascotShadowScale 3.6s ease-in-out infinite;
+  transform-origin: 36px 67px;
+}
+
+@keyframes mascotShadowScale {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.12;
+  }
+  50% {
+    transform: scale(0.85);
+    opacity: 0.06;
+  }
+}
+
+/* Antenna Glowing Amber Dot */
+.mascot-antenna-bulb {
+  animation: antennaPulse 2.4s ease-in-out infinite;
+}
+
+.mascot-antenna-glow {
+  animation: antennaGlow 2.4s ease-in-out infinite;
+}
+
+@keyframes antennaPulse {
+  0%, 100% {
+    fill: #f59e0b;
+  }
+  50% {
+    fill: #f97316;
+  }
+}
+
+@keyframes antennaGlow {
+  0%, 100% {
+    opacity: 0.25;
+    r: 6;
+  }
+  50% {
+    opacity: 0.65;
+    r: 9;
+  }
+}
+
+/* Sleepy Eyes Subtle Breathing */
+.mascot-sleepy-eyes {
+  animation: eyesSleepBreathe 3.6s ease-in-out infinite;
+  transform-origin: 36px 36px;
+}
+
+@keyframes eyesSleepBreathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(0.96) translateY(0.5px);
+    opacity: 0.7;
+  }
+}
+
+/* Floating Zzz letters layer */
+.mascot-zzz-layer {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+.mascot-z {
+  position: absolute;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 800;
+  color: #f59e0b;
+  opacity: 0;
+  line-height: 1;
+  text-shadow: 0 1px 4px rgba(245, 158, 11, 0.4);
+}
+
+.mascot-z.z-1 {
+  font-size: 10px;
+  right: 12px;
+  top: 14px;
+  animation: zDrift 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  animation-delay: 0s;
+}
+
+.mascot-z.z-2 {
+  font-size: 12px;
+  right: 6px;
+  top: 8px;
+  animation: zDrift 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  animation-delay: 0.9s;
+}
+
+.mascot-z.z-3 {
+  font-size: 14px;
+  right: 0;
+  top: 2px;
+  animation: zDrift 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  animation-delay: 1.8s;
+}
+
+@keyframes zDrift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.7) rotate(-5deg);
+  }
+  25% {
+    opacity: 0.9;
+    transform: translate(3px, -6px) scale(0.9) rotate(3deg);
+  }
+  65% {
+    opacity: 0.7;
+    transform: translate(7px, -14px) scale(1.1) rotate(8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(11px, -22px) scale(1.2) rotate(12deg);
+  }
+}
+
+/* Status Label Below Mascot (NO Background) */
+.mascot-status-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #d97706;
+  letter-spacing: 0.02em;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: center;
+}

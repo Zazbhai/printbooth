@@ -1,0 +1,508 @@
+/* ──────────────────────────────────────────────────────────────────────────────
+   PaymentSettingsPage.css – Razorpay Admin Configuration UI
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* ─── Mode Badge ─── */
+.rzp-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.rzp-mode-badge--success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+.rzp-mode-badge--warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+}
+.rzp-mode-badge--error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+/* ─── Stat Cards ─── */
+.rzp-stats {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.rzp-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 20px;
+}
+
+.rzp-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+.rzp-stat-icon--blue   { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+.rzp-stat-icon--green  { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.rzp-stat-icon--amber  { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.rzp-stat-icon--purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+
+.rzp-stat-value {
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.rzp-stat-label {
+  font-size: 12px;
+  color: var(--clr-text-4);
+  font-weight: 500;
+}
+
+/* ─── Tabs ─── */
+.rzp-tabs {
+  display: flex;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+  flex-wrap: wrap;
+}
+
+.rzp-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  color: #64748b;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.rzp-tab:hover { color: #0f172a; }
+.rzp-tab.active {
+  background: #ffffff;
+  color: #dc2626;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ─── Tab Content ─── */
+.rzp-tab-content { width: 100%; }
+
+.rzp-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* ─── Section Card ─── */
+.rzp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+.rzp-section--centered {
+  max-width: 600px;
+}
+
+.rzp-section__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.rzp-section__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  flex-shrink: 0;
+}
+.rzp-section__icon--amber { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.rzp-section__icon--green  { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+
+.rzp-section__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--clr-text-1);
+}
+.rzp-section__sub {
+  font-size: 12px;
+  color: var(--clr-text-4);
+  margin-top: 2px;
+}
+.rzp-ext-link {
+  margin-left: auto;
+  color: var(--clr-text-4);
+  flex-shrink: 0;
+}
+.rzp-ext-link:hover { color: var(--clr-accent-light); }
+
+/* ─── Status Pills ─── */
+.rzp-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rzp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.rzp-pill--ok   { background: rgba(16,185,129,0.1);  border-color: rgba(16,185,129,0.3); color: #10b981; }
+.rzp-pill--err  { background: rgba(239,68,68,0.1);   border-color: rgba(239,68,68,0.3);  color: #ef4444; }
+.rzp-pill--warn { background: rgba(245,158,11,0.1);  border-color: rgba(245,158,11,0.3); color: #f59e0b; }
+
+/* ─── Form ─── */
+.rzp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rzp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rzp-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--clr-text-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rzp-optional {
+  font-weight: 400;
+  color: var(--clr-text-4);
+  font-size: 11px;
+}
+
+.rzp-badge-set {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(16,185,129,0.15);
+  color: #10b981;
+  border: 1px solid rgba(16,185,129,0.25);
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.rzp-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rzp-input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--clr-surface-2);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  color: var(--clr-text-1);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  transition: border-color 0.15s;
+  outline: none;
+}
+.rzp-input:focus { border-color: var(--clr-accent); }
+
+.rzp-select { font-family: inherit; cursor: pointer; }
+
+.rzp-hint {
+  font-size: 11px;
+  color: var(--clr-text-4);
+  line-height: 1.5;
+}
+.rzp-hint code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--clr-accent-light);
+  background: rgba(99,102,241,0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.rzp-copy-btn {
+  width: 36px;
+  height: 40px;
+  flex-shrink: 0;
+  color: var(--clr-text-4);
+}
+.rzp-copy-btn:hover { color: var(--clr-text-1); }
+
+.rzp-save-btn {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rzp-save-msg {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+}
+.rzp-save-msg--ok  { background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.25); }
+.rzp-save-msg--err { background: rgba(239,68,68,0.1);  color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+
+/* ─── Feature Toggles ─── */
+.rzp-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.rzp-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--clr-border);
+  transition: background 0.15s;
+}
+.rzp-toggle-row:last-child { border-bottom: none; }
+.rzp-toggle-row:hover { background: var(--clr-surface-1); }
+
+.rzp-toggle-info { flex: 1; }
+.rzp-toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--clr-text-1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.rzp-toggle-desc {
+  font-size: 12px;
+  color: var(--clr-text-4);
+  line-height: 1.4;
+}
+
+/* Toggle Switch */
+.rzp-switch { cursor: pointer; flex-shrink: 0; }
+.rzp-switch input { display: none; }
+
+.rzp-switch__track {
+  display: block;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--clr-surface-2);
+  border: 1px solid var(--clr-border);
+  position: relative;
+  transition: background 0.2s, border-color 0.2s;
+}
+.rzp-switch__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--clr-text-4);
+  transition: transform 0.2s, background 0.2s;
+}
+.rzp-switch input:checked + .rzp-switch__track {
+  background: rgba(16,185,129,0.25);
+  border-color: #10b981;
+}
+.rzp-switch input:checked + .rzp-switch__track::after {
+  transform: translateX(20px);
+  background: #10b981;
+}
+
+/* ─── Mode Panel ─── */
+.rzp-mode-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+}
+.rzp-mode-panel--success { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.2); color: #10b981; }
+.rzp-mode-panel--warning { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.2); color: #f59e0b; }
+.rzp-mode-panel--error   { background: rgba(239,68,68,0.08);  border-color: rgba(239,68,68,0.2);  color: #ef4444; }
+.rzp-mode-panel__title { font-size: 13px; font-weight: 700; }
+.rzp-mode-panel__desc  { font-size: 12px; opacity: 0.8; margin-top: 2px; line-height: 1.4; }
+
+/* ─── Quick Reference ─── */
+.rzp-quick-ref {
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rzp-quick-ref__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--clr-text-4);
+}
+.rzp-quick-ref code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--clr-accent-light);
+}
+.rzp-test-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--clr-surface-2);
+  border-radius: var(--radius-sm);
+}
+.rzp-test-card__label { font-size: 11px; font-weight: 700; color: var(--clr-text-3); }
+.rzp-test-card__meta  { font-size: 10px; color: var(--clr-text-4); }
+
+/* ─── Payment Table ─── */
+.rzp-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--clr-text-2);
+}
+.rzp-mono--sm { font-size: 11px; }
+
+.rzp-method-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(99,102,241,0.12);
+  color: #818cf8;
+  letter-spacing: 0.04em;
+}
+
+.rzp-action-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  height: auto;
+  color: #f59e0b;
+  border-color: rgba(245,158,11,0.2);
+}
+.rzp-action-btn:hover { background: rgba(245,158,11,0.08); }
+
+/* ─── Form Tab ─── */
+.rzp-form-tab {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* ─── Result Banner ─── */
+.rzp-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.rzp-result--ok  { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.25); color: #10b981; }
+.rzp-result--err { background: rgba(239,68,68,0.1);  border-color: rgba(239,68,68,0.25);  color: #ef4444; }
+.rzp-result code { font-family: var(--font-mono); font-size: 12px; }
+
+/* ─── Banner ─── */
+.rzp-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  border: 1px solid transparent;
+  line-height: 1.5;
+}
+.rzp-banner--warn { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.25); color: #f59e0b; }
+
+/* ─── Status Badges ─── */
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.status-success { background: rgba(16,185,129,0.12); color: #10b981; }
+.status-warning { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.status-error   { background: rgba(239,68,68,0.12);  color: #ef4444; }
+.status-info    { background: rgba(99,102,241,0.12);  color: #818cf8; }
+.status-default { background: rgba(148,163,184,0.12); color: var(--clr-text-3); }
+
+/* ─── Spin animation ─── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
+
+/* ─── Responsive ─── */
+@media (max-width: 1100px) {
+  .rzp-config-grid { grid-template-columns: 1fr; }
+  .rzp-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .rzp-tabs { width: 100%; }
+  .rzp-tab  { flex: 1; justify-content: center; padding: 8px 10px; font-size: 12px; }
+  .rzp-stats { grid-template-columns: 1fr 1fr; }
+  .rzp-section--centered { max-width: 100%; }
+}
+
+@media (max-width: 400px) {
+  .rzp-stats { grid-template-columns: 1fr; }
+}

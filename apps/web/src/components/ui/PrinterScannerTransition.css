@@ -1,0 +1,242 @@
+/* ═══════════════════════════════════════════════════════════════
+   PRINTER SCANNER PAGE TRANSITION — SEQUENTIAL AXIS LASER
+   - Vertical sweep for Closing (Erase from top to bottom)
+   - Horizontal sweep for Opening (Reveal from left to right)
+   - Razor-sharp 2px red laser lines, zero color spread, 120fps GPU
+   ═══════════════════════════════════════════════════════════════ */
+
+.pst-root {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+}
+
+/* While scanning, clamp overflow so clipping is crisp */
+.pst-root.pst-scanning {
+  overflow: hidden !important;
+}
+
+/* When idle, allow full overflow so shadows, popovers & tooltips don't clip */
+.pst-root.pst-idle {
+  overflow: visible !important;
+}
+
+/* The content wrapper that receives sequential clip-path wipes */
+.pst-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+/* Phase 1: Closing (Vertical wipe erasing outgoing screen from top to bottom) */
+.pst-erasing .pst-content {
+  animation: pstVerticalEraseClip 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
+  will-change: clip-path;
+}
+
+/* Phase 2: Opening (Horizontal wipe revealing incoming screen from left to right) */
+.pst-revealing .pst-content {
+  animation: pstHorizontalRevealClip 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: clip-path;
+}
+
+/* Phase 3: Idle (full visibility, zero transform trap for fixed buttons) */
+.pst-idle .pst-content {
+  clip-path: none !important;
+  opacity: 1 !important;
+  will-change: auto !important;
+  transform: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FULL-SCREEN SEQUENTIAL LASER BEAM PORTAL (ATTACHED TO BODY)
+   ═══════════════════════════════════════════════════════════════ */
+
+.pst-fullscreen-beam-portal {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  pointer-events: none !important;
+  z-index: 999999 !important;
+  overflow: hidden !important;
+  contain: strict;
+}
+
+/* ── 1. CLOSING PASS: VERTICAL SWEEP (Horizontal Beam moving down Y-axis) ── */
+.pst-vertical-close-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  pointer-events: none;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  animation: pstVerticalCloseSweep 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Razor-sharp horizontal laser line (2px, tight neon core, zero blurry cloud) */
+.pst-laser-bar-h {
+  position: relative;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(239, 68, 68, 0.2) 2%, 
+    #dc2626 12%, 
+    #f87171 30%, 
+    #ffffff 50%, 
+    #f87171 70%, 
+    #dc2626 88%, 
+    rgba(239, 68, 68, 0.2) 98%, 
+    transparent 100%
+  );
+  box-shadow:
+    0 0 2px #ffffff,
+    0 0 6px #ef4444,
+    0 0 12px rgba(220, 38, 38, 0.45);
+}
+
+/* Tight 18px optical trailing wash behind horizontal beam (above beam as it moves down) */
+.pst-trail-wash-h {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  width: 100%;
+  height: 18px;
+  pointer-events: none;
+  background: linear-gradient(to top, 
+    rgba(239, 68, 68, 0.14) 0%, 
+    rgba(239, 68, 68, 0.02) 55%, 
+    transparent 100%
+  );
+  mask-image: linear-gradient(90deg, transparent 0%, black 5%, black 95%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 5%, black 95%, transparent 100%);
+}
+
+/* ── 2. OPENING PASS: HORIZONTAL SWEEP (Vertical Beam moving right across X-axis) ── */
+.pst-horizontal-open-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100vh;
+  height: 100dvh;
+  pointer-events: none;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  animation: pstHorizontalOpenSweep 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Razor-sharp vertical laser line (2px, tight neon core, zero blurry cloud) */
+.pst-laser-bar-v {
+  position: relative;
+  height: 100%;
+  width: 2px;
+  background: linear-gradient(180deg, 
+    transparent 0%, 
+    rgba(239, 68, 68, 0.2) 2%, 
+    #dc2626 12%, 
+    #f87171 30%, 
+    #ffffff 50%, 
+    #f87171 70%, 
+    #dc2626 88%, 
+    rgba(239, 68, 68, 0.2) 98%, 
+    transparent 100%
+  );
+  box-shadow:
+    0 0 2px #ffffff,
+    0 0 6px #ef4444,
+    0 0 12px rgba(220, 38, 38, 0.45);
+}
+
+/* Tight 18px optical trailing wash behind vertical beam (to left of beam as it moves right) */
+.pst-trail-wash-v {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  height: 100%;
+  width: 18px;
+  pointer-events: none;
+  background: linear-gradient(to left, 
+    rgba(239, 68, 68, 0.14) 0%, 
+    rgba(239, 68, 68, 0.02) 55%, 
+    transparent 100%
+  );
+  mask-image: linear-gradient(180deg, transparent 0%, black 5%, black 95%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 5%, black 95%, transparent 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GPU COMPOSITED KEYFRAME ANIMATIONS (120FPS SILKY SMOOTH)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Vertical close sweep: sweeps down the entire screen */
+@keyframes pstVerticalCloseSweep {
+  0% {
+    transform: translate3d(0, -6px, 0);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, calc(100vh + 8px), 0);
+    opacity: 0;
+  }
+}
+
+/* Horizontal open sweep: sweeps right across the entire screen */
+@keyframes pstHorizontalOpenSweep {
+  0% {
+    transform: translate3d(-6px, 0, 0);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(calc(100vw + 8px), 0, 0);
+    opacity: 0;
+  }
+}
+
+/* Content vertical wipe for closing (top to bottom) */
+@keyframes pstVerticalEraseClip {
+  0% {
+    clip-path: inset(0% 0 0 0);
+  }
+  100% {
+    clip-path: inset(100% 0 0 0);
+  }
+}
+
+/* Content horizontal wipe for opening (left to right) */
+@keyframes pstHorizontalRevealClip {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    clip-path: inset(0 0% 0 0);
+  }
+}

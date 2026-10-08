@@ -1,0 +1,210 @@
+.exact-carousel-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  user-select: none;
+}
+
+/* Big Top Active Card */
+.exact-active-card {
+  width: 100%;
+  height: 220px;
+  border-radius: 6px;
+  padding: 26px 30px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.6);
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.active-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.active-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.active-card-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.active-card-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.active-card-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.active-card-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Pill Buttons */
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 3px;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.pill-btn:hover {
+  background: rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+.pill-btn:active {
+  transform: translateY(0);
+}
+
+.copy-pill {
+  padding: 8px 18px;
+}
+
+.copy-pill.copied {
+  background: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.edit-pill {
+  padding: 8px 22px;
+}
+
+/* Bottom Secondary Cards Row */
+.exact-secondary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  width: 100%;
+}
+
+.exact-secondary-card {
+  height: 140px;
+  border-radius: 4px;
+  padding: 16px 18px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.secondary-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.secondary-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.dots-circle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.dots-circle-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: scale(1.08);
+}
+
+.secondary-card-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.secondary-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.secondary-card-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.2;
+}
+
+@media (max-width: 520px) {
+  .exact-active-card {
+    height: 190px;
+    padding: 20px 22px;
+    border-radius: 6px;
+  }
+  .active-card-title {
+    font-size: 22px;
+  }
+  .active-card-value {
+    font-size: 18px;
+  }
+  .exact-secondary-card {
+    height: 120px;
+    padding: 12px 14px;
+    border-radius: 4px;
+  }
+  .secondary-card-title {
+    font-size: 12px;
+  }
+  .secondary-card-value {
+    font-size: 11px;
+  }
+}

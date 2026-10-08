@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.8"/>
+      <stop offset="45%" stop-color="#0f172a" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="redAccent" cx="80%" cy="20%" r="40%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cyanAccent" cx="20%" cy="80%" r="45%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="redBtn" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#020617"/>
+  <rect width="1200" height="630" fill="url(#bgGlow)"/>
+  <rect width="1200" height="630" fill="url(#redAccent)"/>
+  <rect width="1200" height="630" fill="url(#cyanAccent)"/>
+
+  <!-- Subtle Grid lines -->
+  <g stroke="#ffffff" stroke-opacity="0.04" stroke-width="1">
+    <line x1="0" y1="105" x2="1200" y2="105"/>
+    <line x1="0" y1="210" x2="1200" y2="210"/>
+    <line x1="0" y1="315" x2="1200" y2="315"/>
+    <line x1="0" y1="420" x2="1200" y2="420"/>
+    <line x1="0" y1="525" x2="1200" y2="525"/>
+    <line x1="200" y1="0" x2="200" y2="630"/>
+    <line x1="400" y1="0" x2="400" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="800" y1="0" x2="800" y2="630"/>
+    <line x1="1000" y1="0" x2="1000" y2="630"/>
+  </g>
+
+  <!-- Top Pill / Live System Status -->
+  <g transform="translate(100, 75)">
+    <rect width="270" height="36" rx="18" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.12"/>
+    <circle cx="20" cy="18" r="5" fill="#10b981"/>
+    <text x="35" y="23" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" letter-spacing="0.5">AUTONOMOUS HARDWARE LIVE</text>
+  </g>
+
+  <!-- Main Brand Title -->
+  <g transform="translate(100, 195)">
+    <text x="0" y="0" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="64" font-weight="900" letter-spacing="-1.5">
+      PRINTBOOTH<tspan fill="#ef4444">.</tspan>
+    </text>
+  </g>
+
+  <!-- Hero Headline -->
+  <g transform="translate(100, 260)">
+    <text x="0" y="0" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="36" font-weight="700" letter-spacing="-0.5">
+      Self-Service Walk-Up Printing Made Simple
+    </text>
+    <text x="0" y="38" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="400">
+      Direct browser upload. Instant UPI scan-to-pay. Automated kiosk release in &lt; 90 seconds.
+    </text>
+  </g>
+
+  <!-- 3 Feature Chips -->
+  <g transform="translate(100, 370)">
+    <!-- Chip 1 -->
+    <g transform="translate(0, 0)">
+      <rect width="210" height="50" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="20" y="31" fill="#f1f5f9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="700">⚡ Under 2 Minutes</text>
+    </g>
+    <!-- Chip 2 -->
+    <g transform="translate(225, 0)">
+      <rect width="230" height="50" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="20" y="31" fill="#f1f5f9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="700">🔒 Zero Cloud Retention</text>
+    </g>
+    <!-- Chip 3 -->
+    <g transform="translate(470, 0)">
+      <rect width="210" height="50" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="20" y="31" fill="#f1f5f9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="700">📱 No App Required</text>
+    </g>
+    <!-- Chip 4 -->
+    <g transform="translate(695, 0)">
+      <rect width="180" height="50" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="20" y="31" fill="#f1f5f9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="700">₹ Starts at ₹2</text>
+    </g>
+  </g>
+
+  <!-- Bottom Bar -->
+  <g transform="translate(100, 520)">
+    <text x="0" y="0" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="600" letter-spacing="1">
+      HTTPS://PRINTBOOTH.IN · CAMPUSES &amp; RETAIL STATIONS ACROSS INDIA
+    </text>
+  </g>
+</svg>

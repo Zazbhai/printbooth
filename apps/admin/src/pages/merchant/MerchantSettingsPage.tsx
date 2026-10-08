@@ -1,0 +1,596 @@
+import { useState, useEffect } from 'react'
+import {
+  CheckCircle,
+  FloppyDisk,
+  MapPin,
+  Crosshair,
+  ArrowSquareOut,
+  SpinnerGap,
+  NavigationArrow,
+  Headset,
+  Bank,
+  Lightning,
+  CreditCard,
+  Eye,
+  EyeSlash,
+  ShieldCheck,
+} from '@phosphor-icons/react'
+import { getMerchantSettings, updateMerchantSettings } from '@/lib/api'
+import { useActiveMerchant } from '@/lib/merchantContext'
+import '../AdminPage.css'
+
+export default function MerchantSettingsPage() {
+  const { activeKioskId, activeMerchant } = useActiveMerchant()
+  const [saved, setSaved] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [showSecret, setShowSecret] = useState(false)
+  const [locMsg, setLocMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+  const [form, setForm] = useState({
+    storeName: activeMerchant?.storeName || 'MIT ADT Campus Print Hub',
+    contactPerson: activeMerchant?.name || 'Rahul Sharma',
+    phone: activeMerchant?.phone || '+91 98234 56789',
+    whatsapp: (activeMerchant as any)?.whatsapp || '+919823456789',
+    supportHours: (activeMerchant as any)?.supportHours || '8:30 AM - 9:30 PM (Mon-Sat)',
+    supportNote: (activeMerchant as any)?.supportNote || 'Ground Floor, Central Reading Hall (Counter #1, next to turnstiles)',
+    email: activeMerchant?.email || 'rahul.adt@printbooth.in',
+    address: activeMerchant?.address || 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
+    lat: (activeMerchant as any)?.lat ?? 18.4912,
+    lng: (activeMerchant as any)?.lng ?? 74.0253,
+    city: 'Pune',
+    pincode: '412201',
+    openTime: '08:30',
+    closeTime: '21:30',
+    notifySms: true,
+    notifyWhatsapp: true,
+    notifyPaperLow: true,
+    paymentGateway: (activeMerchant as any)?.paymentGateway || 'upiexpress',
+    upiExpressApiKey: (activeMerchant as any)?.upiExpressApiKey || '',
+    upiExpressUpiId: (activeMerchant as any)?.upiExpressUpiId || '',
+    razorpayKeyId: (activeMerchant as any)?.razorpayKeyId || '',
+    razorpayKeySecret: (activeMerchant as any)?.razorpayKeySecret || '',
+  })
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      const data = await getMerchantSettings(activeKioskId)
+      if (mounted && data) {
+        setForm(prev => ({
+          ...prev,
+          storeName: data.storeName || prev.storeName,
+          contactPerson: data.contactPerson || prev.contactPerson,
+          phone: data.phone || prev.phone,
+          whatsapp: data.whatsapp || prev.whatsapp,
+          supportHours: data.supportHours || prev.supportHours,
+          supportNote: data.supportNote || prev.supportNote,
+          email: data.email || prev.email,
+          address: data.address || prev.address,
+          lat: data.lat !== undefined ? Number(data.lat) : prev.lat,
+          lng: data.lng !== undefined ? Number(data.lng) : prev.lng,
+          paymentGateway: data.paymentGateway || prev.paymentGateway || 'upiexpress',
+          upiExpressApiKey: data.upiExpressApiKey !== undefined ? data.upiExpressApiKey : prev.upiExpressApiKey,
+          upiExpressUpiId: data.upiExpressUpiId !== undefined ? data.upiExpressUpiId : prev.upiExpressUpiId,
+          razorpayKeyId: data.razorpayKeyId !== undefined ? data.razorpayKeyId : prev.razorpayKeyId,
+          razorpayKeySecret: data.razorpayKeySecret !== undefined ? data.razorpayKeySecret : prev.razorpayKeySecret,
+        }))
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [activeKioskId])
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setLocMsg({ text: 'GPS Geolocation is not supported by your browser.', type: 'error' })
+      return
+    }
+    setLocating(true)
+    setLocMsg(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const detectedLat = Number(pos.coords.latitude.toFixed(6))
+        const detectedLng = Number(pos.coords.longitude.toFixed(6))
+        setForm((prev) => ({
+          ...prev,
+          lat: detectedLat,
+          lng: detectedLng,
+        }))
+        setLocating(false)
+        setLocMsg({ text: `Auto-detected GPS coordinates: ${detectedLat}, ${detectedLng} (±${Math.round(pos.coords.accuracy)}m accuracy)`, type: 'success' })
+      },
+      (err) => {
+        setLocating(false)
+        setLocMsg({ text: `GPS detection failed: ${err.message}. You can manually type coordinates or look up Google Maps.`, type: 'error' })
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    )
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await updateMerchantSettings(form, activeKioskId)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+  }
+
+  return (
+    <div className="admin-page animate-fadeInUp">
+      <div className="admin-page__header-row">
+        <div className="admin-page__header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span className="badge badge-online">Store Profile Active</span>
+            <span style={{ fontSize: 13, color: 'var(--clr-text-3)' }}>
+              Machine {activeKioskId} Host Profile • {activeMerchant?.storeName || 'Store'}
+            </span>
+          </div>
+          <h1 className="admin-page__title">Store & Contact Settings</h1>
+          <p className="admin-page__sub">Manage your venue operating hours, emergency alerts, and store profile</p>
+        </div>
+
+        <button type="submit" form="merchant-settings-form" className="btn btn-primary btn-sm">
+          <FloppyDisk size={16} />
+          <span>{saved ? 'Changes Saved ✓' : 'Save Changes'}</span>
+        </button>
+      </div>
+
+      {saved && (
+        <div style={{ background: 'var(--clr-success-dim)', border: '1px solid var(--clr-success)', padding: '12px 16px', borderRadius: 'var(--radius-md)', color: 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <CheckCircle size={20} />
+          <span>Store profile and alert configurations updated successfully!</span>
+        </div>
+      )}
+
+      <form id="merchant-settings-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* Business details */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card-header" style={{ padding: 0, marginBottom: 0 }}>
+            <h2 className="card-title">Store & Venue Details</h2>
+            <span className="card-meta">Station Venue & Emergency Contact Profile</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+            <div className="form-group">
+              <label className="form-label">Store / Venue Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={form.storeName}
+                onChange={e => setForm({ ...form, storeName: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Store Manager Contact</label>
+              <input
+                type="text"
+                className="form-input"
+                value={form.contactPerson}
+                onChange={e => setForm({ ...form, contactPerson: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Mobile Number (For Urgent Alerts)</label>
+              <input
+                type="tel"
+                className="form-input"
+                value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input
+                type="email"
+                className="form-input"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Store Street Address</label>
+            <input
+              type="text"
+              className="form-input"
+              value={form.address}
+              onChange={e => setForm({ ...form, address: e.target.value })}
+              required
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="form-group">
+              <label className="form-label">City</label>
+              <input
+                type="text"
+                className="form-input"
+                value={form.city}
+                onChange={e => setForm({ ...form, city: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">PIN Code</label>
+              <input
+                type="text"
+                className="form-input"
+                value={form.pincode}
+                onChange={e => setForm({ ...form, pincode: e.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ─── On-Machine Customer Help & Mascot Contact Info ─── */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card-header" style={{ padding: 0, marginBottom: 0 }}>
+            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Headset size={20} color="var(--clr-success)" weight="fill" />
+              <span>Customer Help Mascot &amp; Machine Support Contact</span>
+            </h2>
+            <span className="card-meta">
+              Exclusively displayed to customers using Machine <strong>{activeKioskId}</strong> via the sticky Mascot button. Only your machine shows this contact info. Customers contact you here for cash refunds, paper reload requests, or UPI verification.
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+            <div className="form-group">
+              <label className="form-label">Customer Direct WhatsApp Number</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="+919823456789"
+                value={form.whatsapp}
+                onChange={e => setForm({ ...form, whatsapp: e.target.value })}
+              />
+              <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>1-click WhatsApp chat opens for the user with prefilled order details</span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Support &amp; Desk Working Hours</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. 8:30 AM - 9:30 PM (Mon-Sat)"
+                value={form.supportHours}
+                onChange={e => setForm({ ...form, supportHours: e.target.value })}
+              />
+              <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Displayed to users so they know when on-site staff is available</span>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">On-Site Counter / Help Desk Location Note</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g. Ground Floor, Central Reading Hall (Counter #1, next to turnstiles)"
+              value={form.supportNote}
+              onChange={e => setForm({ ...form, supportNote: e.target.value })}
+            />
+            <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Where customers on-site can find you or your staff for physical assistance or cash refunds</span>
+          </div>
+        </div>
+
+        {/* ─── Payment Gateway & API Integration ─── */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card-header" style={{ padding: 0, marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Bank size={20} color="var(--clr-success)" weight="fill" />
+                <span>Payment Gateway &amp; API Integration</span>
+              </h2>
+              <span className="card-meta">
+                Configure which gateway processes payments on your Kiosk <strong>{activeKioskId}</strong> customer print page, and manage your API credentials.
+              </span>
+            </div>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className={`badge ${form.paymentGateway === 'razorpay' ? 'badge-primary' : 'badge-online'}`} style={{ fontSize: 11, padding: '4px 10px' }}>
+                Active: {form.paymentGateway === 'razorpay' ? 'Razorpay Multi-Mode' : 'UPI Express (Instant)'}
+              </span>
+            </div>
+          </div>
+
+          {/* Gateway Switcher Cards */}
+          <div className="form-group">
+            <label className="form-label" style={{ marginBottom: 8 }}>Active Payment Gateway for this Station</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+              <button
+                type="button"
+                className={`gateway-card ${form.paymentGateway === 'upiexpress' ? 'selected' : ''}`}
+                onClick={() => setForm({ ...form, paymentGateway: 'upiexpress' })}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  padding: 16,
+                  borderRadius: 10,
+                  border: `2px solid ${form.paymentGateway === 'upiexpress' ? '#059669' : 'var(--clr-border, #e2e8f0)'}`,
+                  background: form.paymentGateway === 'upiexpress' ? 'rgba(5, 150, 105, 0.08)' : 'var(--clr-surface-2, rgba(255,255,255,0.02))',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14, color: 'var(--clr-text-1)' }}>
+                    <Lightning size={18} weight="fill" color="#059669" />
+                    <span>UPI Express</span>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'rgba(5,150,105,0.15)', color: '#059669' }}>
+                    0% Take-Rate
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--clr-text-3)', lineHeight: 1.4 }}>
+                  Fastest UPI checkout for students and customers. Dynamic QR generation, mobile intent app switcher, and direct bank settlement.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className={`gateway-card ${form.paymentGateway === 'razorpay' ? 'selected' : ''}`}
+                onClick={() => setForm({ ...form, paymentGateway: 'razorpay' })}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  padding: 16,
+                  borderRadius: 10,
+                  border: `2px solid ${form.paymentGateway === 'razorpay' ? '#2563eb' : 'var(--clr-border, #e2e8f0)'}`,
+                  background: form.paymentGateway === 'razorpay' ? 'rgba(37, 99, 235, 0.08)' : 'var(--clr-surface-2, rgba(255,255,255,0.02))',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14, color: 'var(--clr-text-1)' }}>
+                    <CreditCard size={18} weight="bold" color="#2563eb" />
+                    <span>Razorpay Checkout</span>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'rgba(37,99,235,0.15)', color: '#2563eb' }}>
+                    Multi-Method
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--clr-text-3)', lineHeight: 1.4 }}>
+                  Accept Credit/Debit Cards, NetBanking from 50+ banks, Wallets (Paytm/Mobikwik), and standard UPI interfaces.
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Credentials Inputs based on selected gateway */}
+          {form.paymentGateway === 'upiexpress' ? (
+            <div style={{ background: 'rgba(5, 150, 105, 0.04)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid rgba(5, 150, 105, 0.2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#059669' }}>
+                <ShieldCheck size={18} weight="fill" />
+                <span>UPI Express Settlement &amp; API Configuration</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Merchant UPI ID / VPA</span>
+                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Direct settlement target</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. printbooth@okaxis"
+                    value={form.upiExpressUpiId}
+                    onChange={e => setForm({ ...form, upiExpressUpiId: e.target.value.trim() })}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>All UPI customer payments for Kiosk {activeKioskId} settle directly to this VPA</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>UPI Express Custom API Key</span>
+                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Leave blank to use platform gateway</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showSecret ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Custom API Key (or empty for default)"
+                      value={form.upiExpressApiKey}
+                      onChange={e => setForm({ ...form, upiExpressApiKey: e.target.value.trim() })}
+                      style={{ paddingRight: 40 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSecret(!showSecret)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--clr-text-3)' }}
+                    >
+                      {showSecret ? <EyeSlash size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Optional per-merchant API key provided by your UPI Express merchant console</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ background: 'rgba(37, 99, 235, 0.04)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid rgba(37, 99, 235, 0.2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#2563eb' }}>
+                <ShieldCheck size={18} weight="fill" />
+                <span>Razorpay API Credentials (Per-Kiosk)</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Razorpay Key ID</span>
+                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>rzp_test_... or rzp_live_...</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="rzp_live_..."
+                    value={form.razorpayKeyId}
+                    onChange={e => setForm({ ...form, razorpayKeyId: e.target.value.trim() })}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Public Key ID passed to Razorpay Checkout on this kiosk</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Razorpay Key Secret</span>
+                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Webhook / order signature key</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showSecret ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder={form.razorpayKeySecret === '••••••••' ? '•••••••• (Configured)' : 'Enter Razorpay Secret'}
+                      value={form.razorpayKeySecret}
+                      onChange={e => setForm({ ...form, razorpayKeySecret: e.target.value.trim() })}
+                      style={{ paddingRight: 40 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSecret(!showSecret)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--clr-text-3)' }}
+                    >
+                      {showSecret ? <EyeSlash size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Private API secret used for backend order creation &amp; HMAC-SHA256 signature verification</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Machine Geolocation Coordinates */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card-header" style={{ padding: 0, marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MapPin size={20} color="var(--clr-accent)" weight="fill" />
+                <span>Machine GPS Geolocation (Lat &amp; Lon)</span>
+              </h2>
+              <span className="card-meta">
+                Used to calculate real-time walking distance and show nearest machine effects to customers on printbooth.in
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleDetectLocation}
+              disabled={locating}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {locating ? <SpinnerGap size={16} className="animate-spin" /> : <Crosshair size={16} weight="bold" color="var(--clr-accent)" />}
+              <span>{locating ? 'Acquiring GPS...' : 'Detect Current GPS Location'}</span>
+            </button>
+          </div>
+
+          {locMsg && (
+            <div style={{
+              background: locMsg.type === 'success' ? 'var(--clr-success-dim, rgba(16,185,129,0.1))' : 'rgba(239,68,68,0.1)',
+              border: `1px solid ${locMsg.type === 'success' ? 'var(--clr-success, #10b981)' : '#ef4444'}`,
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              fontSize: 13,
+              color: locMsg.type === 'success' ? 'var(--clr-success, #10b981)' : '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              {locMsg.type === 'success' ? <CheckCircle size={16} /> : <MapPin size={16} />}
+              <span>{locMsg.text}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Latitude (°N)</span>
+                <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>e.g. 18.520430</span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                className="form-input"
+                placeholder="18.5204"
+                value={form.lat}
+                onChange={e => setForm({ ...form, lat: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Longitude (°E)</span>
+                <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>e.g. 73.843120</span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                className="form-input"
+                placeholder="73.8431"
+                value={form.lng}
+                onChange={e => setForm({ ...form, lng: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '12px 14px', background: 'var(--clr-surface-2, rgba(255,255,255,0.03))', borderRadius: 'var(--radius-md)', border: '1px solid var(--clr-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--clr-text-2)' }}>
+              <NavigationArrow size={16} color="var(--clr-accent)" />
+              <span>Current Pin: <strong>{Number(form.lat || 0).toFixed(5)}, {Number(form.lng || 0).toFixed(5)}</strong></span>
+            </div>
+
+            <a
+              href={`https://www.google.com/maps?q=${form.lat},${form.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--clr-accent-light, #38bdf8)', textDecoration: 'none' }}
+            >
+              <span>Verify on Google Maps</span>
+              <ArrowSquareOut size={15} />
+            </a>
+          </div>
+        </div>
+
+        {/* Operating hours */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card-header" style={{ padding: 0, marginBottom: 0 }}>
+            <h2 className="card-title">Kiosk Availability Hours</h2>
+            <span className="card-meta">Hours when customers can enter your store to collect documents</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="form-group">
+              <label className="form-label">Store Opens</label>
+              <input
+                type="time"
+                className="form-input"
+                value={form.openTime}
+                onChange={e => setForm({ ...form, openTime: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Store Closes</label>
+              <input
+                type="time"
+                className="form-input"
+                value={form.closeTime}
+                onChange={e => setForm({ ...form, closeTime: e.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+}

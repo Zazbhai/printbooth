@@ -1,0 +1,156 @@
+/* ══════════════════════════════════════════════════════════
+   Advanced Print Options Trigger Card
+   (Positioned below Carousel Cards on PrintSettingsPage)
+   ══════════════════════════════════════════════════════════ */
+
+.adv-trigger-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-top: 14px;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
+  box-shadow:
+    0 12px 28px -4px rgba(15, 23, 42, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.adv-trigger-card:hover {
+  background: #ffffff;
+  border-color: #10b981;
+  box-shadow:
+    0 16px 36px -4px rgba(16, 185, 129, 0.14),
+    0 0 0 1px rgba(16, 185, 129, 0.25);
+  transform: translateY(-1px);
+}
+
+.adv-trigger-card__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.adv-trigger-card__icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(56, 189, 248, 0.12) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.adv-trigger-card:hover .adv-trigger-card__icon-wrap {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.adv-trigger-card__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.adv-trigger-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.adv-trigger-card__title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.adv-trigger-card__preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 1.5px 6px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.adv-trigger-card__chips {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.adv-trigger-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  background: rgba(241, 245, 249, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 1.5px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+/* ── Open Button on Right ── */
+.adv-trigger-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 9px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.adv-trigger-card:hover .adv-trigger-open-btn {
+  background: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transform: translateY(-0.5px);
+}
+
+@media (max-width: 540px) {
+  .adv-trigger-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .adv-trigger-open-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

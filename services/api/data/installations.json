@@ -1,0 +1,108 @@
+[
+  {
+    "id": "PB-OWNER-995324",
+    "venueType": "college",
+    "orgName": "asda",
+    "campusName": "Main Campus",
+    "city": "Pune",
+    "state": "Maharashtra",
+    "pincode": "411058",
+    "contactName": "adasdasdasd",
+    "contactRole": "Owner / Representative",
+    "contactEmail": "",
+    "contactPhone": "2323123123123122",
+    "footfall": "500-1500",
+    "timeline": "immediate",
+    "hasPower": true,
+    "hasSecurity": true,
+    "notes": "",
+    "status": "DISPATCHED",
+    "priority": "HIGH",
+    "assignedLead": "Unassigned",
+    "estimatedUnits": 1,
+    "createdAt": "2026-10-05T13:12:36.713Z",
+    "updatedAt": "2026-10-05T13:52:51.042Z",
+    "surveyNotes": [
+      {
+        "id": "sn-1791205956705",
+        "author": "Web Inbound Portal",
+        "text": "Public website purchase & deployment application received from asda (Pune). Contact: adasdasdasd (2323123123123122).",
+        "timestamp": "2026-10-05T13:12:36.705Z"
+      },
+      {
+        "id": "sn-1791206444744",
+        "author": "Platform Ops Lead",
+        "text": "Status updated to INSTALLED",
+        "timestamp": "2026-10-05T13:20:44.744Z"
+      },
+      {
+        "id": "sn-1791206453342",
+        "author": "Platform Ops Lead",
+        "text": "Status updated to CONTACTED",
+        "timestamp": "2026-10-05T13:20:53.342Z"
+      },
+      {
+        "id": "sn-1791208364074",
+        "author": "Platform Ops Lead",
+        "text": "Purchase order verified. Kiosk hardware serial allocated.",
+        "timestamp": "2026-10-05T13:52:44.074Z"
+      },
+      {
+        "id": "sn-1791208366424",
+        "author": "Platform Ops Lead",
+        "text": "Contact call completed. Verified installation venue space and delivery contact.",
+        "timestamp": "2026-10-05T13:52:46.424Z"
+      },
+      {
+        "id": "sn-1791208367601",
+        "author": "Platform Ops Lead",
+        "text": "Field survey engineer dispatched for spatial measurement and power socket inspection.",
+        "timestamp": "2026-10-05T13:52:47.601Z"
+      },
+      {
+        "id": "sn-1791208371024",
+        "author": "Platform Ops Lead",
+        "text": "Hardware boxed and loaded on logistics carrier. Transit tracking link dispatched.",
+        "timestamp": "2026-10-05T13:52:51.024Z"
+      }
+    ]
+  },
+  {
+    "id": "PB-OWNER-295937",
+    "venueType": "college",
+    "orgName": "Symbiosis Institute of Technology",
+    "campusName": "Lavale Campus",
+    "city": "Pune",
+    "state": "Maharashtra",
+    "pincode": "412115",
+    "contactName": "Prof. Rajesh Kulkarni",
+    "contactRole": "HOD Computer Science",
+    "contactEmail": "rajesh.k@sitpune.edu.in",
+    "contactPhone": "+91 98220 12345",
+    "footfall": "1500-3000",
+    "timeline": "immediate",
+    "hasPower": true,
+    "hasSecurity": true,
+    "notes": "High footfall near central auditorium, requires 2 autonomous units.",
+    "status": "SITE_SURVEY",
+    "priority": "HIGH",
+    "assignedLead": "Unassigned",
+    "estimatedUnits": 2,
+    "createdAt": "2026-10-05T13:09:18.772Z",
+    "updatedAt": "2026-10-05T13:55:26.859Z",
+    "surveyNotes": [
+      {
+        "id": "sn-1791205758772",
+        "author": "Web Inbound Portal",
+        "text": "Public website purchase & deployment application received from Symbiosis Institute of Technology (Pune). Contact: Prof. Rajesh Kulkarni (+91 98220 12345).",
+        "timestamp": "2026-10-05T13:09:18.772Z"
+      },
+      {
+        "id": "sn-1791208526842",
+        "author": "Platform Ops Lead",
+        "text": "Status updated to SITE_SURVEY",
+        "timestamp": "2026-10-05T13:55:26.842Z"
+      }
+    ]
+  }
+]

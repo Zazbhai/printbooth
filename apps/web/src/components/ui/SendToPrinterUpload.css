@@ -1,0 +1,737 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SendToPrinterUpload — High-End Hardware Animation Component
+   Exact Smooth & Fluid Motion Choreography from User Demo
+   Customized with PrintBooth Crimson/Slate Palette & Geist Typography
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Container ── */
+.stpu-container {
+  --btn-color: #dc2626;
+  --btn-glow: rgba(220, 38, 38, 0.4);
+  --btn-border: #b91c1c;
+  --track: #dc2626;
+  --stage: rgba(255, 255, 255, 0.45);
+
+  /* Ambient light colors */
+  --c1: rgba(220, 38, 38, 0.16);
+  --c2: rgba(239, 68, 68, 0.12);
+  --c3: rgba(59, 130, 246, 0.12);
+  --mote: rgba(220, 38, 38, 0.7);
+
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 20px;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.stpu-container svg {
+  shape-rendering: geometricPrecision;
+}
+
+.stpu-label {
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ── Interactive Upload Button ── */
+.stpu-button {
+  --w: min(540px, calc(100% - 16px));
+  --sw: 86px;  /* sender width */
+  --pw: 114px; /* printer width */
+  --kw: 46px;  /* file width */
+
+  background-color: var(--btn-color);
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  width: 180px;
+  max-width: 100%;
+  height: 52px;
+  border-radius: 12px;
+  border: 3px solid var(--btn-border);
+  position: relative;
+  cursor: pointer;
+  box-shadow:
+    0 10px 25px -4px var(--btn-glow),
+    0 4px 10px -2px rgba(220, 38, 38, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  outline: none;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+
+.stpu-button:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 14px 30px -4px rgba(220, 38, 38, 0.5),
+    0 6px 14px -2px rgba(220, 38, 38, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+.stpu-button.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(0.4);
+  box-shadow: none;
+  transform: none;
+}
+
+.stpu-container[data-device="phone"] .stpu-button {
+  --sw: 52px;
+}
+
+@media (max-width: 640px) {
+  .stpu-button {
+    --sw: 68px;
+    --pw: 92px;
+    --kw: 38px;
+  }
+  .stpu-container[data-device="phone"] .stpu-button {
+    --sw: 44px;
+    --pw: 84px;
+    --kw: 34px;
+  }
+}
+
+@media (max-width: 440px) {
+  .stpu-button {
+    --sw: 54px;
+    --pw: 76px;
+    --kw: 30px;
+    font-size: 13.5px;
+  }
+  .stpu-container[data-device="phone"] .stpu-button {
+    --sw: 38px;
+    --pw: 72px;
+    --kw: 28px;
+  }
+}
+
+/* ── Upload Text ── */
+.stpu-text {
+  color: #ffffff;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* ── Waiting State ── */
+.stpu-waiting-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.stpu-waiting-svg {
+  animation: stpu-spin 0.85s linear infinite;
+  display: block;
+}
+
+@keyframes stpu-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Stage Background (Gradient Faded Mask) ── */
+.stpu-stage-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  pointer-events: none;
+  background: var(--stage);
+  backdrop-filter: blur(30px) saturate(220%) contrast(102%);
+  -webkit-backdrop-filter: blur(30px) saturate(220%) contrast(102%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent), linear-gradient(180deg, transparent, #000 7%, #000 93%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent), linear-gradient(180deg, transparent, #000 7%, #000 93%, transparent);
+  mask-composite: intersect;
+}
+
+.stpu-stage-bg i {
+  position: absolute;
+  display: block;
+  will-change: transform;
+}
+
+.stpu-orb {
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--c1) 0%, transparent 68%);
+  animation: stpu-drift-a 9s ease-in-out infinite alternate;
+}
+.stpu-orb.o1 { left: -2%; top: -45%; }
+.stpu-orb.o2 { left: 36%; top: 15%; background: radial-gradient(circle, var(--c2) 0%, transparent 68%); animation: stpu-drift-b 11s ease-in-out infinite alternate; }
+.stpu-orb.o3 { right: -2%; top: -35%; background: radial-gradient(circle, var(--c3) 0%, transparent 68%); animation: stpu-drift-a 13s ease-in-out infinite alternate-reverse; }
+
+.stpu-mote {
+  width: 4px;
+  height: 4px;
+  bottom: 6px;
+  border-radius: 50%;
+  background: var(--mote);
+  opacity: 0;
+  animation: stpu-rise 5s linear infinite;
+}
+.stpu-mote.m1 { left: 14%; }
+.stpu-mote.m2 { left: 27%; animation-delay: -1.6s; animation-duration: 6s; }
+.stpu-mote.m3 { left: 43%; animation-delay: -3.2s; }
+.stpu-mote.m4 { left: 58%; animation-delay: -0.8s; animation-duration: 6.5s; }
+.stpu-mote.m5 { left: 72%; animation-delay: -2.4s; }
+.stpu-mote.m6 { left: 86%; animation-delay: -4s; animation-duration: 5.5s; }
+
+/* ── Hardware GPU Acceleration & Fill-Box Transforms ── */
+.stpu-file-container,
+.stpu-plane-arc,
+.stpu-plane-wrap,
+.stpu-plane-svg,
+.stpu-sender-container,
+.stpu-printer-container {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* ── Track & Laser Data Path ── */
+.stpu-track {
+  position: absolute;
+  z-index: 1;
+  opacity: 0;
+  left: calc(var(--sw) + 24px);
+  right: calc(var(--pw) + 22px);
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  background: linear-gradient(90deg, var(--track) 50%, transparent 50%) 0 0 / 24px 4px;
+}
+
+.stpu-packets {
+  position: absolute;
+  z-index: 1;
+  opacity: 0;
+  left: calc(var(--sw) + 24px);
+  right: calc(var(--pw) + 22px);
+  top: 50%;
+  height: 0;
+}
+.stpu-packets i {
+  position: absolute;
+  left: 0;
+  top: -16px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border: 1.5px solid #ffffff;
+  border-radius: 2px;
+  opacity: 0;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.4);
+}
+.stpu-packets i:nth-child(2n) {
+  top: 10px;
+  background: #ffffff;
+  border-color: #dc2626;
+}
+
+/* ── Radio Waves ── */
+.stpu-waves {
+  position: absolute;
+  z-index: 1;
+  opacity: 0;
+  left: calc(var(--sw) + 16px);
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
+  display: flex;
+  align-items: center;
+  width: 22px;
+  height: max-content;
+}
+.stpu-waves svg { width: 100%; display: block; }
+.stpu-waves path {
+  fill: none;
+  stroke: var(--track);
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+/* ── Sender Container ── */
+.stpu-sender-container {
+  position: absolute;
+  z-index: 2;
+  opacity: 0;
+  left: clamp(10px, 3%, 16px);
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
+  display: flex;
+  align-items: center;
+  width: var(--sw);
+  height: max-content;
+}
+.stpu-sender-container svg {
+  width: 100%;
+  display: block;
+  overflow: visible;
+}
+.stpu-sender-container .stpu-phone-svg { display: none; }
+.stpu-container[data-device="phone"] .stpu-sender-container .stpu-phone-svg { display: block; }
+.stpu-container[data-device="phone"] .stpu-sender-container .stpu-pc-svg { display: none; }
+
+/* ── Printer Container ── */
+.stpu-printer-container {
+  position: absolute;
+  z-index: 2;
+  opacity: 0;
+  right: clamp(10px, 2.5%, 14px);
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
+  display: flex;
+  align-items: center;
+  width: var(--pw);
+  height: max-content;
+}
+.stpu-printer-container svg {
+  width: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.stpu-pbar {
+  transform-box: fill-box;
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.stpu-arm {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+}
+.stpu-out-paper {
+  transform-box: fill-box;
+  transform: translateY(-48px);
+}
+
+/* ── Flying File (Origami Airplane) ── */
+.stpu-file-container {
+  position: absolute;
+  z-index: 3;
+  opacity: 0;
+  left: calc(var(--sw) + clamp(12px, 3%, 20px));
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
+  display: flex;
+  align-items: center;
+  width: var(--kw);
+  height: max-content;
+}
+
+.stpu-plane-arc {
+  position: relative;
+}
+
+.stpu-plane-wrap {
+  width: calc(var(--kw) * 1.1);
+  height: calc(var(--kw) * 1.3);
+  margin-left: calc(var(--kw) * -0.05);
+  transform-origin: 50% 50%;
+}
+
+.stpu-plane-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.stpu-pct {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: max-content;
+  opacity: 0;
+  background: #0f172a;
+  color: #ffffff;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 8px 3px;
+  border-radius: 6px;
+  min-width: 36px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.stpu-ln {
+  fill: #94a3b8;
+  transform-box: fill-box;
+  transform-origin: left;
+}
+
+.stpu-lid,
+.stpu-phone-body,
+.stpu-send-btn,
+.stpu-screen-card,
+.stpu-tap-ripple,
+.stpu-sprog {
+  transform-box: fill-box;
+}
+
+.stpu-lid { transform-origin: 50% 100%; }
+.stpu-phone-body { transform-origin: 50% 100%; }
+.stpu-send-btn, .stpu-tap-ripple { transform-origin: center; }
+.stpu-screen-card { transform-origin: center; }
+.stpu-sprog { transform-origin: left; transform: scaleX(0); }
+.stpu-tap-ripple { fill: rgba(220, 38, 38, 0.2); opacity: 0; }
+.stpu-pointer { opacity: 0; }
+.stpu-keys rect { fill: #475569; }
+
+/* ── Confetti & Celebration Ring ── */
+.stpu-confetti { position: absolute; width: 0; height: 0; z-index: 3; }
+.stpu-confetti i { position: absolute; width: 8px; height: 8px; border-radius: 2px; background: var(--c); opacity: 0; }
+.stpu-ring {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 4px solid var(--btn-color);
+  opacity: 0;
+  z-index: 0;
+  box-sizing: border-box;
+}
+
+/* ── Completion Text ── */
+.stpu-complete-text {
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+}
+
+.stpu-complete-text .stpu-l {
+  display: inline-block;
+  white-space: pre;
+  opacity: 0;
+}
+
+.stpu-processing-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Check Container inside Button ── */
+.stpu-check-container {
+  position: absolute;
+  z-index: 0;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stpu-check-container svg {
+  width: 56px;
+  display: block;
+}
+
+/* ── Hidden Trigger Checkbox ── */
+.stpu-checkbox { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   TIMELINE ANIMATION TRIGGERS (Activated when checkbox is checked)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-button {
+  animation: stpu-clicked 0.5s both 1 ease alternate 0s,
+             stpu-rounded 0.5s both 1 ease alternate 0.5s,
+             stpu-rounded-in 0.5s both 1 ease alternate 4.8s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-button .stpu-text {
+  animation: stpu-clicked 0.5s both 1 ease alternate 0s,
+             stpu-disappear 0.2s both 1 ease alternate 0.75s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-stage-bg {
+  animation: stpu-fade-in 0.4s forwards 1s,
+             stpu-fade-out 0.4s forwards 4.8s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-track {
+  animation: stpu-fade-in 0.3s forwards 1.4s,
+             stpu-dash-flow 0.5s linear infinite 1.4s,
+             stpu-fade-out 0.3s forwards 4.8s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-sender-container {
+  animation: stpu-showing 0.3s both 1 ease alternate 1.2s,
+             stpu-disappear 0.5s both 1 ease alternate 4.8s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-sender-container svg {
+  animation: none;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-waves {
+  animation: stpu-fade-in 0.2s forwards 1.6s,
+             stpu-fade-out 0.3s forwards 4.2s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-waves path {
+  animation: stpu-wave 0.9s ease-out infinite 1.6s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-waves path:nth-child(2) {
+  animation-delay: 1.9s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-waves path:nth-child(3) {
+  animation-delay: 2.2s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-printer-container {
+  animation: stpu-showing 0.3s both 1 ease alternate 1.4s,
+             stpu-disappear 0.5s both 1 ease alternate 4.8s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-printer-container svg {
+  animation: stpu-shake 0.2s linear 3.9s 5;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-out-paper {
+  animation: stpu-paper-out 0.9s ease-out forwards 3.9s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-file-container {
+  animation: stpu-paper-in 0.35s cubic-bezier(.2,.9,.3,1.2) both 1.7s,
+             stpu-file-move 1.3s forwards cubic-bezier(.45,.05,.35,1) 2.75s,
+             stpu-disappear 0.5s both 1 ease alternate 4.8s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-button .stpu-check-container {
+  animation: stpu-showing 0.3s both 1 ease alternate 5s;
+}
+
+.stpu-checkbox:checked ~ .stpu-complete-text .stpu-l {
+  animation: stpu-letter-pop 0.45s cubic-bezier(.2,.9,.3,1.2) forwards calc(5s + var(--i) * 0.035s);
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-packets {
+  animation: stpu-fade-in 0.2s forwards 1.8s,
+             stpu-fade-out 0.3s forwards 4.3s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-packets i {
+  animation: stpu-packet-run 0.9s linear infinite 1.8s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-packets i:nth-child(2) {
+  animation-delay: 2.0s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-packets i:nth-child(3) {
+  animation-delay: 2.2s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-packets i:nth-child(4) {
+  animation-delay: 2.4s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-led {
+  fill: #ef4444;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-confetti i {
+  animation: stpu-burst 0.9s ease-out forwards 5.2s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-ring {
+  animation: stpu-ring-pulse 0.8s ease-out forwards 5.2s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-pbar {
+  animation: stpu-pbar-fill 2.5s linear forwards 1.8s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-lid {
+  animation: stpu-lid-open 0.5s cubic-bezier(.2,.8,.2,1) both 1.1s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-phone-body {
+  animation: stpu-phone-flick 0.5s ease-out 1.75s,
+             stpu-phone-rise 0.5s ease-out both 1.1s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-pointer {
+  animation: stpu-point 0.8s ease-in-out both 1.25s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-send-btn {
+  animation: stpu-press 0.3s ease-in-out both 1.65s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-tap-ripple {
+  animation: stpu-ripple 0.5s ease-out both 1.65s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-screen-card {
+  animation: stpu-card-out 0.5s ease-in forwards 1.75s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-sprog {
+  animation: stpu-sprog-fill 2.5s linear forwards 1.8s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-keys rect {
+  animation: stpu-key-tap 0.22s ease-in-out infinite alternate 1.8s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-keys rect:nth-child(2n) {
+  animation-delay: 1.9s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-keys rect:nth-child(3n) {
+  animation-delay: 2.0s;
+}
+
+.stpu-checkbox:checked ~ .stpu-label .stpu-plane-arc {
+  animation: stpu-arc 1.3s cubic-bezier(.4,0,.4,1) forwards 2.75s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-plane-wrap {
+  animation: stpu-plane-turn 0.3s ease-in-out forwards 2.6s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-plane-svg {
+  animation: stpu-sink 1.3s ease-in forwards 2.75s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-crease {
+  animation: stpu-fade-in 0.2s forwards 2.55s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-pct {
+  animation: stpu-fade-in 0.25s forwards 2.7s,
+             stpu-fade-out 0.2s forwards 3.75s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-paper-lines {
+  animation: stpu-fade-out 0.2s forwards 2s;
+}
+.stpu-checkbox:checked ~ .stpu-label .stpu-ln {
+  animation: stpu-ln-write 0.28s ease-out both calc(1.75s + var(--d));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KEYFRAMES — EXACT FLUID EASINGS FROM USER DEMO
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes stpu-clicked {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+@keyframes stpu-rounded {
+  40% { width: 150px; height: 74px; background-color: var(--btn-color); }
+  60% { width: 150px; height: 74px; background-color: var(--btn-color); border: 3px solid var(--btn-border); }
+  95% { width: var(--w); height: 0px; background: transparent; border: 0px; box-shadow: 0 0; }
+  100% { width: var(--w); height: 180px; background: transparent; border: 0px; box-shadow: 0 0; }
+}
+
+@keyframes stpu-rounded-in {
+  30% { width: var(--w); height: 180px; background: transparent; border: 3px solid var(--btn-border); box-shadow: 0 10px 25px rgba(220, 38, 38, 0.3); }
+  70% { width: 88px; height: 88px; background-color: #059669; border: 3px solid #047857; box-shadow: 0 10px 25px rgba(5, 150, 105, 0.4); border-radius: 50%; }
+  80% { width: 78px; height: 78px; background-color: #059669; border: 3px solid #047857; box-shadow: 0 10px 25px rgba(5, 150, 105, 0.4); border-radius: 50%; }
+  90% { width: 92px; height: 92px; background-color: #059669; border: 3px solid #047857; box-shadow: 0 10px 25px rgba(5, 150, 105, 0.4); border-radius: 50%; }
+  100% { width: 88px; height: 88px; background-color: #059669; border: 3px solid #047857; box-shadow: 0 10px 25px rgba(5, 150, 105, 0.4); border-radius: 50%; }
+}
+
+@keyframes stpu-disappear {
+  90% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(20px); opacity: 0; }
+}
+
+@keyframes stpu-showing {
+  0% { opacity: 0; transform: translateY(8px) scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes stpu-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes stpu-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes stpu-dash-flow { to { background-position: 24px 0; } }
+
+@keyframes stpu-file-move {
+  0% { transform: translate3d(0, 0, 0); opacity: 1; }
+  88% { transform: translate3d(var(--travel, 220px), 0, 0); opacity: 1; }
+  100% { transform: translate3d(var(--travel, 220px), 0, 0); opacity: 0; }
+}
+
+@keyframes stpu-arc {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(-24px); }
+  65% { transform: translateY(-8px); }
+  100% { transform: translateY(4px); }
+}
+
+@keyframes stpu-plane-turn { to { transform: rotate(90deg); } }
+@keyframes stpu-sink { 0%, 82% { transform: scale(1); } 100% { transform: scale(0.5); } }
+@keyframes stpu-paper-in { from { opacity: 0; transform: translateY(10px) scale(0.7); } to { opacity: 1; transform: none; } }
+@keyframes stpu-paper-out { to { transform: translateY(0); } }
+@keyframes stpu-shake { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes stpu-wave { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes stpu-burst { 0% { opacity: 1; transform: translate(0,0) rotate(0); } 100% { opacity: 0; transform: translate(var(--x), var(--y)) rotate(400deg); } }
+@keyframes stpu-ring-pulse { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(2.2); } }
+
+@keyframes stpu-letter-pop {
+  0% { opacity: 0; transform: translateY(14px) scale(0.5); }
+  60% { opacity: 1; transform: translateY(-3px) scale(1.1); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes stpu-pbar-fill { to { transform: scaleX(1); } }
+@keyframes stpu-lid-open { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes stpu-phone-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes stpu-phone-flick { 40% { transform: translateX(5px); } 100% { transform: none; } }
+
+@keyframes stpu-point {
+  0% { opacity: 0; transform: translate(16px, 22px); }
+  30% { opacity: 1; }
+  55% { transform: translate(0, 0); }
+  65% { transform: translate(0, 2px) scale(0.92); }
+  80% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(8px, 12px); }
+}
+
+@keyframes stpu-press { 50% { transform: scale(0.88); } }
+@keyframes stpu-ripple { 0% { opacity: 0.9; transform: scale(0.4); } 100% { opacity: 0; transform: scale(3.2); } }
+@keyframes stpu-card-out { to { transform: translate(14px, -8px) scale(0.5); opacity: 0; } }
+@keyframes stpu-sprog-fill { to { transform: scaleX(1); } }
+@keyframes stpu-key-tap { to { fill: #dc2626; } }
+
+@keyframes stpu-ln-write { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes stpu-packet-run { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+
+@keyframes stpu-drift-a { from { transform: translate3d(-30px, 10px, 0) scale(1); } to { transform: translate3d(40px, -8px, 0) scale(1.08); } }
+@keyframes stpu-drift-b { from { transform: translate3d(30px, -6px, 0) scale(1.05); } to { transform: translate3d(-40px, 12px, 0) scale(0.95); } }
+@keyframes stpu-rise { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.9; } 100% { transform: translateY(-170px); opacity: 0; } }

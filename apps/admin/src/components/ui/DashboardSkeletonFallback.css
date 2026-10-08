@@ -1,0 +1,131 @@
+/* ==========================================================================
+   DashboardSkeletonFallback.css — Boneyard Shimmer Fallback Styles
+   Tailored for Capitalio Fleet & Merchant Dashboards
+   ========================================================================== */
+
+.admin-skeleton-page {
+  pointer-events: none;
+  user-select: none;
+  animation: admin-skeleton-fadein 0.25s ease-out;
+}
+
+@keyframes admin-skeleton-fadein {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Base bone element with high-fidelity shimmer */
+.bone-box {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.06) 0%,
+    rgba(15, 23, 42, 0.13) 48%,
+    rgba(15, 23, 42, 0.06) 100%
+  );
+  background-size: 240% 100%;
+  animation: admin-bone-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  display: block;
+}
+
+@keyframes admin-bone-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+/* Dark mode bone shimmer */
+.dark .admin-skeleton-page .bone-box {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.14) 48%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 240% 100%;
+}
+
+/* Sparkline area & line simulation */
+.bone-sparkline-area {
+  color: rgba(15, 23, 42, 0.05);
+}
+.dark .bone-sparkline-area {
+  color: rgba(255, 255, 255, 0.05);
+}
+
+.bone-sparkline-line {
+  color: rgba(15, 23, 42, 0.16);
+  animation: admin-bone-pulse 2s ease-in-out infinite alternate;
+}
+.dark .bone-sparkline-line {
+  color: rgba(255, 255, 255, 0.22);
+}
+
+/* Mini Bar Chart Bars */
+.bone-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.08) 0%,
+    rgba(15, 23, 42, 0.15) 48%,
+    rgba(15, 23, 42, 0.08) 100%
+  );
+  background-size: 240% 100%;
+  border-radius: 3px 3px 0 0;
+  animation: admin-bone-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.dark .bone-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.15) 48%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 240% 100%;
+}
+
+/* SVG Donut Chart */
+.bone-donut-bg {
+  stroke: rgba(15, 23, 42, 0.06);
+}
+.dark .bone-donut-bg {
+  stroke: rgba(255, 255, 255, 0.06);
+}
+
+.bone-donut-seg1 {
+  stroke: rgba(15, 23, 42, 0.14);
+  animation: admin-bone-pulse 2.4s ease-in-out infinite alternate;
+}
+.dark .bone-donut-seg1 {
+  stroke: rgba(255, 255, 255, 0.20);
+}
+
+.bone-donut-seg2 {
+  stroke: rgba(15, 23, 42, 0.09);
+  animation: admin-bone-pulse 2.4s ease-in-out infinite alternate-reverse;
+}
+.dark .bone-donut-seg2 {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+/* Chart Canvas Guide Line */
+.bone-chart-guide {
+  stroke: rgba(15, 23, 42, 0.12);
+}
+.dark .bone-chart-guide {
+  stroke: rgba(255, 255, 255, 0.15);
+}
+
+@keyframes admin-bone-pulse {
+  0% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
+}

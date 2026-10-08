@@ -1,0 +1,370 @@
+.doc-lightgallery-shell {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.doc-lightgallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 720px;
+  padding: 0 4px;
+}
+
+.doc-lightgallery-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.doc-lightgallery-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.doc-lightgallery-tag.colour {
+  background: rgba(236, 72, 153, 0.12);
+  color: #db2777;
+  border: 1px solid rgba(236, 72, 153, 0.25);
+}
+
+.doc-lightgallery-tag.bw {
+  background: rgba(15, 23, 42, 0.08);
+  color: #475569;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
+.doc-lightgallery-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+  opacity: 0.9;
+}
+
+/* ── Gallery Container (Compact & Clean Strip) ── */
+.gallery-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  width: 100%;
+  max-width: 760px;
+  padding: 10px 6px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.05), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Scrollable row when pages > 4 */
+.gallery-container.is-scrollable {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  padding: 12px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(220, 38, 38, 0.25) transparent;
+}
+
+.gallery-container.is-scrollable::-webkit-scrollbar {
+  height: 6px;
+}
+
+.gallery-container.is-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(220, 38, 38, 0.25);
+  border-radius: 4px;
+}
+
+/* ── Gallery Item Card (matches user snippet & compact document styling) ── */
+.gallery-item {
+  width: 140px;
+  padding: 5px;
+}
+
+.gallery-item.doc-gallery-item {
+  display: block;
+  flex-shrink: 0;
+  width: 140px;
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.gallery-item.doc-gallery-item:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+.doc-gallery-thumb-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.414; /* A4 aspect ratio */
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1.5px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gallery-item.doc-gallery-item:hover .doc-gallery-thumb-wrapper {
+  border-color: rgba(220, 38, 38, 0.4);
+  box-shadow: 0 8px 24px -4px rgba(220, 38, 38, 0.2), 0 2px 6px -1px rgba(0, 0, 0, 0.06);
+}
+
+.doc-gallery-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain !important;
+  object-position: center !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  padding: 4px;
+  transition: transform 260ms ease, filter 200ms ease;
+}
+
+.lg-outer img,
+.lg-outer .lg-image,
+.lg-outer .lg-thumb-item img {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.gallery-item.doc-gallery-item:hover .doc-gallery-thumb-img {
+  transform: scale(1.03);
+}
+
+.doc-gallery-thumb-img.is-bw {
+  filter: grayscale(100%) contrast(108%);
+}
+
+/* ── Top Badges Row ── */
+.doc-gallery-badge-row {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.doc-gallery-page-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.doc-gallery-mode-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.doc-gallery-mode-badge.colour {
+  background: rgba(236, 72, 153, 0.92);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(236, 72, 153, 0.4);
+}
+
+.doc-gallery-mode-badge.bw {
+  background: rgba(30, 41, 59, 0.9);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Hover Overlay with Magnifying Glass ── */
+.doc-gallery-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  z-index: 3;
+}
+
+.gallery-item.doc-gallery-item:hover .doc-gallery-hover-overlay {
+  opacity: 1;
+}
+
+.doc-gallery-hover-overlay span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* ── LightGallery Lightbox Custom Styling ── */
+.lg-doc-caption {
+  text-align: center;
+  padding: 8px 16px;
+  color: #ffffff;
+}
+
+.lg-doc-caption h4 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.lg-doc-caption p {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── LightGallery Lightbox Glassmorphism Backdrop ── */
+.lg-backdrop {
+  background-color: rgba(224, 229, 236, 0.65) !important;
+  backdrop-filter: blur(28px) saturate(190%) contrast(98%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(98%) !important;
+}
+
+.lg-outer {
+  background: transparent !important;
+}
+
+.lg-outer .lg-inner {
+  background: transparent !important;
+}
+
+.lg-outer .lg-img-wrap {
+  padding: 24px !important;
+}
+
+.lg-outer .lg-img-wrap img {
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 
+    0 24px 60px -12px rgba(15, 23, 42, 0.22),
+    0 10px 24px -6px rgba(163, 177, 198, 0.35),
+    0 0 0 1.5px rgba(255, 255, 255, 0.9) !important;
+  object-fit: contain !important;
+}
+
+/* Light, clean frosted glass top toolbar */
+.lg-toolbar {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+}
+
+.lg-toolbar .lg-icon,
+.lg-actions .lg-next,
+.lg-actions .lg-prev {
+  color: #1e293b !important;
+  background: transparent !important;
+  transition: all 180ms ease !important;
+}
+
+.lg-toolbar .lg-icon:hover,
+.lg-actions .lg-next:hover,
+.lg-actions .lg-prev:hover {
+  color: #dc2626 !important;
+  transform: scale(1.12) !important;
+}
+
+#lg-counter {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.04em !important;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif) !important;
+}
+
+/* Bottom Caption Bar */
+.lg-sub-html {
+  background: rgba(255, 255, 255, 0.70) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-top: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04) !important;
+  padding: 12px 20px !important;
+}
+
+.lg-sub-html h4 {
+  margin: 0 0 3px 0 !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.lg-sub-html p {
+  margin: 0 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #475569 !important;
+}
+
+/* Bottom Thumbnail Strip */
+.lg-outer .lg-thumb-outer {
+  background: rgba(224, 229, 236, 0.75) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-top: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.04) !important;
+}
+
+.lg-outer .lg-thumb-item {
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  border: 2px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.lg-outer .lg-thumb-item:hover {
+  border-color: rgba(220, 38, 38, 0.5) !important;
+  transform: translateY(-2px) !important;
+}
+
+.lg-outer .lg-thumb-item.active {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.3), 0 4px 14px rgba(220, 38, 38, 0.25) !important;
+  transform: scale(1.08) !important;
+}
