@@ -620,7 +620,7 @@
   position: absolute;
   inset: 0;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.93);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: flex;
@@ -632,46 +632,67 @@
   animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   padding: 24px;
   text-align: center;
+  contain: paint;
+  isolation: isolate;
 }
 
-/* SVG Printer Mascot */
+/* SVG Printer Mascot - GPU Accelerated & Decoupled Filter */
 .hw-offline-mascot {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Shadow on static container so GPU does not re-rasterize filter blur on every animation frame */
+  filter: drop-shadow(0 6px 14px rgba(239, 68, 68, 0.18));
 }
 
 .hw-offline-mascot-svg {
   width: 96px;
   height: 96px;
-  filter: drop-shadow(0 4px 12px rgba(239, 68, 68, 0.15));
-  animation: mascotFloat 3s ease-in-out infinite;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  animation: mascotFloat 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 @keyframes mascotFloat {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
 }
 
-/* Paper coming out of mascot animation */
+/* Paper coming out of mascot animation - GPU Composited */
 .hw-mascot-paper {
-  animation: paperPull 2.8s ease-in-out infinite;
-  transform-origin: center bottom;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  transform-origin: 60px 61px;
+  animation: paperPull 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 @keyframes paperPull {
-  0% { transform: translateY(0); }
-  40% { transform: translateY(-4px); }
-  70% { transform: translateY(0); }
-  100% { transform: translateY(0); }
+  0%, 70%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40% {
+    transform: translate3d(0, -4px, 0);
+  }
 }
 
 /* Blinking red LED on mascot */
 .hw-mascot-blink {
+  will-change: opacity;
   animation: ledBlink 1.4s step-start infinite;
 }
 
 @keyframes ledBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .hw-offline-msg {

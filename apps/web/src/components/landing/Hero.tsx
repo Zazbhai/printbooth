@@ -3,6 +3,8 @@ import { Zap, Printer, QrCode, ArrowRight, ChevronDown, Sparkles } from 'lucide-
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { animateHeroIn, showAllImmediately } from '../../animations/landingAnimations'
 import ShimmerButton from '../ui/ShimmerButton'
+import ScrambleText from '../ui/ScrambleText'
+import WordRotator from '../ui/WordRotator'
 
 interface HeroProps {
   scrollProgress?: number
@@ -39,15 +41,30 @@ export default function Hero({ isActive = true, onExplore }: HeroProps) {
       <div ref={containerRef} className="landing-hero__content">
         <div className="landing-hero__text">
 
-          {/* Monumental Headline */}
+          {/* Monumental Kinetic Headline with Decrypt Hover Micro-Interactions */}
           <h1 id="hero-headline" className="landing-hero__headline">
-            <span className="hero-line">PRINT.</span>
-            <span className="hero-line">PAY.</span>
-            <span className="hero-line hero-line--accent">COLLECT.</span>
+            <span className="hero-line">
+              <ScrambleText text="PRINT." delay={80} duration={650} />
+            </span>
+            <span className="hero-line">
+              <ScrambleText text="PAY." delay={200} duration={650} />
+            </span>
+            <span className="hero-line hero-line--accent">
+              <ScrambleText text="COLLECT." delay={340} duration={750} />
+            </span>
           </h1>
 
           <p className="hero-subtitle">
-            Autonomous self-service printing kiosks.
+            Autonomous self-service printing for{' '}
+            <WordRotator
+              words={[
+                'college campuses.',
+                'public libraries.',
+                'transit hubs.',
+                'residential societies.',
+                'corporate parks.',
+              ]}
+            />
           </p>
 
           <p className="hero-desc">

@@ -27,12 +27,12 @@ export default function MerchantSettingsPage() {
   const [locMsg, setLocMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [form, setForm] = useState({
     storeName: activeMerchant?.storeName || 'MIT ADT Campus Print Hub',
-    contactPerson: activeMerchant?.name || 'Rahul Sharma',
-    phone: activeMerchant?.phone || '+91 98234 56789',
-    whatsapp: (activeMerchant as any)?.whatsapp || '+919823456789',
+    contactPerson: activeMerchant?.name || 'Campus Print Desk Partner',
+    phone: activeMerchant?.phone || '+91 90906 36363',
+    whatsapp: (activeMerchant as any)?.whatsapp || '+919090636363',
     supportHours: (activeMerchant as any)?.supportHours || '8:30 AM - 9:30 PM (Mon-Sat)',
     supportNote: (activeMerchant as any)?.supportNote || 'Ground Floor, Central Reading Hall (Counter #1, next to turnstiles)',
-    email: activeMerchant?.email || 'rahul.adt@printbooth.in',
+    email: activeMerchant?.email || 'team1printbooth@gmail.com',
     address: activeMerchant?.address || 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
     lat: (activeMerchant as any)?.lat ?? 18.4912,
     lng: (activeMerchant as any)?.lng ?? 74.0253,
@@ -245,7 +245,7 @@ export default function MerchantSettingsPage() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="+919823456789"
+                placeholder="+919090636363"
                 value={form.whatsapp}
                 onChange={e => setForm({ ...form, whatsapp: e.target.value })}
               />

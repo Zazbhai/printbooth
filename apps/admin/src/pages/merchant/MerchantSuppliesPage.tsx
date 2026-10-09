@@ -36,7 +36,7 @@ export default function MerchantSuppliesPage() {
   const paperLevel = supplies?.paperLevel ?? 0
   const tonerLevel = supplies?.tonerLevel ?? 0
   const isOnline = supplies?.status === 'ONLINE' && (supplies?.isOnline !== false)
-  const printerModel = supplies?.printerModel || 'Brother DCP-T420W'
+  const printerModel = supplies?.printerModel || 'Laser Print Engine'
 
   const inventoryItems = [
     {

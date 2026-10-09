@@ -67,7 +67,7 @@ export default function ContactPage() {
       status: 'OPEN',
       requesterName: form.name,
       requesterEmail: form.email,
-      requesterPhone: form.phone || '+91 90906 36363',
+      requesterPhone: form.phone || '',
       createdAt: now,
       updatedAt: now,
       messages: [

@@ -1,0 +1,20 @@
+/* PrintBooth Scramble / Decrypt Text Kinetic Styling */
+.pb-scramble-text {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  transition: text-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: contents;
+}
+
+.pb-scramble-text.is-scrambling {
+  letter-spacing: inherit;
+  opacity: 0.98;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-scramble-text {
+    animation: none !important;
+    transition: none !important;
+  }
+}

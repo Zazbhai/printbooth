@@ -110,7 +110,7 @@ export default function KioskDetailPage() {
     location: 'Loni Kalbhor, Pune',
     status: 'OFFLINE',
     printerStatus: 'OFFLINE',
-    printerModel: 'Brother DCP-T420W Printer USB',
+    printerModel: 'Laser Print Engine',
     paperLevel: 0,
     tonerLevel: 0,
     queueCount: 0,

@@ -195,7 +195,7 @@ export async function renderFilePages(
   if (fileType === 'docx' || fileType === 'ppt') {
     onProgress?.(0, 1)
 
-    // Step 1: Fast local count detection
+    // Fast client-side slide/page count detection (< 15ms)
     let localCount = 1
     if (fileType === 'ppt') {
       localCount = await countPptxSlides(file)
@@ -203,30 +203,13 @@ export async function renderFilePages(
       localCount = await countDocxPages(file)
     }
 
-    // Step 2: Query backend inspection (Word/PowerPoint COM conversion for exact count & raster page thumbnails)
-    try {
-      const inspected = await inspectDocument(file)
-      if (inspected && inspected.pageCount && inspected.pageCount > 0) {
-        const exactCount = inspected.pageCount
-        const existingPreviews: DocumentPagePreview[] = (inspected.previews || []).map((p: any, idx: number) => ({
-          id: p.id || idx + 1,
-          pageNumber: p.pageNumber || idx + 1,
-          title: p.title || (fileType === 'ppt' ? `Slide ${idx + 1}` : `Page ${idx + 1}`),
-          subtitle: p.subtitle || file.name,
-          url: p.url,
-        }))
-
-        const pages = renderOfficePlaceholders(file, fileType, exactCount, existingPreviews)
-        onProgress?.(1, 1)
-        return pages
-      }
-    } catch (e) {
-      console.warn('[multiFileRenderer] Backend inspection failed, falling back to local count:', e)
-    }
-
-    // Fallback: Use detected client-side count
+    // Return instant responsive previews without blocking the UI on backend conversion!
     const pages = renderOfficePlaceholders(file, fileType, localCount)
     onProgress?.(1, 1)
+
+    // Non-blocking background inspection: does NOT delay user transition to confirm
+    inspectDocument(file).catch(() => {})
+
     return pages
   }
 

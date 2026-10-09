@@ -44,10 +44,10 @@ export async function renderPdfPages(
     for (let i = 1; i <= pagesToRender; i++) {
       const page = await pdf.getPage(i);
       
-      // Target high-definition crisp rendering (scale >= 2.0 or 1400px width for razor-sharp text)
+      // Fast, crisp preview rendering (~720px width)
       const baseViewport = page.getViewport({ scale: 1.0 });
-      const targetWidth = 1400;
-      const scale = Math.min(3.5, Math.max(2.0, targetWidth / baseViewport.width));
+      const targetWidth = 720;
+      const scale = Math.min(2.0, Math.max(1.0, targetWidth / baseViewport.width));
       const viewport = page.getViewport({ scale });
 
       const canvas = document.createElement('canvas');
@@ -56,10 +56,8 @@ export async function renderPdfPages(
       const ctx = canvas.getContext('2d');
 
       if (ctx) {
-        // Crisp antialiasing & image smoothing
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        // Draw white background in case PDF pages are transparent
+        ctx.imageSmoothingQuality = 'medium';
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -68,7 +66,7 @@ export async function renderPdfPages(
           viewport,
         }).promise;
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
         pages.push({
           id: i,
           pageNumber: i,
@@ -82,6 +80,11 @@ export async function renderPdfPages(
 
       if (onProgress) {
         onProgress(i, pagesToRender);
+      }
+
+      // Yield briefly between pages to keep UI responsive
+      if (i % 3 === 0) {
+        await new Promise(r => setTimeout(r, 0));
       }
     }
 

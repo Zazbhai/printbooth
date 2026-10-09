@@ -193,7 +193,7 @@ export default function MerchantDashboardPage() {
     address: activeMerchant?.address || 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
     paperLevel: 85,
     tonerLevel: 92,
-    printerModel: activeMerchant?.printerModel || 'Brother DCP-T420W',
+    printerModel: activeMerchant?.printerModel || 'Laser Print Engine',
     printerName: 'PrintBooth_Printer',
     status: 'ONLINE',
     pricing: { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
@@ -905,11 +905,6 @@ export default function MerchantDashboardPage() {
                     <Warning size={16} weight="fill" color="#ef4444" />
                     Printer Offline
                   </span>
-                  <span className="hw-offline-sub">Hardware telemetry unavailable. Ink levels, spooler status, and diagnostics will resume when the kiosk reconnects.</span>
-                </div>
-                <div className="hw-offline-reconnect-pill">
-                  <span className="hw-offline-reconnect-dot" />
-                  Awaiting connection to {activeKioskId}…
                 </div>
               </div>
             )}

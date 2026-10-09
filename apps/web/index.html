@@ -173,9 +173,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800;900&family=Orbitron:wght@700;900&family=Poppins:wght@400;500&display=swap" rel="stylesheet" />
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- ⚡ Critical inline styles for the PrintBooth loading animation -->
+    <!-- ⚡ Ultra-fast, zero-jank hardware-accelerated inline styles for the PrintBooth loading splash -->
     <style>
       :root {
         --ink: #0a0f13;
@@ -206,7 +204,7 @@
         flex-direction: column;
       }
 
-      /* Branded Three.js splash shown while bundle downloads */
+      /* Branded lightweight splash shown while bundle downloads */
       #pb-splash {
         position: fixed;
         inset: 0;
@@ -216,7 +214,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: opacity 0.5s ease, visibility 0.5s ease;
+        transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        contain: strict;
       }
 
       #pb-splash.pb-splash--hidden {
@@ -241,10 +240,10 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        perspective: 1400px;
         padding: 2rem 1.2rem;
         text-align: center;
         opacity: 0;
+        transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .stage.live {
         opacity: 1;
@@ -275,30 +274,20 @@
         display: inline-block;
         position: relative;
         opacity: 0;
-        filter: blur(14px);
-        transform: scale(0.4) translateY(30px) rotateY(50deg);
-        will-change: transform, opacity, filter;
+        transform: translate3d(0, 18px, 0) scale(0.92);
+        will-change: transform, opacity;
       }
       .letter.in {
-        animation: land 0.78s cubic-bezier(0.17, 0.84, 0.3, 1.1) forwards;
+        animation: land 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       @keyframes land {
         0% {
           opacity: 0;
-          filter: blur(14px);
-          transform: scale(0.4) translateY(30px) rotateY(50deg);
-          text-shadow: 0 0 0 rgba(0, 0, 0, 0);
-        }
-        55% {
-          opacity: 1;
-          filter: blur(0px);
-          text-shadow: 0 0 22px rgba(41, 194, 255, 0.55);
+          transform: translate3d(0, 18px, 0) scale(0.92);
         }
         100% {
           opacity: 1;
-          filter: blur(0px);
-          transform: scale(1) translateY(0) rotateY(0deg);
-          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+          transform: translate3d(0, 0, 0) scale(1);
         }
       }
 
@@ -315,36 +304,39 @@
         content: "";
         position: absolute;
         top: 0;
-        left: -60%;
-        width: 40%;
+        left: 0;
+        width: 50%;
         height: 100%;
-        background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.9) 50%, transparent 70%);
+        background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.85) 50%, transparent 80%);
         mix-blend-mode: screen;
-        animation: sheen 3.6s ease-in-out 1.6s infinite;
+        transform: translate3d(-150%, 0, 0);
+        will-change: transform;
+        animation: sheen 3.2s cubic-bezier(0.16, 1, 0.3, 1) 1.2s infinite;
       }
       @keyframes sheen {
-        0%, 55% { left: -60%; }
-        100% { left: 140%; }
+        0%, 50% { transform: translate3d(-150%, 0, 0); }
+        100% { transform: translate3d(350%, 0, 0); }
       }
 
       .scanline {
         position: absolute;
         top: 0;
         bottom: 0;
-        left: -10%;
-        width: 12%;
-        background: linear-gradient(90deg, transparent, rgba(41, 194, 255, 0.35), rgba(123, 23, 178, 0.35), transparent);
-        filter: blur(2px);
+        left: 0;
+        width: 14%;
+        background: linear-gradient(90deg, transparent 0%, rgba(41, 194, 255, 0.08) 25%, rgba(41, 194, 255, 0.45) 50%, rgba(123, 23, 178, 0.45) 75%, transparent 100%);
         pointer-events: none;
         opacity: 0;
+        transform: translate3d(-200%, 0, 0);
+        will-change: transform, opacity;
       }
       .scanline.sweep {
-        animation: sweep 1.1s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+        animation: sweep 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       @keyframes sweep {
-        0% { left: -15%; opacity: 1; }
-        85% { opacity: 0.8; }
-        100% { left: 105%; opacity: 0; }
+        0% { transform: translate3d(-150%, 0, 0); opacity: 0.9; }
+        80% { opacity: 0.8; }
+        100% { transform: translate3d(900%, 0, 0); opacity: 0; }
       }
 
       .tagline {
@@ -355,8 +347,8 @@
         font-weight: 400;
         font-family: 'Poppins', sans-serif;
         opacity: 0;
-        transition: opacity 1s ease, transform 1s ease;
-        transform: translateY(10px);
+        transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        transform: translate3d(0, 8px, 0);
         display: flex;
         align-items: center;
         gap: 0.6em;
@@ -364,7 +356,7 @@
       }
       .tagline.in {
         opacity: 1;
-        transform: translateY(0);
+        transform: translate3d(0, 0, 0);
       }
       .tagline .dot {
         width: 0.42em;
@@ -372,18 +364,18 @@
         border-radius: 50%;
         background: var(--skyblue);
         display: inline-block;
-        box-shadow: 0 0 8px rgba(41, 194, 255, 0.8);
+        box-shadow: 0 0 6px rgba(41, 194, 255, 0.7);
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .letter { animation: none !important; opacity: 1 !important; filter: none !important; transform: none !important; }
+        .letter { animation: none !important; opacity: 1 !important; transform: none !important; }
         .tagline { transition: none; opacity: 1; transform: none; }
         .shard::after, .scanline { animation: none !important; }
       }
     </style>
   </head>
   <body>
-    <!-- Splash overlay — Three.js converging particles & 3D text reveal -->
+    <!-- Splash overlay — lightweight 2D ambient particles & hardware-accelerated text reveal -->
     <div id="pb-splash" aria-hidden="true">
       <canvas id="bg"></canvas>
       <div class="stage" id="stage">
@@ -399,23 +391,24 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Splash animation & dismissal -->
+    <!-- ⚡ Ultra-smooth, zero-GPU overhead splash script -->
     <script>
       (function () {
-        // Build Word Spans
         var TOP = "PRINTING";
         var BOTTOM = "BOOTH";
         var shardIndices = new Set([3]); // 'N'
 
         function buildWord(str, el, shard) {
           if (!el) return;
+          var frag = document.createDocumentFragment();
           for (var i = 0; i < str.length; i++) {
             var span = document.createElement('span');
-            span.className = 'letter' + (shard && shard.has(i) ? ' shard' : '');
+            span.className = 'letter' + (shard && shard.has(i) ? ' shard' : '') + ' in';
             span.textContent = str[i];
-            span.style.animationDelay = (i * 0.06) + 's';
-            el.appendChild(span);
+            span.style.animationDelay = (i * 0.05) + 's';
+            frag.appendChild(span);
           }
+          el.appendChild(frag);
         }
 
         buildWord(TOP, document.getElementById('wordTop'), shardIndices);
@@ -425,132 +418,86 @@
         var scanline = document.getElementById('scanline');
         var tagline = document.getElementById('tagline');
 
-        // Reveal stage immediately (no 1 to 100 loading bar)
         if (stage) stage.classList.add('live');
-        if (scanline) {
-          void scanline.offsetWidth;
-          scanline.classList.add('sweep');
-        }
-        var letters = document.querySelectorAll('#pb-splash .letter');
-        for (var j = 0; j < letters.length; j++) {
-          void letters[j].offsetWidth;
-          letters[j].classList.add('in');
-        }
+        if (scanline) scanline.classList.add('sweep');
+
         setTimeout(function () {
           if (tagline) tagline.classList.add('in');
-        }, 600);
+        }, 500);
 
-        // Three.js particles
-        var convergence = 0;
-        var startT = performance.now();
-        var duration = 1200;
-        function tickConvergence(now) {
-          var t = Math.min(1, (now - startT) / duration);
-          convergence = t;
-          if (t < 1) {
-            requestAnimationFrame(tickConvergence);
-          }
+        // ── Lightweight, silky 2D Canvas particles (0% GPU spike, 0 dependencies) ──
+        var canvas = document.getElementById('bg');
+        var animId = null;
+        var running = true;
+
+        function resize() {
+          if (!document.getElementById('pb-splash') || !canvas) return;
+          var width = window.innerWidth;
+          var height = window.innerHeight;
+          var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+          canvas.width = Math.round(width * dpr);
+          canvas.height = Math.round(height * dpr);
+          canvas.style.width = width + 'px';
+          canvas.style.height = height + 'px';
+          var ctx = canvas.getContext('2d', { alpha: true });
+          if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
-        requestAnimationFrame(tickConvergence);
 
-        function initParticles() {
-          if (typeof THREE === 'undefined') return;
-          var canvas = document.getElementById('bg');
-          if (!canvas) return;
+        if (canvas) {
+          var ctx = canvas.getContext('2d', { alpha: true });
+          var colors = ['#f3b023', '#7f17b2', '#3253ec', '#00c2f2', '#29c2ff'];
+          var COUNT = 48;
+          var dots = [];
 
-          var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-          var scene = new THREE.Scene();
-          var camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
-          camera.position.z = 22;
-
-          function resize() {
-            if (!document.getElementById('pb-splash')) return;
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-          }
           resize();
-          window.addEventListener('resize', resize);
-
-          var palette = [0xf3b023, 0x7f17b2, 0x3253ec, 0x00c2f2, 0x29c2ff];
-          var COUNT = 320;
-          var geo = new THREE.BufferGeometry();
-          var targetPos = new Float32Array(COUNT * 3);
-          var startPos  = new Float32Array(COUNT * 3);
-          var drawPos   = new Float32Array(COUNT * 3);
-          var colors    = new Float32Array(COUNT * 3);
-          var speeds    = new Float32Array(COUNT);
-          var tmpColor  = new THREE.Color();
+          window.addEventListener('resize', resize, { passive: true });
 
           for (var i = 0; i < COUNT; i++) {
-            var tx = (Math.random() - 0.5) * 46;
-            var ty = (Math.random() - 0.5) * 26;
-            var tz = (Math.random() - 0.5) * 18 - 4;
-            targetPos[i * 3] = tx; targetPos[i * 3 + 1] = ty; targetPos[i * 3 + 2] = tz;
-            var push = 2.4 + Math.random() * 2.2;
-            startPos[i * 3] = tx * push; startPos[i * 3 + 1] = ty * push; startPos[i * 3 + 2] = tz * push - 6;
-            drawPos[i * 3] = startPos[i * 3]; drawPos[i * 3 + 1] = startPos[i * 3 + 1]; drawPos[i * 3 + 2] = startPos[i * 3 + 2];
-            tmpColor.setHex(palette[i % palette.length]);
-            colors[i * 3] = tmpColor.r; colors[i * 3 + 1] = tmpColor.g; colors[i * 3 + 2] = tmpColor.b;
-            speeds[i] = 0.15 + Math.random() * 0.35;
+            dots.push({
+              x: Math.random() * (window.innerWidth || 1000),
+              y: Math.random() * (window.innerHeight || 800),
+              r: 1.2 + Math.random() * 2.2,
+              color: colors[i % colors.length],
+              vx: (Math.random() - 0.5) * 0.35,
+              vy: (Math.random() - 0.5) * 0.35,
+              alpha: 0.3 + Math.random() * 0.5,
+              pulse: Math.random() * Math.PI * 2,
+              pulseSpeed: 0.02 + Math.random() * 0.025
+            });
           }
-          geo.setAttribute('position', new THREE.BufferAttribute(drawPos, 3));
-          geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-          var mat = new THREE.PointsMaterial({
-            size: 0.17, vertexColors: true, transparent: true, opacity: 0.7,
-            depthWrite: false, blending: THREE.AdditiveBlending
-          });
-          var points = new THREE.Points(geo, mat);
-          scene.add(points);
-
-          function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-
-          var ambientT = 0;
-          var clock = new THREE.Clock();
-
-          function animate() {
-            var splash = document.getElementById('pb-splash');
-            if (!splash) {
-              renderer.dispose();
-              geo.dispose();
-              mat.dispose();
+          function render() {
+            if (!running || !document.getElementById('pb-splash') || !ctx) return;
+            if (document.hidden) {
+              animId = requestAnimationFrame(render);
               return;
             }
-            requestAnimationFrame(animate);
-            var dt = clock.getDelta();
-            var arr = geo.attributes.position.array;
-            if (convergence < 1) {
-              var e = easeOutCubic(convergence);
-              for (var i = 0; i < COUNT; i++) {
-                arr[i * 3]     = startPos[i * 3]     + (targetPos[i * 3]     - startPos[i * 3])     * e;
-                arr[i * 3 + 1] = startPos[i * 3 + 1] + (targetPos[i * 3 + 1] - startPos[i * 3 + 1]) * e;
-                arr[i * 3 + 2] = startPos[i * 3 + 2] + (targetPos[i * 3 + 2] - startPos[i * 3 + 2]) * e;
-              }
-            } else {
-              ambientT += dt;
-              for (var i = 0; i < COUNT; i++) {
-                arr[i * 3 + 1] = targetPos[i * 3 + 1] + Math.sin(ambientT * speeds[i] + i) * 0.35;
-                arr[i * 3]     = targetPos[i * 3]     + Math.cos(ambientT * 0.15 + i) * 0.25;
-                arr[i * 3 + 2] = targetPos[i * 3 + 2];
-              }
-              points.rotation.y = Math.sin(ambientT * 0.05) * 0.15;
-              points.rotation.z = ambientT * 0.01;
-            }
-            geo.attributes.position.needsUpdate = true;
-            mat.opacity = 0.35 + 0.35 * Math.min(1, convergence) + (convergence >= 1 ? Math.sin(ambientT * 1.3) * 0.08 : 0);
-            renderer.render(scene, camera);
-          }
-          animate();
-        }
+            var w = window.innerWidth;
+            var h = window.innerHeight;
+            ctx.clearRect(0, 0, w, h);
 
-        if (window.THREE) {
-          initParticles();
-        } else {
-          window.addEventListener('load', function () {
-            if (window.THREE) initParticles();
-          });
+            for (var k = 0; k < COUNT; k++) {
+              var d = dots[k];
+              d.x += d.vx;
+              d.y += d.vy;
+              d.pulse += d.pulseSpeed;
+
+              if (d.x < -10) d.x = w + 10;
+              else if (d.x > w + 10) d.x = -10;
+              if (d.y < -10) d.y = h + 10;
+              else if (d.y > h + 10) d.y = -10;
+
+              var a = d.alpha * (0.8 + 0.2 * Math.sin(d.pulse));
+              ctx.globalAlpha = a;
+              ctx.fillStyle = d.color;
+              ctx.beginPath();
+              ctx.arc(d.x, d.y, d.r, 0, 6.28318);
+              ctx.fill();
+            }
+
+            animId = requestAnimationFrame(render);
+          }
+          animId = requestAnimationFrame(render);
         }
 
         // Dismiss the splash when React root mounts
@@ -558,15 +505,18 @@
         function dismissSplash() {
           var splash = document.getElementById('pb-splash');
           if (!splash || splash.classList.contains('pb-splash--hidden')) return;
+          running = false;
+          if (animId) cancelAnimationFrame(animId);
+          window.removeEventListener('resize', resize);
           splash.classList.add('pb-splash--hidden');
           setTimeout(function () {
             if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-          }, 550);
+          }, 450);
         }
 
         function checkReady() {
           var elapsed = performance.now() - splashStart;
-          var remaining = Math.max(0, 850 - elapsed);
+          var remaining = Math.max(0, 700 - elapsed);
           setTimeout(dismissSplash, remaining);
         }
 
@@ -579,8 +529,8 @@
         });
         observer.observe(document.getElementById('root'), { childList: true, subtree: false });
 
-        // Safety fallback: always dismiss after 5s
-        setTimeout(dismissSplash, 5000);
+        // Safety fallback: always dismiss after 4s
+        setTimeout(dismissSplash, 4000);
       })();
     </script>
   </body>

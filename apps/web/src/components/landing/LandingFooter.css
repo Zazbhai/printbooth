@@ -10,7 +10,7 @@
   box-shadow: 
     0 -20px 40px -10px rgba(163, 177, 198, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  padding: clamp(32px, 5vh, 48px) clamp(20px, 4vw, 56px) 24px;
+  padding: clamp(36px, 5vh, 52px) clamp(24px, 5vw, 64px) 28px;
   position: relative;
   overflow: hidden;
 }
@@ -217,10 +217,12 @@
 
 @media (max-width: 640px) {
   .landing-footer {
-    padding: 24px 16px 20px;
+    padding: 30px clamp(22px, 6vw, 32px) 24px;
   }
   .landing-footer__inner {
     gap: 20px;
+    padding-left: 2px;
+    padding-right: 2px;
   }
   .landing-footer__grid {
     grid-template-columns: 1fr 1fr;
@@ -276,6 +278,9 @@
 }
 
 @media (max-width: 400px) {
+  .landing-footer {
+    padding: 26px 20px 20px;
+  }
   .landing-footer__grid {
     grid-template-columns: 1fr 1fr;
     gap: 16px 10px;

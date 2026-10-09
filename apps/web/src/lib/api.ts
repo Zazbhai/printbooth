@@ -17,7 +17,8 @@ export async function getLiveKiosks() {
 
 export async function getKioskDetails(id: string) {
   try {
-    const res = await fetch(`${API_BASE}/kiosks/${id}`)
+    const cleanId = encodeURIComponent((id || '').trim().toUpperCase())
+    const res = await fetch(`${API_BASE}/kiosks/${cleanId}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const json = await res.json()
     return json.data
@@ -77,6 +78,8 @@ export async function sendPrintJob(params: {
   copies?: number
   colourMode?: 'BW' | 'COLOUR' | string
   pages?: string
+  pageCount?: number
+  totalPages?: number
   duplex?: 'SINGLE' | 'DOUBLE' | string
   paperSize?: string
   scaling?: string
@@ -110,6 +113,8 @@ export async function sendPrintJob(params: {
       formData.append('otp', params.releasePin)
     }
     if (params.copies)             formData.append('copies',             String(params.copies))
+    if (params.totalPages)         formData.append('totalPages',         String(params.totalPages))
+    if (params.pageCount)          formData.append('pageCount',          String(params.pageCount))
     if (params.colourMode)         formData.append('colourMode',         params.colourMode)
     if (params.pages)              formData.append('pages',              params.pages)
     if (params.duplex)             formData.append('duplex',             params.duplex)
@@ -234,14 +239,14 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
   const sessionTest = (sessionStorage.getItem('pb_print_mode') || '').toLowerCase() === 'test'
   const isClientTestMode = envTest || sessionTest
 
-  const targetKioskId = kioskId || (typeof window !== 'undefined' ? sessionStorage.getItem('pb_kiosk_id') : null) || 'PB-001'
+  const targetKioskId = ((kioskId || (typeof window !== 'undefined' ? sessionStorage.getItem('pb_kiosk_id') : null) || 'PB-001') as string).trim().toUpperCase()
 
   // 1. Check live kiosk IoT fleet telemetry from database
   try {
     const kiosk = await getKioskDetails(targetKioskId)
     if (kiosk) {
       const isMaintenance = String(kiosk.status || '').toUpperCase() === 'MAINTENANCE'
-      const isKioskOffline = kiosk.status === 'OFFLINE'
+      const isKioskOffline = String(kiosk.status || '').toUpperCase() === 'OFFLINE'
       const pStatus = String(kiosk.printerStatus || '').toUpperCase()
       const isPrinterProblem = pStatus === 'ERROR' || pStatus === 'OFFLINE' || pStatus === 'PAPER_JAM' || pStatus === 'PAPER_EMPTY'
       const isUsbDisconnected = (kiosk as any).usbConnected === false
@@ -259,31 +264,39 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
       if (isUsbDisconnected) {
         return {
           isAvailable: false,
-          reason: 'Brother printer is disconnected via USB',
-          detail: `The physical Brother printer at station ${kiosk.kioskId || targetKioskId} is not detected on the USB bus (lsusb check). Please ensure the USB cable is plugged in and printer power is ON.`,
+          reason: 'Printer is disconnected via USB',
+          detail: `The physical printer at station ${kiosk.kioskId || targetKioskId} is not detected on the USB bus. Please ensure the USB cable is plugged in and printer power is ON.`,
           kioskName: kiosk.name,
-          printerName: kiosk.printerModel || kiosk.printer || 'Brother DCP-T420W',
+          printerName: kiosk.printerModel || kiosk.printer || 'Laser Print Engine',
         }
       }
 
-      if (isKioskOffline || isPrinterProblem) {
+      const isHwUnavailable = Boolean(kiosk.hardwareDetails && (kiosk.hardwareDetails.isAvailable === false || kiosk.hardwareDetails.isOnline === false))
+
+      if (isKioskOffline || isPrinterProblem || isHwUnavailable) {
         return {
           isAvailable: false,
-          reason: 'Printer not available right now, visit later',
-          detail: `Station ${kiosk.kioskId || targetKioskId} is reporting printer status: ${kiosk.printerStatus || 'OFFLINE'}.`,
+          reason: 'PRINTER OFFLINE',
+          detail: `Station ${kiosk.kioskId || targetKioskId} is currently offline. Printing will resume automatically once the station powers on.`,
           kioskName: kiosk.name,
           printerName: kiosk.printerModel || kiosk.printer,
         }
       }
 
-      // Kiosk is ONLINE and printer is READY according to Raspberry Pi IoT heartbeat
-      if (kiosk.status === 'ONLINE' && (pStatus === 'READY' || pStatus === 'IDLE' || pStatus === 'PRINTING')) {
+      // Kiosk is ONLINE and printer is ready/available according to IoT heartbeat & hardware telemetry
+      const isKioskOnline = String(kiosk.status || '').toUpperCase() === 'ONLINE'
+      const isPrinterReady =
+        ['READY', 'IDLE', 'PRINTING', 'ONLINE', 'AVAILABLE'].includes(pStatus) ||
+        Boolean(kiosk.hardwareDetails?.isHardwareReady) ||
+        Boolean(kiosk.hardwareDetails?.isAvailable)
+
+      if (isKioskOnline && isPrinterReady) {
         return {
           isAvailable: true,
           reason: '',
           detail: '',
           kioskName: kiosk.name,
-          printerName: kiosk.printerModel || kiosk.printer || 'Brother DCP-T420W Printer',
+          printerName: kiosk.hardwareDetails?.selectedPrinter || kiosk.printerModel || kiosk.printer || 'Laser Print Engine',
         }
       }
     }
@@ -301,7 +314,7 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
         isAvailable: true,
         reason: '',
         detail: '',
-        printerName: detectRes?.selectedPrinter || preferredPrinter || 'PrintBooth Test Printer (Mock)',
+        printerName: detectRes?.selectedPrinter || preferredPrinter || 'PrintBooth Station',
       }
     }
 
@@ -318,9 +331,9 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
     if (detectRes.issueCode === 'PRINTER_USB_DISCONNECTED') {
       return {
         isAvailable: false,
-        reason: 'Brother printer is disconnected via USB',
-        detail: detectRes.reason || 'The physical Brother printer is not detected on the USB bus (lsusb check). Please ensure USB cable is connected and power is turned on.',
-        printerName: detectRes.selectedPrinter || detectRes.details?.name || 'Brother DCP-T420W Printer',
+        reason: 'Printer is disconnected via USB',
+        detail: detectRes.reason || 'The physical printer is not detected on the USB bus. Please ensure USB cable is connected and power is turned on.',
+        printerName: detectRes.selectedPrinter || detectRes.details?.name || 'Laser Print Engine',
       }
     }
 
@@ -398,7 +411,7 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
         isAvailable: true,
         reason: '',
         detail: '',
-        printerName: preferredPrinter || 'PrintBooth Test Printer (Mock)',
+        printerName: preferredPrinter || 'Laser Print Engine',
       }
     }
     console.warn('[Web API] Hardware detect check failed:', err)

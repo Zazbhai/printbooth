@@ -17,8 +17,8 @@ export interface KioskMeta {
 export const VERIFIED_KIOSKS: Record<string, KioskMeta> = {
   'PB-001': {
     id: 'PB-001',
-    name: 'PrintBooth — Test Station',
-    location: 'Testing Lab / Local Station',
+    name: 'PrintBooth — MIT ADT University',
+    location: 'Loni Kalbhor, Pune',
     city: 'Pune',
     status: 'ONLINE',
   },
@@ -31,7 +31,7 @@ export const VERIFIED_KIOSKS: Record<string, KioskMeta> = {
  */
 export function isCanonicalKioskFormat(id: unknown): id is string {
   if (typeof id !== 'string') return false
-  return CANONICAL_KIOSK_REGEX.test(id.trim())
+  return CANONICAL_KIOSK_REGEX.test(id.trim().toUpperCase())
 }
 
 /**
@@ -43,21 +43,19 @@ export function normalizeKioskTypo(raw: unknown): string | null {
   const clean = raw.trim()
   if (!clean) return null
 
-  // If already canonical, return as-is
-  if (CANONICAL_KIOSK_REGEX.test(clean)) {
-    return clean
-  }
-
   const upper = clean.toUpperCase()
+
+  // If already canonical, return as-is
+  if (CANONICAL_KIOSK_REGEX.test(upper)) {
+    return upper
+  }
 
   // Match 'P-002', 'P002', 'PB002', 'PB-2', etc.
   const numMatch = upper.match(/^(?:P|PB)[-_]?(\d{1,3})$/)
   if (numMatch) {
     const padded = numMatch[1].padStart(3, '0')
     const candidate = `PB-${padded}`
-    if (VERIFIED_KIOSKS[candidate]) {
-      return candidate
-    }
+    return candidate
   }
 
   return null
@@ -95,7 +93,7 @@ export function validateKioskId(
 
   // Network registry check
   const inVerified = VERIFIED_KIOSKS[trimmed]
-  const inLive = liveKiosks?.some(k => (k.kioskId || k.id) === trimmed)
+  const inLive = liveKiosks?.some(k => ((k.kioskId || k.id || '').toUpperCase()) === trimmed)
 
   if (inVerified || inLive) {
     return {
@@ -105,8 +103,8 @@ export function validateKioskId(
     }
   }
 
-  // While live kiosks are still loading, do not prematurely fail canonical IDs
-  if (isLoading || liveKiosks === null || liveKiosks === undefined) {
+  // While live kiosks are still loading or empty, do not prematurely fail canonical IDs
+  if (isLoading || liveKiosks === null || liveKiosks === undefined || liveKiosks.length === 0) {
     return {
       status: 'VALID',
       kioskId: trimmed,

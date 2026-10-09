@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = localStorage.getItem('pb_admin_token')
       const role = localStorage.getItem('pb_portal_role') as UserRole | null
       const email = localStorage.getItem('pb_user_email') || (role === 'admin' ? 'admin@printbooth.in' : 'merchant@printbooth.in')
-      const name = localStorage.getItem('pb_user_name') || (role === 'admin' ? 'Platform Administrator' : 'Rahul Sharma (Store Partner)')
+      const name = localStorage.getItem('pb_user_name') || (role === 'admin' ? 'Platform Administrator' : 'Campus Print Desk Partner')
       const kioskId = localStorage.getItem('pb_merchant_kiosk_id') || 'PB-001'
       const merchantId = localStorage.getItem('pb_merchant_id') || 'M-001'
       const storeName = localStorage.getItem('pb_merchant_store_name') || 'MIT ADT Campus Print Hub'

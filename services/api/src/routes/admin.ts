@@ -71,7 +71,7 @@ adminRouter.get('/dashboard', cacheMiddleware({ ttlSeconds: 15, keyPrefix: 'admi
         printerStatus: isHost
           ? (livePrinter.isOnline ? 'READY' : (livePrinter.statusLabels?.[0] || 'OFFLINE'))
           : (k.printerStatus || 'OFFLINE'),
-        printerModel: (isHost ? livePrinter.selectedPrinter : null) || k.printerModel || 'Brother DCP-T420W Printer USB',
+        printerModel: (isHost ? livePrinter.selectedPrinter : null) || k.printerModel || 'Laser Print Engine',
         paperLevel: isOnline ? (k.paperLevel ?? 0) : 0,
         tonerLevel: isOnline ? (k.tonerLevel ?? 0) : 0,
       }
@@ -1308,7 +1308,7 @@ adminRouter.get('/pricing', async (_req: Request, res: Response) => {
           kioskName: k.name,
           location: k.location,
           merchantId: m?.merchantId || k.merchantId || 'M-001',
-          merchantName: m?.name || 'Rahul Sharma',
+          merchantName: m?.name || 'Campus Print Desk Partner',
           storeName: m?.storeName || k.name,
           pricing: k.pricing || { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
           status: k.status,

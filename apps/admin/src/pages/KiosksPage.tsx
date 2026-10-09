@@ -57,7 +57,7 @@ export default function KiosksPage() {
     location: '',
     address: '',
     merchantId: 'M-001',
-    printerModel: 'Brother DCP-T420W Printer',
+    printerModel: 'Laser Print Engine',
   })
 
   // Provisioning Kit modal state
@@ -137,7 +137,7 @@ export default function KiosksPage() {
       location: 'Central Campus',
       address: 'Main Entrance Hall',
       merchantId: merchants[0]?.merchantId || 'M-001',
-      printerModel: 'Brother DCP-T420W Printer',
+      printerModel: 'Laser Print Engine',
     })
     setDeployModalOpen(true)
   }
@@ -556,7 +556,7 @@ export default function KiosksPage() {
 
                 <div className="kiosk-detail-card__printer">
                   <span>
-                    Printer: <strong>{k.printerModel || 'Brother DCP-T420W Printer USB'}</strong>
+                    Printer: <strong>{k.printerModel || 'Laser Print Engine'}</strong>
                   </span>
                   <span style={{ marginLeft: 'auto', color: 'var(--clr-text-3)', fontSize: 11 }}>
                     Queue: {k.queueCount || 0}
@@ -807,7 +807,7 @@ export default function KiosksPage() {
                     type="text"
                     value={newKioskForm.printerModel}
                     onChange={(e) => setNewKioskForm({ ...newKioskForm, printerModel: e.target.value })}
-                    placeholder="Brother DCP-T420W Printer"
+                    placeholder="Laser Print Engine"
                     style={{
                       width: '100%',
                       padding: '10px 12px',

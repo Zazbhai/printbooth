@@ -283,6 +283,12 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
     if (role === 'kiosk' && kioskId) {
       recordKioskHeartbeat(kioskId, { status: 'ONLINE', printerStatus: 'READY' }).catch(() => {})
       notifyKioskConnected(kioskId, clientInfo)
+      broadcastToKioskUsers(kioskId, 'KIOSK_ONLINE', {
+        kioskId,
+        status: 'ONLINE',
+        printerStatus: 'READY',
+        connectedAt: Date.now(),
+      })
     }
 
     // Ping/Pong liveness
@@ -325,6 +331,13 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
         // If no other kiosk socket exists for this machine, mark it offline immediately
         if (!isKioskRelayConnected(kioskId)) {
           markKioskOffline(kioskId, 'Kiosk WebSocket disconnected / Raspberry Pi powered off').catch(() => {})
+          broadcastToKioskUsers(kioskId, 'KIOSK_OFFLINE', {
+            kioskId,
+            status: 'OFFLINE',
+            printerStatus: 'OFFLINE',
+            reason: 'Station supervisor disconnected / Raspberry Pi powered off',
+            disconnectedAt: Date.now(),
+          })
         }
       }
     })
@@ -582,7 +595,17 @@ async function handleJsonMessage(client: WsClientInfo, msg: WsMessage) {
       if (kioskId) {
         const cleanKioskId = kioskId.toUpperCase()
         const usbConnected = payload?.usbConnected !== undefined ? Boolean(payload.usbConnected) : true
-        const isPrinterOnline = usbConnected !== false && (payload.status === 'ONLINE' || payload.printerStatus === 'READY' || usbConnected === true)
+        const pStatusRaw = String(payload?.printerStatus || '').toUpperCase()
+        const kStatusRaw = String(payload?.status || '').toUpperCase()
+        const isOfflineExplicit =
+          usbConnected === false ||
+          kStatusRaw === 'OFFLINE' ||
+          pStatusRaw === 'OFFLINE' ||
+          pStatusRaw === 'ERROR' ||
+          pStatusRaw === 'STOPPED' ||
+          pStatusRaw === 'DISCONNECTED'
+
+        const isPrinterOnline = !isOfflineExplicit && (kStatusRaw === 'ONLINE' || pStatusRaw === 'READY' || pStatusRaw === 'IDLE')
 
         const printerName = payload?.printerName || payload?.activePrinter || (usbConnected ? 'Brother DCP-T420W' : 'None')
         const printerModel = payload?.printerModel || payload?.usbDevice || printerName
@@ -594,9 +617,9 @@ async function handleJsonMessage(client: WsClientInfo, msg: WsMessage) {
           activePrinter: printerName,
           allPrinters: Array.isArray(payload.allPrinters) && payload.allPrinters.length > 0
             ? payload.allPrinters
-            : (usbConnected ? [{ name: printerName, info: printerModel, is_online: true, is_default: true }] : []),
+            : (usbConnected ? [{ name: printerName, info: printerModel, is_online: isPrinterOnline, is_default: true }] : []),
           isOnline: isPrinterOnline,
-          printerStatus: isPrinterOnline ? 'READY' : 'OFFLINE',
+          printerStatus: isPrinterOnline ? 'READY' : (pStatusRaw || 'OFFLINE'),
           usbConnected,
           usbDevice: payload.usbDevice || printerModel,
           usbInfo: payload.usbInfo || undefined,
@@ -657,8 +680,10 @@ async function handleJsonMessage(client: WsClientInfo, msg: WsMessage) {
           existing.usbConnected = isUsbConnected
           existing.usbDevice = usbDevice
           existing.usbInfo = payload
-          existing.isOnline = isUsbConnected
-          existing.printerStatus = isUsbConnected ? 'READY' : 'OFFLINE'
+          if (!isUsbConnected) {
+            existing.isOnline = false
+            existing.printerStatus = 'OFFLINE'
+          }
           if (isUsbConnected && (!existing.activePrinter || existing.activePrinter === 'None')) {
             existing.activePrinter = 'Brother DCP-T420W'
           }
@@ -666,10 +691,10 @@ async function handleJsonMessage(client: WsClientInfo, msg: WsMessage) {
 
         recordPiPrinterTelemetry(cleanKioskId, existing)
         recordKioskHeartbeat(cleanKioskId, {
-          status: isUsbConnected ? 'ONLINE' : 'OFFLINE',
+          status: existing.isOnline ? 'ONLINE' : 'OFFLINE',
           usbConnected: isUsbConnected,
           usbDevice,
-          printerStatus: isUsbConnected ? 'READY' : 'OFFLINE',
+          printerStatus: existing.printerStatus,
         }).catch(() => {})
         broadcastToAdmins('USB_PRINTER_STATUS', { kioskId: cleanKioskId, ...payload, timestamp: Date.now() })
       }
@@ -943,6 +968,18 @@ export function broadcastToAdmins(type: string, payload: any) {
   for (const client of clients.values()) {
     if (client.role === 'admin') {
       sendJson(client.ws, { type, payload })
+    }
+  }
+}
+
+/**
+ * Broadcasts an event to all users connected to or viewing a specific kiosk.
+ */
+export function broadcastToKioskUsers(kioskId: string, type: string, payload: any) {
+  const cleanId = (kioskId || '').toUpperCase()
+  for (const client of clients.values()) {
+    if (!client.kioskId || client.kioskId.toUpperCase() === cleanId) {
+      sendJson(client.ws, { type, kioskId: cleanId, payload })
     }
   }
 }

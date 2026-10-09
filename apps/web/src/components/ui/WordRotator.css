@@ -1,0 +1,83 @@
+/* PrintBooth Word Rotator - Kinetic Physics */
+.pb-word-rotator-wrapper {
+  display: inline-flex;
+  vertical-align: baseline;
+  position: relative;
+  overflow: hidden;
+  line-height: inherit;
+  font-weight: inherit;
+}
+
+.pb-word-rotator-viewport {
+  display: inline-flex;
+  position: relative;
+  overflow: hidden;
+  vertical-align: baseline;
+  height: 1.35em;
+  padding: 0 4px;
+}
+
+.pb-word-rotator-item {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform, opacity, filter;
+  transition: transform 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pb-word-rotator-item.is-active {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  filter: blur(0px);
+}
+
+.pb-word-rotator-item.is-exiting {
+  transform: translate3d(0, -110%, 0);
+  opacity: 0;
+  filter: blur(4px);
+}
+
+.pb-word-rotator-item.is-entering {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  transform: translate3d(0, 110%, 0);
+  opacity: 0;
+  filter: blur(4px);
+  animation: pbWordEnter 0.48s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pbWordEnter {
+  0% {
+    transform: translate3d(0, 110%, 0);
+    opacity: 0;
+    filter: blur(4px);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+.pb-word-rotator--accent .pb-word-rotator-item {
+  color: #ef4444;
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 50%, #dc2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(239, 68, 68, 0.45);
+  text-underline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-word-rotator-item {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+}

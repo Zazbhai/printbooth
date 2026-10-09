@@ -47,11 +47,11 @@ export function PrinterWifiAutomation({ kioskId = 'PB-001', initialHardware }: P
 
   // Connect printer form state
   const [printerForm, setPrinterForm] = useState({
-    name: 'Brother_DCP_T420W',
-    make: 'Brother',
-    model: 'Brother DCP-T420W',
+    name: 'Laser_Print_Engine',
+    make: 'Generic',
+    model: 'Laser Print Engine',
     connectionType: 'USB' as 'IPP_NETWORK' | 'USB' | 'RAW_SOCKET',
-    deviceUri: 'usb://Brother/DCP-T420W',
+    deviceUri: 'usb://printer/laser',
     ipAddress: '192.168.1.145',
     port: 631,
   })
@@ -207,17 +207,17 @@ export function PrinterWifiAutomation({ kioskId = 'PB-001', initialHardware }: P
   }
 
   const printer = hardware?.printer || {
-    name: 'Brother DCP-T420W',
-    model: 'Brother DCP-T420W',
-    driver: 'Brother DCP-T420W CUPS Linux Driver',
+    name: 'Laser Print Engine',
+    model: 'Laser Print Engine',
+    driver: 'High-Speed CUPS Linux Driver',
     port: 'USB (Raspberry Pi)',
     connectionType: 'USB',
-    deviceUri: 'usb://Brother/DCP-T420W',
+    deviceUri: 'usb://printer/laser',
     status: 'OFFLINE',
     isOnline: false,
     cupsServerVersion: 'CUPS 2.4.2 (Raspberry Pi Linux / pycups)',
     firmwareVersion: '1.0',
-    serialNumber: 'BROTHER_DCP_T420W',
+    serialNumber: 'PB_LASER_001',
     ipAddress: '192.168.1.145',
     portNumber: 631,
     paperLevel: 100,
@@ -932,7 +932,7 @@ export function PrinterWifiAutomation({ kioskId = 'PB-001', initialHardware }: P
                   required
                   value={printerForm.model}
                   onChange={(e) => setPrinterForm({ ...printerForm, model: e.target.value })}
-                  placeholder="e.g. Brother DCP-T420W"
+                  placeholder="e.g. Laser Print Engine"
                   className="w-full rounded-md border border-border bg-secondary px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>

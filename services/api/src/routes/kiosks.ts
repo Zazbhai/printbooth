@@ -7,8 +7,10 @@ import { getRealPrinterHardwareStatus } from '../modules/printerDetector.js'
 import { cacheMiddleware, cachePurgePattern } from '../redis.js'
 import { handleVerifyPinLogic } from './print.js'
 import { verifyKioskSecret } from '../modules/kioskAuth.js'
-import { getKioskPrintUrl } from '../config.js'
+import { getKioskPrintUrl, getPublicWebUrl } from '../config.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
+import { isKioskRelayConnected } from '../modules/wsRelay.js'
+import { getKioskPiPrinters } from '../modules/kioskPiPrinters.js'
 import { CupsAutomationService } from '../modules/cups.js'
 
 export const kiosksRouter = Router()
@@ -95,7 +97,7 @@ kiosksRouter.get('/', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:list:'
         .filter((k) => !blockedKioskIds.has(k.kioskId || k.id) && !(k.merchantId && blockedMerchantIds.has(k.merchantId)))
         .map((k) => {
         const isHost = (k.kioskId || k.id) === 'PB-001'
-        const printerModel = isHost ? (livePrinter.selectedPrinter || k.printerModel || 'Brother DCP-T420W Printer USB') : (k.printerModel || k.printer)
+        const printerModel = isHost ? (livePrinter.selectedPrinter || k.printerModel || 'Laser Print Engine') : (k.printerModel || k.printer)
         const isOffline = isHost ? !livePrinter.isOnline : (k.status === 'OFFLINE' || k.printerStatus === 'OFFLINE')
         const printerStatus = isHost
           ? (livePrinter.isOnline ? 'READY' : (livePrinter.statusLabels?.[0] || 'OFFLINE'))
@@ -148,19 +150,30 @@ kiosksRouter.get('/', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:list:'
     // Format for customer web view
     const formatted = await Promise.all(
       kiosks.map(async (k) => {
+        const isRelayConnected = isKioskRelayConnected(k.kioskId)
         const isPiHeartbeatFresh = Boolean(k.lastSeenAt && (Date.now() - new Date(k.lastSeenAt).getTime() < 60000))
         const reachability = await isKioskPiReachable(k.kioskId)
-        const isPiAlive = reachability.isReachable || (isTestMode && isPiHeartbeatFresh)
+        const isPiAlive = isTestMode ? (reachability.isReachable || isPiHeartbeatFresh) : (reachability.isReachable && isRelayConnected)
 
         const printerModel = isTestMode
-          ? (livePrinter.selectedPrinter || k.printerModel || 'PrintBooth Test Printer (Mock)')
+          ? (livePrinter.selectedPrinter || k.printerModel || 'Laser Print Engine')
           : (isPiAlive
-              ? (k.printerModel || 'Brother DCP-T420W Printer')
-              : (k.printerModel || 'Station Printer (Offline)'))
+              ? (k.printerModel || 'Laser Print Engine')
+              : (k.printerModel || 'Laser Print Engine (Offline)'))
 
+        const piData = getKioskPiPrinters(k.kioskId)
+        const isUsbDisconnected = (piData && piData.usbConnected === false) || k.usbConnected === false
         const isOffline = isTestMode
           ? false
-          : (!isPiAlive || k.status === 'OFFLINE' || k.printerStatus === 'OFFLINE' || k.printerStatus === 'ERROR')
+          : (!isPiAlive ||
+             !isRelayConnected ||
+             isUsbDisconnected ||
+             k.status === 'OFFLINE' ||
+             k.printerStatus === 'OFFLINE' ||
+             k.printerStatus === 'ERROR' ||
+             k.printerStatus === 'STOPPED' ||
+             k.printerStatus === 'DISCONNECTED' ||
+             (k.kioskId === 'PB-001' && !livePrinter.isOnline))
 
         const printerStatus = isTestMode
           ? 'READY'
@@ -224,14 +237,14 @@ kiosksRouter.get('/', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:list:'
 // GET /api/kiosks/:id
 kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:detail:' }), async (req: Request, res: Response) => {
   try {
-    const kioskId = req.params.id
-    if (!kioskId || !/^PB-\d{3}$/.test(kioskId.trim())) {
+    const kioskId = (req.params.id || '').trim().toUpperCase()
+    if (!kioskId || !/^PB-\d{3}$/.test(kioskId)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid kiosk ID format '${kioskId}'. PrintBooth station IDs must match canonical PB-XXX format (e.g. PB-001).`,
+        error: `Invalid kiosk ID format '${req.params.id}'. PrintBooth station IDs must match canonical PB-XXX format (e.g. PB-001).`,
       })
     }
-    const cleanId = kioskId.trim()
+    const cleanId = kioskId
     const livePrinter = await getRealPrinterHardwareStatus()
     const isTestMode = (process.env.PRINT_MODE || 'real').toLowerCase() === 'test'
     const hasLiveError =
@@ -264,7 +277,7 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
       }
       const isHost = cleanId === 'PB-001'
       const isOffline = isMerchantBlocked ? true : (isHost ? !livePrinter.isOnline : (fb.status === 'OFFLINE' || fb.printerStatus === 'OFFLINE'))
-      const printerModel = isHost ? (livePrinter.selectedPrinter || fb.printerModel || 'Brother DCP-T420W Printer USB') : fb.printerModel
+      const printerModel = isHost ? (livePrinter.selectedPrinter || fb.printerModel || 'Laser Print Engine') : fb.printerModel
       const printerStatus = isMerchantBlocked
         ? 'OFFLINE'
         : (isHost
@@ -305,11 +318,10 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
       const fb = fallbackKiosks.find((k) => (k.kioskId || k.id) === cleanId)
       if (fb) {
         const isHost = cleanId === 'PB-001'
+        const isRelayActive = isKioskRelayConnected(cleanId)
         const isOffline = isTestMode
           ? false
-          : (isHost
-              ? hasLiveError
-              : fb.status === 'OFFLINE' || fb.printerStatus === 'OFFLINE' || fb.printerStatus === 'ERROR')
+          : (!isRelayActive || hasLiveError || fb.status === 'OFFLINE' || fb.printerStatus === 'OFFLINE' || fb.printerStatus === 'ERROR')
         const printerModel = isTestMode
           ? (livePrinter.selectedPrinter || fb.printerModel || fb.printer || 'PrintBooth Test Printer (Mock)')
           : (isHost ? livePrinter.selectedPrinter : fb.printerModel)
@@ -317,7 +329,7 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
         const printerStatus = isTestMode
           ? 'READY'
           : (isHost
-              ? (hasLiveError
+              ? (!isRelayActive || hasLiveError
                   ? (livePrinter.statusLabels?.find((l) => /error/i.test(l)) ? 'ERROR' : 'OFFLINE')
                   : (livePrinter.statusLabels?.[0] || 'READY'))
               : fb.printerStatus)
@@ -333,18 +345,18 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
             printerStatus,
             status: isMaintenance
               ? 'MAINTENANCE'
-              : (isTestMode ? 'ONLINE' : (isOffline ? 'OFFLINE' : (isHost ? 'ONLINE' : fb.status))),
+              : (isTestMode ? 'ONLINE' : (isOffline ? 'OFFLINE' : (isRelayActive ? 'ONLINE' : 'OFFLINE'))),
             isTestMode,
             merchantContact: await resolveMerchantContactForKiosk(cleanId),
             hardwareDetails: isHost ? {
-              isAvailable: isTestMode ? true : livePrinter.isAvailable,
-              isOnline: isTestMode ? true : livePrinter.isOnline,
-              isHardwareReady: isTestMode ? true : livePrinter.isHardwareReady,
+              isAvailable: isTestMode ? true : (!isOffline && isRelayActive && livePrinter.isAvailable),
+              isOnline: isTestMode ? true : (!isOffline && isRelayActive && livePrinter.isOnline),
+              isHardwareReady: isTestMode ? true : (!isOffline && isRelayActive && livePrinter.isHardwareReady),
               isTestMode,
-              port: isTestMode ? (livePrinter.port || 'VIRTUAL-SIM') : livePrinter.port,
-              driver: isTestMode ? (livePrinter.driver || 'PrintBooth Virtual Driver (Test Mode)') : livePrinter.driver,
-              connectionType: isTestMode ? 'TEST_SIMULATION' : livePrinter.connectionType,
-              statusLabels: isTestMode ? ['Ready (Test Mode)'] : livePrinter.statusLabels,
+              port: isTestMode ? (livePrinter.port || 'VIRTUAL-SIM') : (isRelayActive ? livePrinter.port : 'DISCONNECTED'),
+              driver: isTestMode ? (livePrinter.driver || 'PrintBooth Virtual Driver (Test Mode)') : (isRelayActive ? livePrinter.driver : 'Offline'),
+              connectionType: isTestMode ? 'TEST_SIMULATION' : (isRelayActive ? livePrinter.connectionType : 'NONE'),
+              statusLabels: isTestMode ? ['Ready (Test Mode)'] : (isRelayActive ? livePrinter.statusLabels : ['OFFLINE', 'PI_DISCONNECTED']),
               selectedPrinter: isTestMode
                 ? (livePrinter.selectedPrinter || 'PrintBooth Test Printer (Mock)')
                 : livePrinter.selectedPrinter,
@@ -356,21 +368,32 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
     }
 
     const kDoc = kiosk as any
+    const isRelayActive = isKioskRelayConnected(cleanId)
     const isPiHeartbeatFresh = Boolean(kDoc.lastSeenAt && (Date.now() - new Date(kDoc.lastSeenAt).getTime() < 60000))
     const reachability = await isKioskPiReachable(cleanId)
-    const isPiAlive = reachability.isReachable || (isTestMode && isPiHeartbeatFresh)
+    const isPiAlive = isTestMode ? (reachability.isReachable || isPiHeartbeatFresh) : (reachability.isReachable && isRelayActive)
 
     const printerModel = isTestMode
-      ? (livePrinter.selectedPrinter || kDoc.printerModel || 'PrintBooth Test Printer (Mock)')
+      ? (livePrinter.selectedPrinter || kDoc.printerModel || 'Laser Print Engine')
       : (isPiAlive
-          ? (kDoc.printerModel || 'Brother DCP-T420W Printer')
-          : (kDoc.printerModel || 'Station Printer (Offline)'))
+          ? (kDoc.printerModel || 'Laser Print Engine')
+          : (kDoc.printerModel || 'Laser Print Engine (Offline)'))
 
+    const piPrinters = getKioskPiPrinters(cleanId)
+    const isUsbDisconnected = (piPrinters && piPrinters.usbConnected === false) || kDoc.usbConnected === false
     const isOffline = isMerchantBlocked
       ? true
       : (isTestMode
           ? false
-          : (!isPiAlive || kDoc.status === 'OFFLINE' || kDoc.printerStatus === 'OFFLINE' || kDoc.printerStatus === 'ERROR'))
+          : (!isPiAlive ||
+             !isRelayActive ||
+             isUsbDisconnected ||
+             kDoc.status === 'OFFLINE' ||
+             kDoc.printerStatus === 'OFFLINE' ||
+             kDoc.printerStatus === 'ERROR' ||
+             kDoc.printerStatus === 'STOPPED' ||
+             kDoc.printerStatus === 'DISCONNECTED' ||
+             (cleanId === 'PB-001' && !livePrinter.isOnline)))
 
     const printerStatus = isMerchantBlocked
       ? 'OFFLINE'
@@ -397,10 +420,10 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
         merchantBlocked: isMerchantBlocked,
         isTestMode,
         merchantContact: await resolveMerchantContactForKiosk(cleanId),
-        hardwareDetails: isPiAlive ? {
-          isAvailable: !isOffline,
-          isOnline: !isOffline,
-          isHardwareReady: !isOffline,
+        hardwareDetails: (isPiAlive && !isOffline) ? {
+          isAvailable: true,
+          isOnline: true,
+          isHardwareReady: true,
           isTestMode,
           port: 'USB (Raspberry Pi)',
           driver: 'CUPS Linux Driver',
@@ -630,6 +653,26 @@ kiosksRouter.post('/:id/select-printer', async (req: Request, res: Response) => 
     }
     const result = await CupsAutomationService.selectPrinter(kioskId, printerName)
     res.json(result)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/kiosks/:id/config — Dynamic kiosk upload URL & config (no .env needed in kiosk)
+kiosksRouter.get('/:id/config', async (req: Request, res: Response) => {
+  try {
+    const kioskId = (req.params.id || 'PB-001').toUpperCase()
+    const webUrl = getPublicWebUrl(req)
+    const qrUrl = getKioskPrintUrl(kioskId, req)
+    res.json({
+      success: true,
+      kioskId,
+      siteUrl: webUrl,
+      webUrl,
+      clientWebUrl: webUrl,
+      qrUrl,
+      kioskPrintUrl: qrUrl,
+    })
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message })
   }

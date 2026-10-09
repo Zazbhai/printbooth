@@ -17,10 +17,10 @@ export const ClearDocumentModal: React.FC<ClearDocumentModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
-  title = 'Going Back Clears Document',
-  description = 'Going back will clear your uploaded document. Are you sure you want to go back to upload a new document?',
-  confirmText = 'Clear All',
-  cancelText = 'Cancel',
+  title = 'Clear Uploaded Document?',
+  description = 'Going back to upload will clear your current document. You will need to upload your file again.',
+  confirmText = 'Clear Document',
+  cancelText = 'Stay Here',
 }) => {
   // Close on Escape key
   useEffect(() => {
@@ -49,15 +49,21 @@ export const ClearDocumentModal: React.FC<ClearDocumentModalProps> = ({
           {/* Modal Card */}
           <motion.div
             className="clear-modal-card"
-            initial={{ opacity: 0, scale: 0.92, y: 14 }}
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 10 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            exit={{ opacity: 0, scale: 0.95, y: 12 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 380 }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Top Crimson Laser Accent */}
+            <div className="clear-modal-laser-rim" aria-hidden="true" />
+
             {/* Warning Icon Badge */}
-            <div className="clear-modal-icon-badge">
-              <Warning size={32} weight="fill" className="clear-modal-warning-icon" />
+            <div className="clear-modal-icon-badge-wrapper">
+              <div className="clear-modal-icon-glow" aria-hidden="true" />
+              <div className="clear-modal-icon-badge">
+                <Warning size={28} weight="fill" className="clear-modal-warning-icon" />
+              </div>
             </div>
 
             {/* Content */}

@@ -30,9 +30,9 @@ export interface MerchantBlockedNoticeProps {
 }
 
 export const DEFAULT_COMPANY_CONTACT = {
-  email: 'support@printbooth.in',
-  phone: '+91 98234 56789',
-  whatsapp: '+919823456789',
+  email: 'team1printbooth@gmail.com',
+  phone: '+91 90906 36363',
+  whatsapp: '+919090636363',
   hours: 'Mon - Sat, 9:00 AM - 8:00 PM IST',
   desk: 'PrintBooth Corporate Merchant Relations & Fleet Desk',
 }

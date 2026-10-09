@@ -12,7 +12,7 @@
   --wipe-bg: #dc2626;
   --wipe-color: #ffffff;
   --wipe-accent: #ffe85c;
-  --wipe-duration: 560ms;
+  --wipe-duration: 140ms;
 
   position: fixed !important;
   inset: 0 !important;

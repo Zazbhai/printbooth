@@ -146,7 +146,7 @@ export default function MultiFilePage() {
         return
       }
 
-      setConnectedPrinterName(check.printerName || 'Brother DCP-T420W')
+      setConnectedPrinterName(check.printerName || 'Laser Print Engine')
       setPrinterIssue(null)
       setUserDismissedNotice(false)
     } catch (err) {
@@ -191,17 +191,8 @@ export default function MultiFilePage() {
   const readyCount = files.filter(f => f.status === 'ready').length
 
   async function processFile(file: File) {
-    const assignedId = searchParams.get('id') || searchParams.get('printer_id') || sessionStorage.getItem('pb_kiosk_id') || 'PB-001'
-    const hwCheck = await checkPrinterHardwareStatus(assignedId)
-    if (!hwCheck.isAvailable) {
-      setPrinterIssue({
-        hasIssue: true,
-        reason: hwCheck.reason || 'Brother printer is disconnected',
-        detail: hwCheck.detail || 'Hardware printer is disconnected or in error. Please resolve before uploading.',
-        kioskName: hwCheck.kioskName || 'PrintBooth Station',
-        printerName: hwCheck.printerName,
-      })
-      setDropError(`Cannot upload: ${hwCheck.reason}. Please connect the printer before uploading.`)
+    if (printerIssue?.hasIssue && !userDismissedRef.current) {
+      setDropError(`Cannot upload: ${printerIssue.reason}. Please connect the printer before uploading.`)
       return false
     }
 
@@ -394,14 +385,8 @@ export default function MultiFilePage() {
     persistAllFilesToSession()
     persistActiveFileToSession()
 
-    // Do NOT prematurely cut off the animation!
-    // Wait for the full animation sequence (folding, flight, intake, 0-100% count, celebration checkmark)
-    // to complete. handleUploadComplete will trigger the transition once the animation completes at 5.6s.
-    if (animationCompleteRef.current) {
-      setTimeout(() => {
-        transitionToConfirm()
-      }, 400)
-    }
+    // INSTANT TRANSITION: Move to confirm page immediately with zero delay
+    transitionToConfirm()
   }
 
   function handleRemoveFile(id: string) {
@@ -422,14 +407,10 @@ export default function MultiFilePage() {
     uploadAnimRef.current?.reset()
   }
 
-  // Auto-redirect directly to confirm document page as soon as the celebration animation sequence finishes (at 5.6s)
   const handleUploadComplete = useCallback(() => {
     animationCompleteRef.current = true
     if (processingCompleteRef.current) {
-      // Allow user to see "UPLOAD COMPLETE" and green checkmark celebration for 400ms before redirecting
-      setTimeout(() => {
-        transitionToConfirm()
-      }, 400)
+      transitionToConfirm()
     }
   }, [transitionToConfirm])
 

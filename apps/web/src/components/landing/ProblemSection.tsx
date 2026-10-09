@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { Wrench, Clock, ShieldAlert } from 'lucide-react'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { animateProblemIn, showAllImmediately } from '../../animations/landingAnimations'
+import ScrambleText from '../ui/ScrambleText'
 
 interface ProblemSectionProps {
   isActive?: boolean
@@ -71,7 +72,11 @@ export default function ProblemSection({ isActive = false }: ProblemSectionProps
                 className={`problem-word ${w.isAccent ? 'problem-word--accent' : ''}`}
                 data-index={i}
               >
-                {w.text}{' '}
+                {w.isAccent ? (
+                  <ScrambleText text={w.text} delay={300} duration={600} />
+                ) : (
+                  w.text
+                )}{' '}
               </span>
             ))}
           </h2>

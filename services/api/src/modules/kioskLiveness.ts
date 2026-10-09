@@ -71,7 +71,16 @@ export async function isKioskPiReachable(rawKioskId?: string): Promise<KioskReac
     try {
       const kDoc: any = await Kiosk.findOne({ kioskId }).lean()
       if (kDoc) {
-        if (kDoc.lastSeenAt) {
+        if (kDoc.status === 'OFFLINE' || kDoc.printerStatus === 'OFFLINE') {
+          return {
+            isReachable: false,
+            reason: `Station ${kioskId} is marked OFFLINE in system.`,
+            via: 'none',
+            kioskId,
+          }
+        }
+        const isTestMode = (process.env.PRINT_MODE || 'real').toLowerCase() === 'test'
+        if (isTestMode && kDoc.lastSeenAt) {
           const elapsed = Date.now() - new Date(kDoc.lastSeenAt).getTime()
           if (elapsed < HEARTBEAT_FRESHNESS_MS) {
             // Heartbeat received within SLA
@@ -95,7 +104,7 @@ export async function isKioskPiReachable(rawKioskId?: string): Promise<KioskReac
   // Neither WebSocket nor fresh heartbeat exists: The Raspberry Pi is OFF or disconnected!
   return {
     isReachable: false,
-    reason: `Raspberry Pi station ${kioskId} has no active WebSocket connection and no fresh heartbeat (>60s). Hardware is powered off or lost internet connection.`,
+    reason: `Raspberry Pi station ${kioskId} supervisor (start_kiosk.sh) is not running or lost connection.`,
     via: 'none',
     kioskId,
   }
@@ -118,6 +127,7 @@ export async function markKioskOffline(rawKioskId: string, reason = 'Hardware po
           $set: {
             status: 'OFFLINE',
             printerStatus: 'OFFLINE',
+            lastSeenAt: null,
           },
         },
         { new: true }
@@ -237,8 +247,18 @@ export async function recordKioskHeartbeat(
   const now = new Date()
 
   const isUsbDisconnected = telemetry.usbConnected === false
-  const onlineStatus = (telemetry.status === 'OFFLINE' || isUsbDisconnected) ? 'OFFLINE' : 'ONLINE'
-  const printerStatus = isUsbDisconnected ? 'OFFLINE' : (telemetry.printerStatus || 'READY')
+  const pStat = String(telemetry.printerStatus || '').toUpperCase()
+  const kStat = String(telemetry.status || '').toUpperCase()
+  const isPrinterOffline =
+    isUsbDisconnected ||
+    kStat === 'OFFLINE' ||
+    pStat === 'OFFLINE' ||
+    pStat === 'ERROR' ||
+    pStat === 'STOPPED' ||
+    pStat === 'DISCONNECTED'
+
+  const onlineStatus = isPrinterOffline ? 'OFFLINE' : 'ONLINE'
+  const printerStatus = isPrinterOffline ? (pStat || 'OFFLINE') : 'READY'
 
   if (isDbConnected()) {
     try {

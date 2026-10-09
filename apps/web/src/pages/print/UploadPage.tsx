@@ -154,34 +154,7 @@ export default function UploadPage() {
   }
 
   async function handleFile(file: File) {
-    // 1. HARDWARE CHECK FIRST: verify printer errors & connection before doing anything
-    setIsCheckingPrinter(true)
-    const check = await checkPrinterHardwareStatus(activeKioskId)
-    setIsCheckingPrinter(false)
-
-    if (!check.isAvailable) {
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setPrinterIssue({
-        hasIssue: true,
-        reason: check.reason || 'Printer is not available',
-        detail: check.detail || 'Hardware printer is disconnected or in error.',
-        kioskName: check.kioskName,
-        printerName: check.printerName,
-      })
-      setUserDismissedNotice(false)
-      setUploadState(s => ({
-        ...s,
-        file: null,
-        progress: 0,
-        error: `Cannot upload: ${check.reason}. ${check.detail || 'Please connect or turn on the printer first.'}`,
-        status: 'error',
-        realPages: null,
-        isExtracting: false,
-      }))
-      return
-    }
-
-    if (printerIssue?.hasIssue) {
+    if (printerIssue?.hasIssue && !userDismissedRef.current) {
       setUploadState(s => ({
         ...s,
         file: null,
@@ -307,7 +280,7 @@ export default function UploadPage() {
         isOpen={Boolean(printerIssue?.hasIssue)}
         title={
           printerIssue?.reason?.toUpperCase().includes('USB')
-            ? 'BROTHER PRINTER DISCONNECTED'
+            ? 'PRINTER DISCONNECTED'
             : printerIssue?.reason?.toUpperCase().includes('PAPER')
             ? 'OUT OF PAPER'
             : (printerIssue?.reason?.toUpperCase().includes('DISCONNECTED') || printerIssue?.reason?.toUpperCase().includes('OFFLINE')
@@ -512,8 +485,8 @@ export default function UploadPage() {
         }}
         title="Clear Uploaded Document?"
         description="Going back will clear your uploaded document. Are you sure you want to upload a different document?"
-        confirmText="Yes, Clear Document"
-        cancelText="Cancel"
+        confirmText="Clear Document"
+        cancelText="Stay Here"
       />
     </div>
   )

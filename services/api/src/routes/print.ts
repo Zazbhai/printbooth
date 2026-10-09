@@ -116,7 +116,7 @@ function simulateTestPrintJob(job: PrintJobState) {
   const MOCK_PRINTER = 'PrintBooth Test Printer (Mock)'
   job.status    = 'PRINTING'
   job.printerName = MOCK_PRINTER
-  job.totalPages  = job.copies || 1
+  job.totalPages  = Math.max(1, job.totalPages || job.copies || 1)
   syncJobState(job)
 
   console.log(`\n[TEST MODE] 🧪 Simulating print for Order ${job.orderId}: ${job.fileName}`)
@@ -379,7 +379,7 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       if (piData && piData.usbConnected === false) {
         return res.status(400).json({
           success: false,
-          error: 'Cannot start print: Brother printer is disconnected from USB bus (lsusb check). Please connect USB cable and power on printer.',
+          error: 'Cannot start print: Printer is disconnected from USB bus. Please connect USB cable and power on printer.',
           issueCode: 'PRINTER_USB_DISCONNECTED',
         })
       }
@@ -437,6 +437,8 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       } while (usedPinsRegistry.has(releasePin) && attempts < 50)
     }
     const isImmediate = req.body.immediate === 'true' || req.body.immediate === true
+    const rawTotalPages = Number(req.body.totalPages || req.body.pageCount || req.body.totalSheets)
+    const resolvedTotalPages = Math.max(1, !isNaN(rawTotalPages) && rawTotalPages > 0 ? rawTotalPages : 1)
 
     const jobState: PrintJobState = {
       orderId,
@@ -459,7 +461,7 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       pageBorder,
       status: 'QUEUED',
       printedPages: 0,
-      totalPages: 1,
+      totalPages: resolvedTotalPages,
       percent: 0,
       printerName,
       startedAt: Date.now(),
@@ -977,6 +979,16 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
         simulateTestPrintJob(job)
       }
 
+      let resolvedJobPages = Math.max(1, job.totalPages || 1)
+      if (resolvedJobPages <= 1 && isDbConnected()) {
+        try {
+          const dbDoc = await Order.findOne({ $or: [{ orderId: job.orderId }, { orderNumber: job.orderId }] })
+          if (dbDoc && dbDoc.pageCount && dbDoc.pageCount > 1) {
+            resolvedJobPages = dbDoc.pageCount * resolvedCopies
+          }
+        } catch {}
+      }
+
       return {
         success: true,
         valid: true,
@@ -989,7 +1001,8 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
           duplex: job.duplex,
           paperSize: job.paperSize || 'A4',
           pageRange: job.pageRange || 'ALL',
-          pageCount: job.totalPages || 1,
+          pageCount: resolvedJobPages,
+          totalPages: resolvedJobPages,
           status: 'PRINTING',
         },
       }
@@ -1208,7 +1221,8 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
       colourMode: order.colourMode,
       duplex: order.duplex,
       paperSize: order.paperSize || 'A4',
-      pageCount: order.pageCount,
+      pageCount: Math.max(1, (order.pageCount || 1) * (resolvedCopies || order.copies || 1)),
+      totalPages: Math.max(1, (order.pageCount || 1) * (resolvedCopies || order.copies || 1)),
       status: 'PRINTING',
     },
   }
@@ -1249,7 +1263,7 @@ printRouter.post('/inspect', upload.single('file'), async (req: Request, res: Re
       }
       return res.status(400).json({
         success: false,
-        error: 'Cannot upload document: Brother printer is not connected via USB (lsusb check). Please plug in the USB cable and turn the printer on.',
+        error: 'Cannot upload document: Printer is not connected via USB. Please plug in the USB cable and turn the printer on.',
         issueCode: 'PRINTER_USB_DISCONNECTED',
       })
     }
@@ -1358,7 +1372,7 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
         const isOffline = kioskDoc.status === 'OFFLINE' || kioskDoc.printerStatus === 'OFFLINE' || kioskDoc.printerStatus === 'ERROR' || isUsbDisconnected
         const isMaintenance = String(kioskDoc.status || '').toUpperCase() === 'MAINTENANCE'
         const isAvailable = !isOffline && !isMaintenance
-        const printerName = kioskDoc.printerModel || piPrinters?.activePrinter || 'Brother DCP-T420W Printer'
+        const printerName = kioskDoc.printerModel || piPrinters?.activePrinter || 'Laser Print Engine'
         const statusLabel = isUsbDisconnected ? 'USB_DISCONNECTED' : (kioskDoc.printerStatus || 'READY')
 
         return res.json({
@@ -1367,12 +1381,12 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
           isHardwareReady: isAvailable,
           hasPhysicalPrinter: true,
           issueCode: isAvailable ? null : (isUsbDisconnected ? 'PRINTER_USB_DISCONNECTED' : 'PRINTER_UNAVAILABLE'),
-          issueTitle: isAvailable ? null : (isMaintenance ? 'Kiosk Under Maintenance' : (isUsbDisconnected ? 'Brother Printer Disconnected via USB' : 'Printer not available right now, visit later')),
+          issueTitle: isAvailable ? null : (isMaintenance ? 'Kiosk Under Maintenance' : (isUsbDisconnected ? 'Printer Disconnected via USB' : 'Printer not available right now, visit later')),
           selectedPrinter: printerName,
           reason: isAvailable
             ? `Raspberry Pi station ${kioskId} is ONLINE with printer ${statusLabel}.`
             : (isUsbDisconnected
-                ? 'Physical Brother printer is not detected on USB bus via lsusb. Please verify USB cable is connected and power is turned on.'
+                ? 'Physical printer is not detected on USB bus. Please verify USB cable is connected and power is turned on.'
                 : (kioskDoc.printerStatus || 'Printer offline or in error')),
           mode: 'real',
           isTestMode: false,
@@ -1401,7 +1415,7 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
     if (piPrinters) {
       const isUsbDisconnected = piPrinters.usbConnected === false
       const isAvailable = !isUsbDisconnected && piPrinters.isOnline
-      const printerName = piPrinters.activePrinter || 'Brother DCP-T420W Printer'
+      const printerName = piPrinters.activePrinter || 'Laser Print Engine'
       const statusLabel = isUsbDisconnected ? 'USB_DISCONNECTED' : (isAvailable ? 'READY' : 'OFFLINE')
 
       return res.json({
@@ -1410,12 +1424,12 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
         isHardwareReady: isAvailable,
         hasPhysicalPrinter: true,
         issueCode: isAvailable ? null : (isUsbDisconnected ? 'PRINTER_USB_DISCONNECTED' : 'PRINTER_UNAVAILABLE'),
-        issueTitle: isAvailable ? null : (isUsbDisconnected ? 'Brother Printer Disconnected via USB' : 'Printer not available right now, visit later'),
+        issueTitle: isAvailable ? null : (isUsbDisconnected ? 'Printer Disconnected via USB' : 'Printer not available right now, visit later'),
         selectedPrinter: printerName,
         reason: isAvailable
-          ? `Raspberry Pi station ${kioskId} is ONLINE with Brother printer.`
+          ? `Raspberry Pi station ${kioskId} is ONLINE.`
           : (isUsbDisconnected
-              ? 'Physical Brother printer is not detected on USB bus via lsusb. Please verify USB cable is connected and power is turned on.'
+              ? 'Physical printer is not detected on USB bus. Please verify USB cable is connected and power is turned on.'
               : 'Printer reported offline on Raspberry Pi station.'),
         mode: 'real',
         isTestMode: false,

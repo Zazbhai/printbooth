@@ -23,6 +23,9 @@ import { installationsRouter } from './routes/installations.js'
 import { helpdeskRouter } from './routes/helpdesk.js'
 import { deviceRouter } from './routes/device.js'
 import { startFileRetentionCleanupDaemon } from './modules/fileLifecycle.js'
+import { getRealPrinterHardwareStatus } from './modules/printerDetector.js'
+import { getKioskPiPrinters } from './modules/kioskPiPrinters.js'
+import { getPublicWebUrl, getKioskPrintUrl, getAdminConsoleUrl } from './config.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -122,6 +125,42 @@ app.get('/api/redis/stats', async (_req, res) => {
     res.json({ success: true, data: stats })
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+// Public System & Kiosk Configuration (Served to Kiosk UI so no .env is needed in kiosk)
+app.get(['/api/config', '/api/system/config'], (req, res) => {
+  const kioskId = String(req.query.kioskId || req.headers['x-kiosk-id'] || 'PB-001').toUpperCase()
+  const siteUrl = getPublicWebUrl(req)
+  res.json({
+    success: true,
+    siteUrl,
+    webUrl: siteUrl,
+    clientWebUrl: siteUrl,
+    kioskId,
+    kioskPrintUrl: getKioskPrintUrl(kioskId, req),
+    adminUrl: getAdminConsoleUrl(req),
+  })
+})
+
+// Canonical Hardware Printer Status Probe (Used by Kiosk UI and watchdog)
+app.get(['/api/printer/status', '/printer/status'], async (req, res) => {
+  try {
+    const rawKioskId = ((req.query.kioskId as string) || (req.headers['x-kiosk-id'] as string) || 'PB-001').toUpperCase()
+    const livePrinter = await getRealPrinterHardwareStatus()
+    const piPrinters = getKioskPiPrinters(rawKioskId)
+    const isUsbDisconnected = piPrinters ? piPrinters.usbConnected === false : false
+    const isOnline = livePrinter.isOnline && !isUsbDisconnected
+    const printerStatus = isOnline ? 'READY' : (isUsbDisconnected ? 'DISCONNECTED' : 'OFFLINE')
+    res.json({
+      success: true,
+      isOnline,
+      printerStatus,
+      activePrinter: livePrinter.selectedPrinter || 'Brother DCP-T420W',
+      kioskId: rawKioskId,
+    })
+  } catch (err: any) {
+    res.status(500).json({ success: false, isOnline: false, printerStatus: 'OFFLINE', error: err.message })
   }
 })
 

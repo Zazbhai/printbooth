@@ -111,10 +111,10 @@ export default function StatusPage() {
   const primaryMode: 'mono' | 'color' =
     globalSettings.colour === 'COLOUR' ? 'color' : 'mono'
 
-  const selectedPrinterName =
-    sessionStorage.getItem('pb_printer_name') ||
-    sessionStorage.getItem('pb_printer') ||
-    'Brother DCP-T420W Printer'
+  const terminalId =
+    sessionStorage.getItem('pb_kiosk_id') ||
+    flow?.printerId ||
+    'PB-001'
 
   const kioskName =
     sessionStorage.getItem('pb_kiosk_name') ||
@@ -648,15 +648,15 @@ export default function StatusPage() {
               <div className="thanks-job-row">
                 <div className="thanks-job-item">
                   <span className="thanks-job-label">
-                    <Printer size={13} weight="bold" /> Machine
+                    <Printer size={13} weight="bold" /> Station
                   </span>
                   <span className="thanks-job-value">
-                    {selectedPrinterName}
+                    Station {terminalId}
                   </span>
                 </div>
                 <div className="thanks-job-item">
                   <span className="thanks-job-label">
-                    <MapPin size={13} weight="fill" /> Station
+                    <MapPin size={13} weight="fill" /> Location
                   </span>
                   <span className="thanks-job-value">
                     {kioskName}

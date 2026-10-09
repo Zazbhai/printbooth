@@ -37,7 +37,7 @@ export default function SupportPage() {
       status: 'OPEN',
       requesterName: form.name,
       requesterEmail: form.email,
-      requesterPhone: '+91 90906 36363',
+      requesterPhone: '',
       orderId: form.orderId || undefined,
       createdAt: now,
       updatedAt: now,

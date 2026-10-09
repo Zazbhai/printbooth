@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { Printer, Smartphone, QrCode, ShieldCheck } from 'lucide-react'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { animateProductIn, showAllImmediately } from '../../animations/landingAnimations'
+import ScrambleText from '../ui/ScrambleText'
 
 interface ProductSpec {
   id: string
@@ -45,7 +46,11 @@ export default function ProductIntro({ isActive = false }: ProductIntroProps) {
         <div className="product-content-left">
 
           <h2 className="product-heading" id="product-heading">
-            The modern <span className="product-heading-accent">self-service</span> printing kiosk.
+            The modern{' '}
+            <span className="product-heading-accent">
+              <ScrambleText text="self-service" delay={250} duration={650} />
+            </span>{' '}
+            printing kiosk.
           </h2>
 
           <p className="product-sub">

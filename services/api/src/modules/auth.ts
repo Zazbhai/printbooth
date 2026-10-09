@@ -48,8 +48,8 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
   } else if (isMerchant) {
     req.user = {
       id: merchantIdHeader || 'M-001',
-      email: (req.headers['x-user-email'] as string) || 'merchant@printbooth.in',
-      name: 'Rahul Sharma',
+      email: (req.headers['x-user-email'] as string) || 'team1printbooth@gmail.com',
+      name: 'Campus Print Desk Partner',
       role: 'merchant',
       merchantId: merchantIdHeader || 'M-001',
       kioskId: kioskIdHeader || 'PB-001',

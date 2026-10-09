@@ -73,17 +73,17 @@ export const MerchantHelpMascot: React.FC<MerchantHelpMascotProps> = ({
         console.warn('[MerchantHelpMascot] Could not fetch remote contact, checking fallback:', err)
       }
 
-      // Safe local fallback strictly tied to cleanId
+      // Fallback to official store desk support
       if (mounted) {
         if (cleanId === 'PB-001') {
           setContact({
             kioskId: 'PB-001',
             merchantId: 'M-001',
-            name: 'Rahul Sharma',
-            storeName: 'MIT ADT Campus Print Hub',
-            phone: '+91 98234 56789',
-            whatsapp: '+919823456789',
-            email: 'rahul.adt@printbooth.in',
+            name: 'Campus Print Desk Partner',
+            storeName: 'MIT ADT Campus Print Station',
+            phone: '+91 90906 36363',
+            whatsapp: '+919090636363',
+            email: 'team1printbooth@gmail.com',
             onSiteLocation: 'Ground Floor, Central Reading Hall (Counter #1, next to turnstiles)',
             supportHours: '8:30 AM - 9:30 PM (Mon-Sat)',
           })

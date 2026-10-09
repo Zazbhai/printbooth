@@ -186,8 +186,8 @@ export default function MerchantKiosksPage() {
   }
 
   const printer = hardware?.printer || {
-    name: 'Brother DCP-T420W',
-    model: activeMerchant?.printerModel || 'Brother DCP-T420W',
+    name: 'Laser Print Engine',
+    model: activeMerchant?.printerModel || 'Laser Print Engine',
     paperLevel: activeMerchant?.paperLevel ?? 0,
     tonerBlack: activeMerchant?.tonerLevel ?? 0,
     paperTray1Remaining: 0,

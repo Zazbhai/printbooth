@@ -32,8 +32,8 @@ interface MerchantPreset {
 const DEFAULT_PRESETS: MerchantPreset[] = [
   {
     email: 'merchant@printbooth.in',
-    username: 'rahul_adt',
-    name: 'Rahul Sharma',
+    username: 'merchant_adt',
+    name: 'Campus Print Desk Partner',
     storeName: 'MIT ADT Campus Print Hub',
     kioskId: 'PB-001',
     merchantId: 'M-001',
@@ -55,7 +55,7 @@ export default function LoginPage() {
   const [merchantPresets, setMerchantPresets] = useState<MerchantPreset[]>(DEFAULT_PRESETS)
   const [selectedMerchant, setSelectedMerchant] = useState<MerchantPreset>(DEFAULT_PRESETS[0])
   const [signInForm, setSignInForm] = useState({
-    identifier: 'rahul_adt',
+    identifier: 'merchant_adt',
     password: 'merchant123',
   })
   const [signInError, setSignInError] = useState('')
@@ -289,7 +289,7 @@ export default function LoginPage() {
           priority: 'HIGH',
           requesterName: cleanId,
           requesterEmail: cleanId.includes('@') ? cleanId : `${cleanId}@merchant.printbooth.in`,
-          requesterPhone: resetForm.phone.trim() || '+91 98234 56789',
+          requesterPhone: resetForm.phone.trim() || '+91 90906 36363',
           kioskId: resetForm.kioskId.trim() || 'PB-001',
           initialMessage: `Merchant requested credential reset. Reason: ${
             resetForm.reason.trim() || 'Forgot password, need help desk assistance.'

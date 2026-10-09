@@ -23,16 +23,26 @@ function PrintRouteRedirect() {
   const [searchParams] = useSearchParams()
   const pathParts = location.pathname.split('/').filter(Boolean)
   const pathParam = pathParts.length > 1 ? pathParts[1] : null
-  const printerId =
+  const explicitPrinterId =
     searchParams.get('id') ||
     searchParams.get('printer_id') ||
-    pathParam ||
-    sessionStorage.getItem('pb_kiosk_id')
+    pathParam
 
-  if (printerId && /^PB-\d{3}$/i.test(printerId.trim())) {
-    sessionStorage.setItem('pb_kiosk_id', printerId.trim().toUpperCase())
+  if (explicitPrinterId && /^PB-\d{3}$/i.test(explicitPrinterId.trim())) {
+    const cleanId = explicitPrinterId.trim().toUpperCase()
+    sessionStorage.setItem('pb_kiosk_id', cleanId)
+    localStorage.setItem('pb_kiosk_id', cleanId)
+    return <Navigate to={`/print?id=${cleanId}`} replace />
   }
-  return <Navigate to="/print" replace />
+
+  const savedKioskId = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id'))
+    : null
+  if (savedKioskId && /^PB-\d{3}$/i.test(savedKioskId.trim())) {
+    return <Navigate to={`/print?id=${savedKioskId.trim().toUpperCase()}`} replace />
+  }
+
+  return <Navigate to="/print?step=kiosk" replace />
 }
 
 // Apple HIG page-level transition variants

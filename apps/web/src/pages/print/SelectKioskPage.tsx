@@ -81,13 +81,22 @@ export function getKioskHealth(kiosk: Kiosk): KioskHealth {
     printerUpper === 'PAPER_OUT' ||
     (typeof kiosk.paper === 'number' && kiosk.paper > 0 && kiosk.paper <= 5)
 
+  const isPrinterReady =
+    printerUpper === 'READY' ||
+    printerUpper === 'IDLE' ||
+    printerUpper === 'ONLINE' ||
+    printerUpper === 'AVAILABLE' ||
+    printerUpper === 'PRINTING' ||
+    Boolean(kiosk.hardwareDetails?.isHardwareReady) ||
+    Boolean(kiosk.hardwareDetails?.isAvailable)
+
   const isAvailable =
     !hasHardwareError &&
     !isNotConnected &&
     !isMaintenance &&
     !isPaperDepleted &&
     statusUpper === 'ONLINE' &&
-    (printerUpper === 'READY' || Boolean(kiosk.hardwareDetails?.isHardwareReady))
+    isPrinterReady
 
   return {
     isAvailable,
@@ -104,25 +113,25 @@ export default function SelectKioskPage() {
   const flow = usePrintFlow()
   const [kiosksList, setKiosksList] = useState<Kiosk[]>([])
   const [search, setSearch] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(() => flow?.printerId || null)
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    return flow?.printerId ? flow.printerId.toUpperCase() : (typeof window !== 'undefined' ? (sessionStorage.getItem('pb_kiosk_id')?.toUpperCase() || null) : null)
+  })
   const [isLoading, setIsLoading] = useState(true)
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null)
 
   const { coordinates, status: geoStatus, requestLocation, getDistanceTo } = useUserLocation()
+
+  // Sync selectedId with context
+  useEffect(() => {
+    if (flow?.printerId) {
+      setSelectedId(flow.printerId.toUpperCase())
+    }
+  }, [flow?.printerId])
 
   useEffect(() => {
     let mounted = true
     async function loadKiosks() {
       try {
-        // Sync test mode from backend if available
-        fetch('/api/print/mode')
-          .then((r) => r.json())
-          .then((m) => {
-            if (m?.mode) {
-              sessionStorage.setItem('pb_print_mode', m.mode)
-            }
-          })
-          .catch(() => {})
-
         const data = await getLiveKiosks()
         if (mounted) {
           if (data && data.length > 0) {
@@ -192,14 +201,17 @@ export default function SelectKioskPage() {
 
   function handleSelect(kiosk: Kiosk, health: KioskHealth) {
     if (!health.isAvailable) return
-    setSelectedId(kiosk.id)
-    sessionStorage.setItem('pb_kiosk_id', kiosk.id)
+    const targetId = ((kiosk as any).kioskId || kiosk.id || '').trim().toUpperCase()
+    setSelectedId(targetId)
+    sessionStorage.setItem('pb_kiosk_id', targetId)
     sessionStorage.setItem('pb_kiosk_name', kiosk.name)
+    localStorage.setItem('pb_kiosk_id', targetId)
+    localStorage.setItem('pb_kiosk_name', kiosk.name)
 
     const hasFiles = Boolean(sessionStorage.getItem('pb_file_name')) || Boolean(sessionStorage.getItem('pb_files'))
 
     if (flow) {
-      flow.setPrinterId(kiosk.id, kiosk.name)
+      flow.setPrinterId(targetId, kiosk.name)
       if (hasFiles) {
         flow.goToStep('settings')
       } else {
@@ -281,6 +293,43 @@ export default function SelectKioskPage() {
         </div>
       </div>
 
+      {offlineNotice && (
+        <div
+          style={{
+            maxWidth: '680px',
+            margin: '0 auto 16px',
+            padding: '10px 16px',
+            borderRadius: '12px',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: '#dc2626',
+            fontSize: '13px',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <span>{offlineNotice}</span>
+          <button
+            type="button"
+            onClick={() => setOfflineNotice(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#dc2626',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: '16px',
+              padding: '0 4px',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* ── Kiosk Stations List (Modern Strip Style — NO CARDS) ── */}
       <div className="kiosk-station-list" role="list">
         <Skeleton
@@ -296,7 +345,8 @@ export default function SelectKioskPage() {
           ) : (
             processedKiosks.map(kiosk => {
             const { health, distInfo, isNearest } = kiosk
-            const isSelected = kiosk.id === selectedId
+            const targetId = ((kiosk as any).kioskId || kiosk.id || '').trim().toUpperCase()
+            const isSelected = targetId === (selectedId || '').toUpperCase() || (Boolean(flow?.printerId) && targetId === flow?.printerId?.toUpperCase())
             const displayDistance = distInfo.distanceText || kiosk.distance
 
             const googleMapsDirections =
@@ -316,7 +366,11 @@ export default function SelectKioskPage() {
                 }`}
                 role="listitem"
                 onClick={() => {
-                  if (health.isAvailable) handleSelect(kiosk, health)
+                  if (health.isAvailable) {
+                    handleSelect(kiosk, health)
+                  } else {
+                    setOfflineNotice(`Station "${kiosk.name}" is currently offline or undergoing service. Please select an available station or visit once powered on.`)
+                  }
                 }}
               >
                 {/* Nearest Beacon Accent Line */}
@@ -357,11 +411,6 @@ export default function SelectKioskPage() {
                       <span className="kiosk-nearest-chip" title="Closest station to your current location">
                         <Sparkle size={11} weight="fill" className="nearest-sparkle" />
                         <span>Nearest</span>
-                      </span>
-                    )}
-                    {(kiosk.isTestMode || Boolean(sessionStorage.getItem('pb_print_mode') === 'test')) && (
-                      <span className="kiosk-test-chip" title="Simulated test print mode is enabled">
-                        Test Mode
                       </span>
                     )}
                   </div>

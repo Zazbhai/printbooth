@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import * as THREE from 'three'
 import './PrintingBoothLoader.css'
 
 interface PrintingBoothLoaderProps {
@@ -28,157 +27,114 @@ export function PrintingBoothLoader({
 
     if (topWordRef.current) {
       topWordRef.current.innerHTML = ''
+      const frag = document.createDocumentFragment()
       TOP.split('').forEach((ch, i) => {
         const span = document.createElement('span')
-        span.className = 'pbl-letter' + (shardIndices.has(i) ? ' pbl-shard' : '')
+        span.className = 'pbl-letter' + (shardIndices.has(i) ? ' pbl-shard' : '') + ' pbl-in'
         span.textContent = ch
-        span.style.animationDelay = `${i * 0.06}s`
-        topWordRef.current?.appendChild(span)
+        span.style.animationDelay = `${i * 0.05}s`
+        frag.appendChild(span)
       })
+      topWordRef.current.appendChild(frag)
     }
 
     if (bottomWordRef.current) {
       bottomWordRef.current.innerHTML = ''
+      const frag = document.createDocumentFragment()
       BOTTOM.split('').forEach((ch, i) => {
         const span = document.createElement('span')
-        span.className = 'pbl-letter'
+        span.className = 'pbl-letter pbl-in'
         span.textContent = ch
-        span.style.animationDelay = `${i * 0.06}s`
-        bottomWordRef.current?.appendChild(span)
+        span.style.animationDelay = `${i * 0.05}s`
+        frag.appendChild(span)
       })
+      bottomWordRef.current.appendChild(frag)
     }
 
     // Immediately trigger animations
     if (stageRef.current) stageRef.current.classList.add('pbl-live')
-    if (scanlineRef.current) {
-      void scanlineRef.current.offsetWidth
-      scanlineRef.current.classList.add('pbl-sweep')
-    }
-
-    const letters = document.querySelectorAll('.pbl-letter')
-    letters.forEach(l => {
-      void (l as HTMLElement).offsetWidth
-      l.classList.add('pbl-in')
-    })
+    if (scanlineRef.current) scanlineRef.current.classList.add('pbl-sweep')
 
     const timer = setTimeout(() => {
       if (taglineRef.current) taglineRef.current.classList.add('pbl-in')
-    }, 600)
+    }, 500)
 
-    // ── Three.js converging particle field ──
+    // ── Silky, lightweight 2D Canvas ambient particles (0% GPU spike) ──
     const canvas = canvasRef.current
     if (!canvas) return () => clearTimeout(timer)
 
-    let animFrameId: number
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-    const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100)
-    camera.position.z = 22
+    let animId: number
+    let running = true
+    const ctx = canvas.getContext('2d', { alpha: true })
+    const colors = ['#f3b023', '#7f17b2', '#3253ec', '#00c2f2', '#29c2ff']
+    const COUNT = 48
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+    let width = 0
+    let height = 0
 
     function resize() {
       if (!canvas) return
-      const width = canvas.parentElement?.clientWidth || window.innerWidth
-      const height = canvas.parentElement?.clientHeight || window.innerHeight
-      renderer.setSize(width, height)
-      camera.aspect = width / height
-      camera.updateProjectionMatrix()
+      width = canvas.parentElement?.clientWidth || window.innerWidth
+      height = canvas.parentElement?.clientHeight || window.innerHeight
+      canvas.width = Math.round(width * dpr)
+      canvas.height = Math.round(height * dpr)
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
+      if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
     resize()
-    window.addEventListener('resize', resize)
+    window.addEventListener('resize', resize, { passive: true })
 
-    const palette = [0xf3b023, 0x7f17b2, 0x3253ec, 0x00c2f2, 0x29c2ff]
-    const COUNT = 320
-    const geo = new THREE.BufferGeometry()
-    const targetPos = new Float32Array(COUNT * 3)
-    const startPos = new Float32Array(COUNT * 3)
-    const drawPos = new Float32Array(COUNT * 3)
-    const colors = new Float32Array(COUNT * 3)
-    const speeds = new Float32Array(COUNT)
-    const tmpColor = new THREE.Color()
+    const dots = Array.from({ length: COUNT }, (_, i) => ({
+      x: Math.random() * (width || 1000),
+      y: Math.random() * (height || 800),
+      r: 1.2 + Math.random() * 2.2,
+      color: colors[i % colors.length],
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      alpha: 0.3 + Math.random() * 0.5,
+      pulse: Math.random() * Math.PI * 2,
+      pulseSpeed: 0.02 + Math.random() * 0.025,
+    }))
 
-    for (let i = 0; i < COUNT; i++) {
-      const tx = (Math.random() - 0.5) * 46
-      const ty = (Math.random() - 0.5) * 26
-      const tz = (Math.random() - 0.5) * 18 - 4
-      targetPos[i * 3] = tx
-      targetPos[i * 3 + 1] = ty
-      targetPos[i * 3 + 2] = tz
-      const push = 2.4 + Math.random() * 2.2
-      startPos[i * 3] = tx * push
-      startPos[i * 3 + 1] = ty * push
-      startPos[i * 3 + 2] = tz * push - 6
-      drawPos[i * 3] = startPos[i * 3]
-      drawPos[i * 3 + 1] = startPos[i * 3 + 1]
-      drawPos[i * 3 + 2] = startPos[i * 3 + 2]
-      tmpColor.setHex(palette[i % palette.length])
-      colors[i * 3] = tmpColor.r
-      colors[i * 3 + 1] = tmpColor.g
-      colors[i * 3 + 2] = tmpColor.b
-      speeds[i] = 0.15 + Math.random() * 0.35
-    }
-    geo.setAttribute('position', new THREE.BufferAttribute(drawPos, 3))
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-
-    const mat = new THREE.PointsMaterial({
-      size: 0.17,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.7,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    })
-    const points = new THREE.Points(geo, mat)
-    scene.add(points)
-
-    function easeOutCubic(t: number) {
-      return 1 - Math.pow(1 - t, 3)
-    }
-
-    let convergence = 0
-    let ambientT = 0
-    const clock = new THREE.Clock()
-    const startTime = performance.now()
-    const duration = 1200
-
-    function animate(now: number) {
-      animFrameId = requestAnimationFrame(animate)
-      const dt = clock.getDelta()
-      const arr = geo.attributes.position.array as Float32Array
-
-      convergence = Math.min(1, (now - startTime) / duration)
-
-      if (convergence < 1) {
-        const e = easeOutCubic(convergence)
-        for (let i = 0; i < COUNT; i++) {
-          arr[i * 3] = startPos[i * 3] + (targetPos[i * 3] - startPos[i * 3]) * e
-          arr[i * 3 + 1] = startPos[i * 3 + 1] + (targetPos[i * 3 + 1] - startPos[i * 3 + 1]) * e
-          arr[i * 3 + 2] = startPos[i * 3 + 2] + (targetPos[i * 3 + 2] - startPos[i * 3 + 2]) * e
-        }
-      } else {
-        ambientT += dt
-        for (let i = 0; i < COUNT; i++) {
-          arr[i * 3 + 1] = targetPos[i * 3 + 1] + Math.sin(ambientT * speeds[i] + i) * 0.35
-          arr[i * 3] = targetPos[i * 3] + Math.cos(ambientT * 0.15 + i) * 0.25
-          arr[i * 3 + 2] = targetPos[i * 3 + 2]
-        }
-        points.rotation.y = Math.sin(ambientT * 0.05) * 0.15
-        points.rotation.z = ambientT * 0.01
+    function render() {
+      if (!running || !ctx) return
+      if (document.hidden) {
+        animId = requestAnimationFrame(render)
+        return
       }
-      geo.attributes.position.needsUpdate = true
-      mat.opacity = 0.35 + 0.35 * Math.min(1, convergence) + (convergence >= 1 ? Math.sin(ambientT * 1.3) * 0.08 : 0)
-      renderer.render(scene, camera)
+
+      ctx.clearRect(0, 0, width, height)
+
+      for (let k = 0; k < COUNT; k++) {
+        const d = dots[k]
+        d.x += d.vx
+        d.y += d.vy
+        d.pulse += d.pulseSpeed
+
+        if (d.x < -10) d.x = width + 10
+        else if (d.x > width + 10) d.x = -10
+        if (d.y < -10) d.y = height + 10
+        else if (d.y > height + 10) d.y = -10
+
+        const a = d.alpha * (0.8 + 0.2 * Math.sin(d.pulse))
+        ctx.globalAlpha = a
+        ctx.fillStyle = d.color
+        ctx.beginPath()
+        ctx.arc(d.x, d.y, d.r, 0, 6.28318)
+        ctx.fill()
+      }
+
+      animId = requestAnimationFrame(render)
     }
 
-    animFrameId = requestAnimationFrame(animate)
+    animId = requestAnimationFrame(render)
 
     return () => {
+      running = false
       clearTimeout(timer)
-      cancelAnimationFrame(animFrameId)
+      cancelAnimationFrame(animId)
       window.removeEventListener('resize', resize)
-      renderer.dispose()
-      geo.dispose()
-      mat.dispose()
     }
   }, [])
 

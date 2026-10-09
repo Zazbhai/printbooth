@@ -5,11 +5,11 @@ import type { Request } from 'express'
  * Reads environment variables: SITE_URL or CLIENT_WEB_URL, or derives from incoming request.
  */
 export function getPublicWebUrl(req?: Request): string {
-  const envUrl = process.env.SITE_URL || process.env.CLIENT_WEB_URL
+  const envUrl = process.env.SITE_URL || process.env.CLIENT_WEB_URL || process.env.VITE_SITE_URL || process.env.VITE_CLIENT_WEB_URL
   if (envUrl) {
     const clean = envUrl.trim().replace(/\/+$/, '')
     // Don't use legacy 5201 port default if it wasn't explicitly desired
-    if (clean !== 'http://localhost:5201') {
+    if (clean && clean !== 'http://localhost:5201') {
       return clean
     }
   }

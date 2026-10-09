@@ -307,7 +307,7 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
         onConfirm={handleConfirmClear}
         title="Clear Uploaded Document?"
         description="Going back to upload will clear your current document. You will need to upload your file again."
-        confirmText="Yes, Clear & Upload New"
+        confirmText="Clear Document"
         cancelText="Stay Here"
       />
 

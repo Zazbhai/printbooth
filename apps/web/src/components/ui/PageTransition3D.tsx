@@ -11,9 +11,9 @@ export interface PageTransition3DProps {
   accent?: string
 }
 
-const DELAYS = [80, 40, 0, 40, 80]
-const CLOSE_TIME = 660
-const OPEN_TIME = 660
+const DELAYS = [20, 10, 0, 10, 20]
+const CLOSE_TIME = 140
+const OPEN_TIME = 140
 
 interface StepInfo {
   title: string

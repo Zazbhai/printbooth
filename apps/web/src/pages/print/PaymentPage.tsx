@@ -2,9 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePrintNavigate as useNavigate, usePrintFlow } from './PrintFlowContext'
 import {
   Clock,
-  CheckCircle,
   XCircle,
-  ArrowCounterClockwise,
   CreditCard,
   Lock,
   QrCode,
@@ -25,6 +23,7 @@ import { Skeleton, PaymentBoneyardFallback } from '@/components/ui/PrintBoneyard
 import { wsRelay } from '@/lib/wsRelayClient'
 import { saveRecentPrint } from '@/lib/recentPrintsStore'
 import { getApiHostUrl } from '@/lib/config'
+import { PaymentStatusModal } from '@/components/ui/PaymentStatusModal'
 import './PaymentPage.css'
 
 const API = getApiHostUrl()
@@ -33,12 +32,6 @@ const VITE_RZP_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID ?? ''
 type PaymentStatus = 'WAITING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
 type LogLevel = 'info' | 'success' | 'error' | 'warn'
 type GatewayType = 'razorpay' | 'upiexpress'
-
-interface LogEntry {
-  ts: string
-  msg: string
-  level: LogLevel
-}
 
 interface UpiExpressOrder {
   orderId: string | number
@@ -160,13 +153,10 @@ export default function PaymentPage() {
   // ── State ──
   const [status,          setStatus]          = useState<PaymentStatus>('WAITING')
   const [timeLeft,        setTimeLeft]        = useState(10 * 60)
-  const [errorMsg,        setErrorMsg]        = useState('')
+  const [,                setErrorMsg]        = useState('')
   const [rzpKeyId,        setRzpKeyId]        = useState<string>(VITE_RZP_KEY)
-  const [rzpMode,         setRzpMode]         = useState<'test' | 'live' | 'unknown'>('unknown')
   const [razorpayReady,   setRazorpayReady]   = useState(false)
   const [apiOnline,       setApiOnline]       = useState(false)
-  const [logs,            setLogs]            = useState<LogEntry[]>([])
-  const [showDevConsole,  setShowDevConsole]  = useState(false)
 
   const [selectedGateway, setSelectedGateway] = useState<GatewayType>(() => {
     const cached = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_assigned_gateway') : null
@@ -180,8 +170,6 @@ export default function PaymentPage() {
   // Tracks whether auto-fire has already been attempted
   const autoFiredRef = useRef(false)
 
-  // Print mode (test vs real)
-  const [printMode,       setPrintMode]        = useState<'test' | 'real' | null>(null)
   const [activeMethod,    setActiveMethod]    = useState<'upi' | 'card' | 'wallet' | 'netbanking' | 'all' | null>(null)
 
   // UPI Express specific
@@ -202,7 +190,6 @@ export default function PaymentPage() {
 
   const timerRef    = useRef<ReturnType<typeof setInterval>>()
   const pollingRef  = useRef<ReturnType<typeof setInterval>>()
-  const logEndRef   = useRef<HTMLDivElement>(null)
 
   // ── Logging helper ──
   const log = useCallback((msg: string, level: LogLevel = 'info') => {
@@ -210,10 +197,6 @@ export default function PaymentPage() {
     console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](
       `[PaymentPage ${ts}] [${level.toUpperCase()}] ${msg}`
     )
-    setLogs(prev => [...prev.slice(-49), { ts, msg, level }])
-    requestAnimationFrame(() => {
-      logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    })
   }, [])
 
   // ── Timer ──
@@ -249,7 +232,6 @@ export default function PaymentPage() {
             log(`✓ Station ${kioskId} assigned gateway: ${gw.toUpperCase()}`, 'success')
             if (j.data.razorpayKeyId) {
               setRzpKeyId(j.data.razorpayKeyId)
-              setRzpMode(j.data.razorpayKeyId.startsWith('rzp_live') ? 'live' : 'test')
             }
             if (j.data.upiExpressConfigured !== undefined) {
               setUpieConfigured(Boolean(j.data.upiExpressConfigured))
@@ -271,7 +253,6 @@ export default function PaymentPage() {
         const j = await r.json()
         if (j.success && j.data.keyIdConfigured) {
           setRzpKeyId(j.data.keyId)
-          setRzpMode(j.data.mode)
           setApiOnline(true)
           log(`✓ Backend online — Razorpay Key: ${j.data.keyId.slice(0, 12)}… Mode: ${j.data.mode}`, 'success')
         } else {
@@ -280,7 +261,6 @@ export default function PaymentPage() {
       } catch (err) {
         if (VITE_RZP_KEY) {
           log(`Backend offline — using VITE_RAZORPAY_KEY_ID fallback: ${VITE_RZP_KEY.slice(0, 12)}…`, 'warn')
-          setRzpMode(VITE_RZP_KEY.startsWith('rzp_live') ? 'live' : 'test')
         } else {
           log('Backend offline and no VITE_RAZORPAY_KEY_ID set', 'error')
         }
@@ -307,7 +287,6 @@ export default function PaymentPage() {
         const r = await fetch(`${API}/api/print/mode`)
         const j = await r.json()
         if (j.success) {
-          setPrintMode(j.mode)
           log(`🖨 Print mode: ${j.mode.toUpperCase()} — ${j.label}`, j.mode === 'test' ? 'warn' : 'success')
         }
       } catch {
@@ -550,6 +529,8 @@ export default function PaymentPage() {
               kioskId,
               releasePin,
               copies:             mfSettings.copies             || 1,
+              pageCount:          mf.pageCount                  || 1,
+              totalPages:         (mf.pageCount || 1) * (mfSettings.copies || 1),
               colourMode:         mfColourMode,
               pages:              mfSettings.pages              || 'ALL',
               duplex:             mfSettings.duplex             || 'SINGLE',
@@ -588,6 +569,8 @@ export default function PaymentPage() {
           kioskId,
           releasePin,
           copies:             settings.copies             || 1,
+          pageCount:          pageCount                   || 1,
+          totalPages:         (pageCount || 1) * (settings.copies || 1),
           colourMode:         effectiveColourMode,
           pages:              settings.pages              || 'ALL',
           duplex:             settings.duplex             || 'SINGLE',
@@ -623,6 +606,8 @@ export default function PaymentPage() {
           kioskId,
           releasePin,
           copies:             settings.copies             || 1,
+          pageCount:          pageCount                   || 1,
+          totalPages:         (pageCount || 1) * (settings.copies || 1),
           colourMode:         effectiveColourMode,
           pages:              settings.pages              || 'ALL',
           duplex:             settings.duplex             || 'SINGLE',
@@ -658,16 +643,6 @@ export default function PaymentPage() {
     orderRecordedSuccessfullyRef.current = true
     isRecordingOrderRef.current = false
     setTimeout(() => navigate('/print/status'), 1200)
-  }
-
-  // ── Instant Test Mode Bypass ──
-  async function handleTestPaymentAndPrint() {
-    setStatus('PROCESSING')
-    log('⚡ Instant Pay & Print triggered (Test Mode)…', 'info')
-    await new Promise(r => setTimeout(r, 600))
-    setStatus('SUCCESS')
-    clearInterval(timerRef.current)
-    await recordOrder('pay_bypass_' + Date.now().toString().slice(-6))
   }
 
   // ── Main Razorpay payment handler (with direct method routing) ──
@@ -1086,17 +1061,6 @@ export default function PaymentPage() {
 
   return (
     <div className="kiosk-pay-root">
-      {/* ── Test Mode Banner ── */}
-      {printMode === 'test' && (
-        <div className="test-mode-banner" id="test-mode-banner">
-          <span className="test-mode-icon">🧪</span>
-          <div className="test-mode-text">
-            <strong>Test Mode Active</strong>
-            <span>No physical printer — print jobs are simulated. Set <code>PRINT_MODE=real</code> in .env to use hardware.</span>
-          </div>
-        </div>
-      )}
-
       {/* ── Kiosk Location & Anonymous Guarantee ── */}
       <div className="kiosk-badge-row">
         <span className="kiosk-station-pill">
@@ -1410,38 +1374,6 @@ export default function PaymentPage() {
                     <span>Review Print Options</span>
                   </button>
                 </div>
-
-                {/* Shared: Test Mode Bypass */}
-                <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '2px' }}>
-                  <button
-                    type="button"
-                    onClick={handleTestPaymentAndPrint}
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px dashed rgba(255,255,255,0.18)',
-                      borderRadius: '8px',
-                      color: '#94a3b8',
-                      padding: '6px 14px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      letterSpacing: '0.02em',
-                    }}
-                    id="kiosk-test-print-btn"
-                    title="Bypass payment gateway and test physical printing directly"
-                  >
-                    <span>⚡ Quick Test</span>
-                  </button>
-                </div>
-
-                {errorMsg && (
-                  <div className="kiosk-error-box">
-                    <XCircle size={16} weight="fill" />
-                    <span>{errorMsg}</span>
-                  </div>
-                )}
               </div>
             ) : (
               /* ── UPI EXPRESS GATEWAY: ALL UPI DIRECTS & DYNAMIC QR ── */
@@ -1563,31 +1495,6 @@ export default function PaymentPage() {
                     </div>
                   </div>
 
-                  {/* Shared: Test Mode Bypass */}
-                  <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                    <button
-                      type="button"
-                      onClick={handleTestPaymentAndPrint}
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px dashed rgba(255,255,255,0.18)',
-                        borderRadius: '8px',
-                        color: '#94a3b8',
-                        padding: '6px 14px',
-                        fontSize: '11px',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        letterSpacing: '0.02em',
-                      }}
-                      id="kiosk-test-print-btn"
-                      title="Bypass payment gateway and test physical printing directly"
-                    >
-                      <span>⚡ Quick Test</span>
-                    </button>
-                  </div>
-
                   {/* Timer & Privacy footer */}
                   <div className="kiosk-footer-status">
                     <div className={`kiosk-timer-pill${isUrgent ? ' urgent' : ''}`}>
@@ -1599,91 +1506,23 @@ export default function PaymentPage() {
                     </span>
                   </div>
 
-                  {errorMsg && (
-                    <div className="kiosk-error-box">
-                      <XCircle size={16} weight="fill" />
-                      <span>{errorMsg}</span>
-                    </div>
-                  )}
                 </div>
               </>
             )}
-
-          {/* Result: Success */}
-          {status === 'SUCCESS' && (
-            <div className="kiosk-result-box success">
-              <CheckCircle size={56} weight="fill" className="kiosk-result-icon success" />
-              <h2 className="kiosk-result-title">Payment Successful!</h2>
-              <p className="kiosk-result-desc">Sending your document to the printer right now…</p>
-            </div>
-          )}
-
-          {/* Result: Failed */}
-          {status === 'FAILED' && (
-            <div className="kiosk-result-box failed">
-              <XCircle size={56} weight="fill" className="kiosk-result-icon failed" />
-              <h2 className="kiosk-result-title">Payment Incomplete</h2>
-              <p className="kiosk-result-desc">{errorMsg || 'No amount was deducted. Please tap below to try again.'}</p>
-              <button
-                className="kiosk-retry-btn"
-                onClick={() => { setStatus('WAITING'); setErrorMsg(''); setUpieOrder(null); if (pollingRef.current) clearInterval(pollingRef.current) }}
-                id="kiosk-retry-btn"
-              >
-                <ArrowCounterClockwise size={16} weight="bold" />
-                Try Again
-              </button>
-            </div>
-          )}
           </Skeleton>
         </div>
       </div>
 
-      {/* ── Developer Console ── */}
-      <div className="kiosk-dev-drawer">
-        <button
-          type="button"
-          className="kiosk-dev-toggle"
-          onClick={() => setShowDevConsole(v => !v)}
-        >
-          <span>{showDevConsole ? 'Hide Logs' : 'Debug Logs'}</span>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {rzpMode !== 'unknown' && (
-              <span className={`kiosk-dev-badge ${rzpMode}`}>
-                RZP {rzpMode === 'test' ? 'TEST' : 'LIVE'}
-              </span>
-            )}
-            {upieConfigured && (
-              <span className="kiosk-dev-badge live">UPIE ON</span>
-            )}
-          </div>
-        </button>
-
-        {showDevConsole && (
-          <div className="pay-log-panel animate-fadeIn">
-            <div className="pay-log-header">
-              <span className="pay-log-title">
-                <span className="pay-log-dot" />
-                Terminal Logs ({logs.length})
-              </span>
-              <button className="pay-log-clear" onClick={() => setLogs([])}>Clear</button>
-            </div>
-            <div className="pay-log-entries">
-              {logs.length === 0 && (
-                <div className="pay-log-entry">
-                  <span className="pay-log-msg info">No new logs yet</span>
-                </div>
-              )}
-              {logs.map((entry, i) => (
-                <div key={i} className="pay-log-entry">
-                  <span className="pay-log-ts">{entry.ts}</span>
-                  <span className={`pay-log-msg ${entry.level}`}>{entry.msg}</span>
-                </div>
-              ))}
-              <div ref={logEndRef} />
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ── Minimalist Centered Payment Success / Failure Popup Modal ── */}
+      <PaymentStatusModal
+        status={status === 'SUCCESS' ? 'SUCCESS' : status === 'FAILED' ? 'FAILED' : null}
+        onClose={() => {
+          setStatus('WAITING')
+          setErrorMsg('')
+          setUpieOrder(null)
+          if (pollingRef.current) clearInterval(pollingRef.current)
+        }}
+      />
     </div>
   )
 }
