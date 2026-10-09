@@ -3,6 +3,25 @@ import { RedisStore } from 'rate-limit-redis'
 import { getRedisClient, isRedisConnected } from '../redis.js'
 import type { Request, Response } from 'express'
 
+function getClientIp(req: Request): string {
+  const cfIp = req.headers['cf-connecting-ip']
+  if (typeof cfIp === 'string' && cfIp.trim()) return cfIp.trim()
+
+  const forwarded = req.headers['x-forwarded-for']
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim()
+  }
+
+  const realIp = req.headers['x-real-ip']
+  if (typeof realIp === 'string' && realIp.trim()) return realIp.trim()
+
+  return req.ip || req.socket.remoteAddress || '127.0.0.1'
+}
+
+function isLocalOrInternal(ip: string): boolean {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost'
+}
+
 /**
  * Creates a rate limiter with Redis backing when available,
  * falling back seamlessly to an in-memory store.
@@ -12,6 +31,7 @@ function createLimiter(customOptions: {
   max: number
   prefix: string
   message: string
+  skipPolling?: boolean
 }) {
   const client = getRedisClient()
   const store = isRedisConnected() && client
@@ -23,11 +43,32 @@ function createLimiter(customOptions: {
 
   return rateLimit({
     windowMs: customOptions.windowMs,
-    max: process.env.NODE_ENV === 'production' ? customOptions.max : 5000,
+    max: process.env.NODE_ENV === 'production' ? customOptions.max : 10000,
     store,
     passOnStoreError: true, // If Redis blips, requests are NOT blocked
     standardHeaders: 'draft-7', // returns RateLimit-* headers
     legacyHeaders: false,
+    keyGenerator: (req: Request) => getClientIp(req),
+    skip: (req: Request) => {
+      const ip = getClientIp(req)
+      // Never rate-limit loopback/localhost services (Kiosk Pi agent, local CLI, internal tunnel)
+      if (isLocalOrInternal(ip)) return true
+
+      if (customOptions.skipPolling) {
+        const path = (req.originalUrl || req.url || '').toLowerCase()
+        if (
+          path.includes('/health') ||
+          path.includes('/config') ||
+          path.includes('/kiosks') ||
+          path.includes('/print/detect') ||
+          path.includes('/print/status') ||
+          path.includes('/redis/stats')
+        ) {
+          return true
+        }
+      }
+      return false
+    },
     handler: (req: Request, res: Response) => {
       const resetTime = (req as any).rateLimit?.resetTime
       const retryAfterSec = resetTime
@@ -44,13 +85,15 @@ function createLimiter(customOptions: {
 }
 
 /**
- * General API Limiter: 300 requests per 15 minutes per IP
+ * General API Limiter: 3,000 requests per 15 minutes per IP
+ * Excludes live UI polling (kiosks status, print detect, health telemetry)
  */
 export const globalApiLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 3000,
   prefix: 'api',
   message: 'Too many requests from this IP. Please slow down and try again shortly.',
+  skipPolling: true,
 })
 
 /**
