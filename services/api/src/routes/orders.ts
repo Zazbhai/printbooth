@@ -174,6 +174,8 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
         pageColours: pageColours || printSettings?.pageColours,
         pageCopies: pageCopies || printSettings?.pageCopies,
       },
+      pageColours: pageColours || printSettings?.pageColours,
+      pageCopies: pageCopies || printSettings?.pageCopies,
       amount: totalAmount,
       merchantId: assignedMerchantId,
       merchantCut: hostCut,
@@ -214,6 +216,9 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
         orientation: (orderData.printSettings?.orientation || 'AUTO').toUpperCase(),
         pagesPerSheet: normPagesPerSheet,
         pageCount,
+        pageColours: pageColours || printSettings?.pageColours,
+        pageCopies: pageCopies || printSettings?.pageCopies,
+        printSettings: orderData.printSettings,
         fileUrl: `${req.protocol}://${req.get('host')}/api/print/download/${orderId}`,
         createdAt: Date.now(),
       },
@@ -344,6 +349,8 @@ ordersRouter.get('/', async (req: Request, res: Response) => {
         o.scaling = job.scaling || o.scaling || 'FIT'
         o.pagesPerSheet = job.pagesPerSheet || o.pagesPerSheet || 1
         if (job.releasePin) o.releasePin = job.releasePin
+        if (job.pageColours) o.pageColours = job.pageColours
+        if (job.pageCopies) o.pageCopies = job.pageCopies
       } else {
         const ps = o.printSettings || {}
         o.copies = o.copies || ps.copies || 1
@@ -353,6 +360,8 @@ ordersRouter.get('/', async (req: Request, res: Response) => {
         o.pageRange = o.pageRange || ps.pageRange || ps.pages || 'ALL'
         o.scaling = o.scaling || ps.scaling || 'FIT'
         o.pagesPerSheet = o.pagesPerSheet || ps.pagesPerSheet || 1
+        o.pageColours = o.pageColours || ps.pageColours
+        o.pageCopies = o.pageCopies || ps.pageCopies
       }
       o.pages = o.pageRange
       o.colour = o.colourMode
@@ -388,7 +397,12 @@ ordersRouter.get('/', async (req: Request, res: Response) => {
           pages: o.pageRange,
           scaling: o.scaling,
           pagesPerSheet: o.pagesPerSheet,
+          pageColours: o.pageColours,
+          pageCopies: o.pageCopies,
         }
+      } else {
+        o.printSettings.pageColours = o.pageColours || o.printSettings.pageColours
+        o.printSettings.pageCopies = o.pageCopies || o.printSettings.pageCopies
       }
     }
 
@@ -449,7 +463,11 @@ ordersRouter.get('/', async (req: Request, res: Response) => {
             pagesPerSheet: job.pagesPerSheet || 1,
             margins: job.margins || 'STANDARD',
             contrastMode: job.contrastMode || 'BALANCED',
+            pageColours: job.pageColours,
+            pageCopies: job.pageCopies,
           },
+          pageColours: job.pageColours,
+          pageCopies: job.pageCopies,
           createdAt: new Date(job.startedAt),
         })
       }

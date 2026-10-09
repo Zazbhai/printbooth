@@ -42,6 +42,8 @@ export async function createPrintOrder(data: {
   printSettings?: Record<string, any>
   customerPhone?: string
   customerEmail?: string
+  pageColours?: Record<string, string>
+  pageCopies?: Record<string, number>
 }) {
   try {
     const res = await fetch(`${API_BASE}/orders`, {

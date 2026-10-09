@@ -411,6 +411,8 @@ export default function PaymentPage() {
         paperSize: settings.paperSize || 'A4',
         pageRange: settings.pages || 'ALL',
         amount: totalPrice,
+        pageColours: settings.pageColours,
+        pageCopies: settings.pageCopies,
         printSettings: {
           pageRange: settings.pages || 'ALL',
           pages: settings.pages || 'ALL',

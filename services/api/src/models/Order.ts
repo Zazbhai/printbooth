@@ -30,6 +30,8 @@ export interface IOrder extends Document {
   scaling?: string
   pagesPerSheet?: number
   printSettings?: Record<string, any>
+  pageColours?: any
+  pageCopies?: any
   amount: number // in INR (₹)
   merchantCut: number // in INR (₹)
   currency: string
@@ -96,6 +98,8 @@ const OrderSchema = new Schema<IOrder>(
     pageRange: { type: String, default: 'ALL' },
     scaling: { type: String, default: 'FIT' },
     pagesPerSheet: { type: Number, default: 1 },
+    pageColours: { type: Schema.Types.Mixed },
+    pageCopies: { type: Schema.Types.Mixed },
     printSettings: { type: Schema.Types.Mixed },
     amount: { type: Number, required: true },
     merchantCut: { type: Number, required: true },
