@@ -1016,8 +1016,14 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
   if (isDbConnected()) {
     try {
       order = await Order.findOne({
-        kioskId,
-        $or: [{ releasePin: pin }, { otp: pin }, { pickupCode: pin }],
+        $or: [
+          { kioskId, releasePin: pin },
+          { kioskId, otp: pin },
+          { kioskId, pickupCode: pin },
+          { releasePin: pin },
+          { otp: pin },
+          { pickupCode: pin },
+        ],
         status: { $in: ['PAID', 'UPLOADED', 'QUEUED', 'PENDING_RELEASE', 'CREATED'] },
         isPinUsed: { $ne: true },
       }).sort({ createdAt: -1 })
@@ -1027,7 +1033,6 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
   if (!order) {
     order = fallbackOrders.find(
       (o) =>
-        (o.kioskId || 'PB-001') === kioskId &&
         (o.releasePin === pin || o.otp === pin || o.pickupCode === pin) &&
         !o.isPinUsed &&
         !['PRINTING', 'PRINTED', 'COMPLETED'].includes(o.status)
