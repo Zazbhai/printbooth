@@ -16,6 +16,7 @@
     "dev:kiosk": "npm run dev --workspace=apps/kiosk",
     "dev:kiosk:ui": "npm run dev --workspace=kiosk/ui",
     "dev:api": "npm run dev --workspace=services/api",
+    "build": "npm run build:api && npm run build:web && npm run build:admin",
     "build:web": "npm run build --workspace=apps/web",
     "build:admin": "npm run build --workspace=apps/admin",
     "build:kiosk": "npm run build --workspace=apps/kiosk",
