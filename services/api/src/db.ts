@@ -29,7 +29,7 @@ export async function connectDB(): Promise<typeof mongoose | null> {
     return conn
   } catch (error: any) {
     console.error(`[MongoDB] Connection error:`, error.message)
-    console.warn(`[MongoDB] Please ensure MONGODB_URI in your .env file is set to a valid MongoDB Atlas connection string.`)
+    console.warn(`[MongoDB] Please ensure MongoDB service is running (e.g. 'sudo systemctl status mongod' or local service) and MONGODB_URI in your .env is accessible.`)
     return null
   }
 }
