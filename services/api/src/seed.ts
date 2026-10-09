@@ -92,6 +92,7 @@ export async function seedDatabase() {
         totalEarnings: 0,
         bankName: 'State Bank of India',
         bankAccountLast4: '0001',
+        kioskPhotoUrl: 'https://images.unsplash.com/photo-1588702547919-26089e690ecc',
         autoPayoutEnabled: true,
         payoutSchedule: 'Instant Direct UPI / Friday Settlement',
         status: 'ACTIVE',

@@ -57,8 +57,7 @@ const MerchantSchema = new Schema<IMerchant>(
     kioskId: { type: String, required: true, index: true },
     address: { type: String, default: '' },
     lat: { type: Number, default: 18.5204 },
-    lng: { type: Number, default: 73.8567 },
-    kioskPhotoUrl: { type: String, required: true },
+    kioskPhotoUrl: { type: String, default: 'https://images.unsplash.com/photo-1588702547919-26089e690ecc' },
     qrCodeUrl: { type: String, default: '' },
     commissionRate: { type: Number, default: 0.18 },
     pricing: {
