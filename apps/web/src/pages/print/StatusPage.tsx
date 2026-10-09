@@ -202,8 +202,6 @@ export default function StatusPage() {
   })
 
   // State
-  const [currentSheetIndex, setCurrentSheetIndex] = useState(0)
-  const [isCompleted, setIsCompleted] = useState(false)
   const [showThanks, setShowThanks] = useState(false)
   const [lcdText, setLcdText] = useState(isPinVerified ? 'PRINTING' : 'ENTER PIN')
   const [lcdNumber, setLcdNumber] = useState('001')
@@ -372,7 +370,6 @@ export default function StatusPage() {
 
     async function runQueue() {
       for (let i = 0; i < sheetsQueue.length; i++) {
-        setCurrentSheetIndex(i + 1)
         await printSheet(sheetsQueue[i], i + 1)
         // Brief natural gap between sheets
         if (i < sheetsQueue.length - 1) {
@@ -388,7 +385,6 @@ export default function StatusPage() {
 
       setLcdText('DONE')
       setLcdNumber(String(sheetsQueue.length).padStart(3, '0'))
-      setIsCompleted(true)
       if (orderId) markPrintCompleted(orderId)
 
       // Smooth transition to Thanks page after seeing final stack
@@ -563,29 +559,7 @@ export default function StatusPage() {
         </div>
       </div>
 
-      {/* Floating Centered HUD at Bottom (during printing) */}
-      {!showThanks && (
-        <div className="mono-hud">
-          <div className="mono-status-pill">
-            <span className={`mono-status-dot${isCompleted ? ' done' : ''}`} />
-            <span>
-              {isCompleted
-                ? `Printed ${sheetsQueue.length} ${sheetsQueue.length === 1 ? 'Page' : 'Pages'} · In Tray`
-                : `Printing Page ${currentSheetIndex} of ${sheetsQueue.length} · ${(sheetsQueue[Math.max(0, currentSheetIndex - 1)]?.mode || primaryMode) === 'color' ? 'Color (10s)' : 'Mono (5s)'}`}
-            </span>
-          </div>
 
-          {isCompleted && (
-            <button
-              type="button"
-              className="mono-hud-btn"
-              onClick={handlePrintAgain}
-            >
-              Print Again
-            </button>
-          )}
-        </div>
-      )}
 
       {/* ── Release PIN / OTP Kiosk Verification Screen ── */}
       {!isPinVerified && Boolean(releasePin) && (
