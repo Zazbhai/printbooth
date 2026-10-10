@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Circle,
   WarningOctagon,
+  Article,
 } from '@phosphor-icons/react'
 import { useActiveMerchant } from '@/lib/merchantContext'
 import { useAuth } from '@/lib/authContext'
@@ -26,6 +27,7 @@ import './AdminLayout.css'
 const merchantNavItems = [
   { to: '/merchant/dashboard', icon: <SquaresFour size={18} weight="duotone" />, label: 'Dashboard' },
   { to: '/merchant/kiosks', icon: <Monitor size={18} weight="duotone" />, label: 'My Kiosk Status' },
+  { to: '/merchant/pages', icon: <Article size={18} weight="duotone" />, label: 'Printer Paper (Tray)' },
   { to: '/merchant/pricing', icon: <Tag size={18} weight="duotone" />, label: 'Page Pricing' },
   { to: '/merchant/orders', icon: <ClipboardText size={18} weight="duotone" />, label: 'Store Orders' },
   { to: '/merchant/earnings', icon: <CurrencyInr size={18} weight="duotone" />, label: 'Earnings & Payouts' },
@@ -107,13 +109,13 @@ export default function MerchantLayout() {
               gap: 4,
               fontSize: 11,
               fontWeight: 700,
-              color: isBlocked ? '#ef4444' : '#059669',
-              background: isBlocked ? 'rgba(220, 38, 38, 0.12)' : 'rgba(5, 150, 105, 0.1)',
-              border: isBlocked ? '1px solid rgba(220, 38, 38, 0.3)' : 'none',
+              color: isBlocked ? '#ef4444' : '#dc2626',
+              background: isBlocked ? 'rgba(220, 38, 38, 0.12)' : '#fef2f2',
+              border: isBlocked ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid #fecaca',
               padding: '3px 8px',
               borderRadius: 6,
             }}>
-              <Circle size={8} weight="fill" color={isBlocked ? '#ef4444' : '#10b981'} />
+              <Circle size={8} weight="fill" color={isBlocked ? '#ef4444' : '#dc2626'} />
               <span>{isBlocked ? 'Suspended' : 'Partner'}</span>
             </div>
           )}
@@ -184,8 +186,8 @@ export default function MerchantLayout() {
         <div style={{
           margin: '4px 14px 12px',
           padding: '10px 12px',
-          background: 'rgba(5, 150, 105, 0.06)',
-          border: '1px solid rgba(5, 150, 105, 0.2)',
+          background: 'rgba(220, 38, 38, 0.04)',
+          border: '1px solid rgba(220, 38, 38, 0.18)',
           borderRadius: 8,
           fontSize: 11,
           display: 'flex',
@@ -193,8 +195,8 @@ export default function MerchantLayout() {
           gap: 4,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Circle size={8} weight="fill" color="#10b981" />
+            <span style={{ fontWeight: 700, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Circle size={8} weight="fill" color="#dc2626" />
               <span>Assigned Venue</span>
             </span>
             <span style={{ fontWeight: 800, color: 'var(--clr-text-1)', background: 'var(--clr-surface-2)', padding: '2px 6px', borderRadius: 4 }}>
@@ -208,8 +210,8 @@ export default function MerchantLayout() {
 
           {/* Kiosk Switcher: Available to Admins OR Merchants with multiple kiosks */}
           {isAdmin && merchants.length > 1 && (
-            <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(5, 150, 105, 0.15)' }}>
-              <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, color: '#059669', textTransform: 'uppercase', marginBottom: 3 }}>
+            <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(220, 38, 38, 0.15)' }}>
+              <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', marginBottom: 3 }}>
                 Admin Kiosk Switcher
               </label>
               <select
@@ -220,7 +222,7 @@ export default function MerchantLayout() {
                   fontSize: 11,
                   padding: '4px 8px',
                   background: 'var(--clr-surface-1)',
-                  borderColor: 'rgba(5, 150, 105, 0.3)',
+                  borderColor: 'rgba(220, 38, 38, 0.3)',
                   color: 'var(--clr-text-1)',
                   width: '100%',
                 }}
@@ -235,8 +237,8 @@ export default function MerchantLayout() {
           )}
 
           {!isAdmin && merchantKiosks && merchantKiosks.length > 1 && (
-            <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(5, 150, 105, 0.15)' }}>
-              <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, color: '#059669', textTransform: 'uppercase', marginBottom: 3 }}>
+            <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(220, 38, 38, 0.15)' }}>
+              <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', marginBottom: 3 }}>
                 My Stations ({merchantKiosks.length})
               </label>
               <select
@@ -247,7 +249,7 @@ export default function MerchantLayout() {
                   fontSize: 11,
                   padding: '4px 8px',
                   background: 'var(--clr-surface-1)',
-                  borderColor: 'rgba(5, 150, 105, 0.3)',
+                  borderColor: 'rgba(220, 38, 38, 0.3)',
                   color: 'var(--clr-text-1)',
                   width: '100%',
                 }}
@@ -289,7 +291,7 @@ export default function MerchantLayout() {
                   width: 32,
                   height: 32,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                   color: '#fff',
                   display: 'flex',
                   alignItems: 'center',

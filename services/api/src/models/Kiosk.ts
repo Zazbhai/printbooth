@@ -12,6 +12,17 @@ export interface IKiosk extends Document {
   printerModel: string
   paperLevel: number // 0-100%
   tonerLevel: number // 0-100%
+  paperTrayCapacity?: number // maximum sheets tray holds (default 150)
+  remainingPages?: number // physical sheets currently in tray
+  paperHistory?: {
+    id: string
+    action: 'SET' | 'ADD' | 'REDUCE' | 'PRINT_CONSUMED' | 'REFILL'
+    amount: number
+    remainingAfter: number
+    note: string
+    orderId?: string
+    createdAt: Date
+  }[]
   usbConnected?: boolean
   usbDevice?: string
   queueCount: number
@@ -61,6 +72,23 @@ const KioskSchema = new Schema<IKiosk>(
     printerModel: { type: String, default: 'Brother DCP-T420W Printer USB' },
     paperLevel: { type: Number, default: 100, min: 0, max: 100 },
     tonerLevel: { type: Number, default: 100, min: 0, max: 100 },
+    paperTrayCapacity: { type: Number, default: 150, min: 1 },
+    remainingPages: { type: Number, default: 125, min: 0 },
+    paperHistory: [
+      {
+        id: { type: String, required: true },
+        action: {
+          type: String,
+          enum: ['SET', 'ADD', 'REDUCE', 'PRINT_CONSUMED', 'REFILL'],
+          default: 'SET',
+        },
+        amount: { type: Number, required: true },
+        remainingAfter: { type: Number, required: true },
+        note: { type: String, default: '' },
+        orderId: { type: String, default: null },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     usbConnected: { type: Boolean, default: true },
     usbDevice: { type: String, default: '' },
     queueCount: { type: Number, default: 0 },

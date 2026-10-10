@@ -18,6 +18,7 @@ import { sendPiScanPrinters, isKioskRelayConnected } from '../modules/wsRelay.js
 import { createTicket } from '../modules/helpdeskStore.js'
 import { generateKioskSecret, generatePiEnvContent, resolveKioskApiBaseUrl } from '../modules/kioskAuth.js'
 import { cachePurgePattern } from '../redis.js'
+import { getKioskPaperState, setKioskPaper, adjustKioskPaper } from '../modules/paperManager.js'
 
 export const merchantRouter = Router()
 
@@ -416,9 +417,12 @@ merchantRouter.get('/printer-telemetry', async (req: Request, res: Response) => 
     ]
 
     // 6. Build Paper levels
-    const paperCapacity = 150
-    const paperLevel = !isOnline || hasPaperOut ? 0 : (kiosk?.paperLevel ?? 0)
-    const tray1Remaining = !isOnline || hasPaperOut ? 0 : Math.round((paperLevel / 100) * paperCapacity)
+    const paperCapacity = kiosk?.paperTrayCapacity || 150
+    const remainingPages = typeof kiosk?.remainingPages === 'number'
+      ? kiosk.remainingPages
+      : Math.round(((kiosk?.paperLevel ?? 83) / 100) * paperCapacity)
+    const paperLevel = !isOnline || hasPaperOut ? 0 : Math.min(100, Math.max(0, Math.round((remainingPages / paperCapacity) * 100)))
+    const tray1Remaining = !isOnline || hasPaperOut ? 0 : remainingPages
 
     res.json({
       success: true,
@@ -470,9 +474,10 @@ merchantRouter.get('/printer-telemetry', async (req: Request, res: Response) => 
         },
         pages: {
           paperLevel,
-          paperStatus: hasPaperOut ? 'OUT_OF_PAPER' : hasPaperJam ? 'PAPER_JAM' : paperLevel < 15 ? 'LOW' : 'LOADED',
+          paperStatus: hasPaperOut || remainingPages === 0 ? 'OUT_OF_PAPER' : hasPaperJam ? 'PAPER_JAM' : remainingPages < 20 ? 'LOW' : 'LOADED',
           tray1Remaining,
           tray1Capacity: paperCapacity,
+          remainingPages,
           supportedSizes: ['A4', 'Letter', 'Legal', 'Photo 4x6'],
           todayPrints: todayPagesCount,
           todayOrders: todayOrdersCount,
@@ -1189,6 +1194,106 @@ merchantRouter.post('/refill', async (req: Request, res: Response) => {
   }
 })
 
+// GET /api/merchant/paper (or /api/merchant/pages) — Get real-time paper tray sheet count & history
+merchantRouter.get(['/paper', '/pages'], async (req: Request, res: Response) => {
+  try {
+    const rawKioskId = (req.query.kioskId as string) || (req.headers['x-kiosk-id'] as string) || 'PB-001'
+    const kioskId = rawKioskId && /^PB-\d{3}$/.test(rawKioskId.trim()) ? rawKioskId.trim() : 'PB-001'
+
+    const state = await getKioskPaperState(kioskId)
+
+    res.json({
+      success: true,
+      data: state,
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/merchant/paper/set — Merchant manually enters how many pages are physically in the printer
+merchantRouter.post(['/paper/set', '/pages/set'], async (req: Request, res: Response) => {
+  try {
+    const rawKioskId = req.body.kioskId || (req.query.kioskId as string) || 'PB-001'
+    const kioskId = rawKioskId && /^PB-\d{3}$/.test(rawKioskId.trim()) ? rawKioskId.trim() : 'PB-001'
+    const { pages, capacity, note } = req.body
+
+    if (pages === undefined || pages === null || isNaN(Number(pages))) {
+      return res.status(400).json({ success: false, error: 'A valid page count number is required.' })
+    }
+
+    const updatedState = await setKioskPaper(kioskId, {
+      pages: Number(pages),
+      capacity: capacity ? Number(capacity) : undefined,
+      note: note || `Merchant set tray to exact ${pages} sheets`,
+    })
+
+    res.json({
+      success: true,
+      message: `Paper tray updated to ${updatedState.remainingPages} sheets.`,
+      data: updatedState,
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/merchant/paper/adjust — Merchant manually adds or reduces pages
+merchantRouter.post(['/paper/adjust', '/pages/adjust'], async (req: Request, res: Response) => {
+  try {
+    const rawKioskId = req.body.kioskId || (req.query.kioskId as string) || 'PB-001'
+    const kioskId = rawKioskId && /^PB-\d{3}$/.test(rawKioskId.trim()) ? rawKioskId.trim() : 'PB-001'
+    const { change, type, note } = req.body
+
+    if (!change || isNaN(Number(change)) || Number(change) <= 0) {
+      return res.status(400).json({ success: false, error: 'A positive sheet change count is required.' })
+    }
+
+    if (type !== 'ADD' && type !== 'REDUCE') {
+      return res.status(400).json({ success: false, error: "Adjustment type must be 'ADD' or 'REDUCE'." })
+    }
+
+    const updatedState = await adjustKioskPaper(kioskId, {
+      change: Number(change),
+      type,
+      note,
+    })
+
+    const actionText = type === 'ADD' ? `Added ${change} sheets` : `Reduced ${change} sheets`
+
+    res.json({
+      success: true,
+      message: `${actionText}. Current tray balance: ${updatedState.remainingPages} sheets.`,
+      data: updatedState,
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/merchant/paper/refill — Full tray replenishment shortcut
+merchantRouter.post(['/paper/refill', '/pages/refill'], async (req: Request, res: Response) => {
+  try {
+    const rawKioskId = req.body.kioskId || (req.query.kioskId as string) || 'PB-001'
+    const kioskId = rawKioskId && /^PB-\d{3}$/.test(rawKioskId.trim()) ? rawKioskId.trim() : 'PB-001'
+    const currentState = await getKioskPaperState(kioskId)
+    const targetSheets = req.body.pages ? Number(req.body.pages) : (currentState.paperTrayCapacity || 150)
+
+    const updatedState = await setKioskPaper(kioskId, {
+      pages: targetSheets,
+      note: req.body.note || `Full paper tray reload to ${targetSheets} sheets`,
+    })
+
+    res.json({
+      success: true,
+      message: `Paper tray refilled to ${updatedState.remainingPages} sheets (${updatedState.paperLevel}% capacity).`,
+      data: updatedState,
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // GET /api/merchant/orders
 merchantRouter.get('/orders', async (req: Request, res: Response) => {
   try {
@@ -1279,15 +1384,23 @@ merchantRouter.get('/supplies', async (req: Request, res: Response) => {
     const hardware = await CupsAutomationService.getHardwareState(kioskId)
     const isOnline = Boolean(hardware?.printer?.isOnline)
 
+    const paperCapacity = kiosk?.paperTrayCapacity || 150
+    const remainingPages = typeof kiosk?.remainingPages === 'number'
+      ? kiosk.remainingPages
+      : Math.round(((kiosk?.paperLevel ?? 83) / 100) * paperCapacity)
+    const paperLevel = isOnline ? Math.min(100, Math.max(0, Math.round((remainingPages / paperCapacity) * 100))) : 0
+
     res.json({
       success: true,
       databaseConnected: isDbConnected(),
       data: {
         isOnline,
-        paperLevel: isOnline ? (kiosk?.paperLevel ?? kiosk?.paper ?? 0) : 0,
+        paperLevel,
+        remainingPages,
+        paperCapacity,
         tonerLevel: isOnline ? (kiosk?.tonerLevel ?? kiosk?.toner ?? 0) : 0,
         printerModel: kiosk?.printerModel || kiosk?.printer || hardware?.printer?.model || 'Brother DCP-T420W Printer USB',
-        status: isOnline ? (kiosk?.status || 'ONLINE') : 'OFFLINE',
+        status: isOnline ? (remainingPages === 0 ? 'OUT_OF_PAPER' : (kiosk?.status || 'ONLINE')) : 'OFFLINE',
         kioskPhotoUrl: kiosk?.kioskPhotoUrl || '',
       },
     })
@@ -1627,6 +1740,41 @@ merchantRouter.get('/notifications', async (req: Request, res: Response) => {
       notifications = fallbackNotifications.filter(
         (n) => n.target === 'ALL' || n.targetMerchantId === merchantId || n.targetKioskId === cleanKioskId
       )
+    }
+
+    // Check if kiosk hardware is currently online
+    let isKioskOnline = false
+    if (isDbConnected()) {
+      const kDoc: any = await Kiosk.findOne({ $or: [{ kioskId: cleanKioskId }, { id: cleanKioskId }] }).lean()
+      isKioskOnline = kDoc?.status === 'ONLINE'
+    } else {
+      const fbK = fallbackKiosks.find((k) => k.kioskId === cleanKioskId || k.id === cleanKioskId)
+      isKioskOnline = fbK?.status === 'ONLINE'
+    }
+
+    // If hardware is online, remove and purge all stale machine offline / powered off notifications
+    if (isKioskOnline) {
+      if (isDbConnected()) {
+        try {
+          await Notification.deleteMany({
+            targetKioskId: cleanKioskId,
+            $or: [
+              { title: { $regex: /Offline|Powered Off|Lost Connection|Disconnected/i } },
+              { message: { $regex: /Offline|Powered Off|lost connection|not responding/i } },
+            ],
+          })
+        } catch {}
+      }
+      notifications = notifications.filter((n) => {
+        const text = `${n.title || ''} ${n.message || ''}`.toLowerCase()
+        return !(
+          text.includes('offline') ||
+          text.includes('powered off') ||
+          text.includes('lost connection') ||
+          text.includes('not responding') ||
+          text.includes('cannot print')
+        )
+      })
     }
 
     const enriched = notifications.map((n) => ({

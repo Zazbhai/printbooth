@@ -73,17 +73,17 @@ export const FALLBACK_KIOSKS = [
     name: 'PrintBooth — MIT ADT University',
     location: 'Central Reading Hall, MIT ADT Campus, Pune',
     address: 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
-    printer: 'Laser Print Engine',
-    printerModel: 'Laser Print Engine',
+    printer: 'Brother Industries, Ltd HL-L5210DW series',
+    printerModel: 'Brother Industries, Ltd HL-L5210DW series',
     printerStatus: 'READY',
-    paper: 85,
-    paperLevel: 85,
-    toner: 92,
-    tonerLevel: 92,
+    paper: 100,
+    paperLevel: 100,
+    toner: 100,
+    tonerLevel: 100,
     status: 'ONLINE',
     queue: 0,
-    todayPages: 142,
-    todayRevenue: 284,
+    todayPages: 0,
+    todayRevenue: 0,
     merchantId: 'M-001',
     kioskPhotoUrl: 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
     qrCodeUrl: getKioskPrintUrl('PB-001'),
@@ -106,6 +106,8 @@ export const FALLBACK_MERCHANTS = [
     kioskPhotoUrl: 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
     paymentGateway: 'upiexpress',
     upiExpressUpiId: 'printbooth@okaxis',
+    bankName: 'State Bank of India',
+    bankAccountLast4: '0001',
     status: 'ACTIVE',
   },
 ]
@@ -141,89 +143,18 @@ export const FALLBACK_ADMIN_DASHBOARD = {
   databaseConnected: true,
 }
 
-export const FALLBACK_RECENT_ORDERS = [
-  {
-    id: 'ORD-1092',
-    orderNumber: 'ORD-1092',
-    kioskId: 'PB-001',
-    customerName: 'Aarav Mehta',
-    customerIp: '192.168.1.45',
-    fileName: 'Project_Report_Final.pdf',
-    pages: 14,
-    copies: 1,
-    format: 'B&W Double Sided',
-    amount: 49.0,
-    grossTotal: '₹49.00',
-    storeRevenue: '₹49.00',
-    status: 'COMPLETED',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'ORD-1091',
-    orderNumber: 'ORD-1091',
-    kioskId: 'PB-001',
-    customerName: 'Priya Joshi',
-    customerIp: '192.168.1.78',
-    fileName: 'Resume_Color.pdf',
-    pages: 2,
-    copies: 2,
-    format: 'Color Single Sided',
-    amount: 40.0,
-    grossTotal: '₹40.00',
-    storeRevenue: '₹40.00',
-    status: 'COMPLETED',
-    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-  },
-  {
-    id: 'ORD-1090',
-    orderNumber: 'ORD-1090',
-    kioskId: 'PB-001',
-    customerName: 'Kunal Patil',
-    customerIp: '192.168.1.112',
-    fileName: 'Lab_Manual_Ex4.pdf',
-    pages: 8,
-    copies: 1,
-    format: 'B&W Single Sided',
-    amount: 16.0,
-    grossTotal: '₹16.00',
-    storeRevenue: '₹16.00',
-    status: 'COMPLETED',
-    createdAt: new Date(Date.now() - 42 * 60000).toISOString(),
-  },
-  {
-    id: 'ORD-1089',
-    orderNumber: 'ORD-1089',
-    kioskId: 'PB-001',
-    customerName: 'Sneha Deshmukh',
-    customerIp: '192.168.1.99',
-    fileName: 'Hall_Ticket_Exam.pdf',
-    pages: 1,
-    copies: 1,
-    format: 'B&W Single Sided',
-    amount: 2.0,
-    grossTotal: '₹2.00',
-    storeRevenue: '₹2.00',
-    status: 'COMPLETED',
-    createdAt: new Date(Date.now() - 75 * 60000).toISOString(),
-  },
-]
+export const FALLBACK_RECENT_ORDERS: any[] = []
 
 export const FALLBACK_MERCHANT_DASHBOARD = {
   kiosk: FALLBACK_KIOSKS[0],
   metrics: {
-    todayEarnings: '₹284.00',
-    todayPrints: 142,
-    todayOrders: 38,
-    uptime: '99.8%',
+    todayEarnings: '₹0.00',
+    todayPrints: 0,
+    todayOrders: 0,
+    uptime: '100%',
   },
-  hourlyData: [
-    { time: '8 AM', prints: 12, revenue: 24 },
-    { time: '10 AM', prints: 26, revenue: 52 },
-    { time: '12 PM', prints: 45, revenue: 90 },
-    { time: '2 PM', prints: 22, revenue: 44 },
-    { time: '4 PM', prints: 37, revenue: 74 },
-  ],
-  recentOrders: FALLBACK_RECENT_ORDERS,
+  hourlyData: [],
+  recentOrders: [],
 }
 
 export const FALLBACK_ALERTS = [
@@ -1038,6 +969,101 @@ export async function getMerchantSupplies(kioskId = 'PB-001') {
   }
 }
 
+export async function getMerchantPaper(kioskId = 'PB-001') {
+  try {
+    const res = await api.get(`/merchant/paper?kioskId=${kioskId}`)
+    return res.data?.data
+  } catch (err) {
+    console.warn('[API] Could not fetch merchant paper state, returning fallback:', err)
+    const fb = FALLBACK_KIOSKS.find(k => k.id === kioskId || k.kioskId === kioskId) || FALLBACK_KIOSKS[0]
+    const cap = (fb as any).paperTrayCapacity || 150
+    const remaining = (fb as any).remainingPages ?? Math.round(((fb.paperLevel || 83) / 100) * cap)
+    return {
+      kioskId,
+      kioskName: fb.name || 'PrintBooth — MIT ADT University',
+      location: fb.location || 'Pune',
+      remainingPages: remaining,
+      paperTrayCapacity: cap,
+      paperLevel: Math.min(100, Math.round((remaining / cap) * 100)),
+      status: remaining <= 0 ? 'OUT_OF_PAPER' : remaining < 20 ? 'LOW' : 'LOADED',
+      printerModel: fb.printerModel || 'Laser Print Engine',
+      isOnline: fb.status === 'ONLINE',
+      history: (fb as any).paperHistory || [
+        {
+          id: 'PH-LOCAL-1',
+          action: 'SET',
+          amount: cap,
+          remainingAfter: cap,
+          note: 'Tray initialized to full capacity',
+          createdAt: new Date(),
+        },
+      ],
+    }
+  }
+}
+
+export async function setMerchantPaper(kioskId = 'PB-001', pages: number, capacity?: number, note?: string) {
+  try {
+    const res = await api.post('/merchant/paper/set', { kioskId, pages, capacity, note })
+    apiCache.delete('admin:kiosks')
+    apiCache.delete(`admin:kiosks:${kioskId}`)
+    return res.data?.data
+  } catch (err) {
+    console.warn('[API] Could not set merchant paper:', err)
+    const fb = FALLBACK_KIOSKS.find(k => k.id === kioskId || k.kioskId === kioskId) || FALLBACK_KIOSKS[0]
+    const cap = capacity || (fb as any).paperTrayCapacity || 150
+    ;(fb as any).paperTrayCapacity = cap
+    ;(fb as any).remainingPages = pages
+    fb.paper = pages
+    fb.paperLevel = Math.min(100, Math.round((pages / cap) * 100))
+    return {
+      kioskId,
+      remainingPages: pages,
+      paperTrayCapacity: cap,
+      paperLevel: fb.paperLevel,
+      status: pages <= 0 ? 'OUT_OF_PAPER' : pages < 20 ? 'LOW' : 'LOADED',
+    }
+  }
+}
+
+export async function adjustMerchantPaper(kioskId = 'PB-001', change: number, type: 'ADD' | 'REDUCE', note?: string) {
+  try {
+    const res = await api.post('/merchant/paper/adjust', { kioskId, change, type, note })
+    apiCache.delete('admin:kiosks')
+    apiCache.delete(`admin:kiosks:${kioskId}`)
+    return res.data?.data
+  } catch (err) {
+    console.warn('[API] Could not adjust merchant paper:', err)
+    const fb = FALLBACK_KIOSKS.find(k => k.id === kioskId || k.kioskId === kioskId) || FALLBACK_KIOSKS[0]
+    const cap = (fb as any).paperTrayCapacity || 150
+    const cur = (fb as any).remainingPages ?? 125
+    const newPages = type === 'ADD' ? cur + change : Math.max(0, cur - change)
+    ;(fb as any).remainingPages = newPages
+    fb.paper = newPages
+    fb.paperLevel = Math.min(100, Math.round((newPages / cap) * 100))
+    return {
+      kioskId,
+      remainingPages: newPages,
+      paperTrayCapacity: cap,
+      paperLevel: fb.paperLevel,
+      status: newPages <= 0 ? 'OUT_OF_PAPER' : newPages < 20 ? 'LOW' : 'LOADED',
+    }
+  }
+}
+
+export async function refillMerchantPaper(kioskId = 'PB-001', pages?: number, note?: string) {
+  try {
+    const res = await api.post('/merchant/paper/refill', { kioskId, pages, note })
+    apiCache.delete('admin:kiosks')
+    apiCache.delete(`admin:kiosks:${kioskId}`)
+    return res.data?.data
+  } catch (err) {
+    console.warn('[API] Could not refill merchant paper:', err)
+    return setMerchantPaper(kioskId, pages || 150, undefined, note || 'Quick Full Refill')
+  }
+}
+
+
 export async function getMerchantSettings(kioskId = 'PB-001') {
   try {
     const res = await api.get(`/merchant/settings?kioskId=${kioskId}`)
@@ -1434,3 +1460,40 @@ export async function getMerchantKiosks(merchantId?: string) {
     return []
   }
 }
+
+// ──────── Advertisement Campaigns API ────────
+export async function getAdvertisements(params?: { status?: string; search?: string; kioskId?: string }) {
+  try {
+    const query = new URLSearchParams()
+    if (params?.status) query.set('status', params.status)
+    if (params?.search) query.set('search', params.search)
+    if (params?.kioskId) query.set('kioskId', params.kioskId)
+    const qs = query.toString() ? `?${query.toString()}` : ''
+    const res = await api.get(`/advertisements${qs}`)
+    return res.data?.data || []
+  } catch (err) {
+    console.warn('[API] Could not fetch advertisements:', err)
+    return []
+  }
+}
+
+export async function createAdvertisement(adData: any) {
+  const res = await api.post('/advertisements', adData)
+  return res.data
+}
+
+export async function updateAdvertisement(id: string, adData: any) {
+  const res = await api.put(`/advertisements/${id}`, adData)
+  return res.data
+}
+
+export async function deleteAdvertisement(id: string) {
+  const res = await api.delete(`/advertisements/${id}`)
+  return res.data
+}
+
+export async function toggleAdvertisementStatus(id: string) {
+  const res = await api.patch(`/advertisements/${id}/toggle`)
+  return res.data
+}
+

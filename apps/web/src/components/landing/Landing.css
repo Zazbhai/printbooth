@@ -3955,21 +3955,35 @@ html.is-landing-page body {
   }
 }
 
-/* ──── Tablet & Mobile (≤1024px) — Butter-smooth, section-by-section snap scrolling ──── */
+/* ──── Tablet & Mobile (≤1024px) — Free, natural, fluid momentum scrolling ──── */
 @media (max-width: 1024px) {
   html:has(.landing-page),
   html.is-landing-page {
-    scroll-snap-type: y mandatory !important;
-    scroll-behavior: smooth !important;
+    scroll-snap-type: none !important;
+    scroll-behavior: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-y: none !important;
-    overflow-y: scroll !important;
-    height: 100% !important;
+    overscroll-behavior-y: auto !important;
+    overscroll-behavior: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    min-height: 100% !important;
   }
 
   html.is-landing-page body {
-    overscroll-behavior-y: none !important;
-    height: 100% !important;
+    overscroll-behavior-y: auto !important;
+    overscroll-behavior: auto !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-y: visible !important;
+  }
+
+  .landing-page {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-y: visible !important;
+    overflow-x: clip !important;
+    overscroll-behavior: auto !important;
   }
 
   .landing-sections-viewport {
@@ -3979,46 +3993,44 @@ html.is-landing-page body {
   }
 
   .landing-section-panel {
-    scroll-snap-align: start !important;
-    scroll-snap-stop: always !important;
-    height: 100dvh !important;
-    min-height: 100dvh !important;
-    max-height: 100dvh !important;
+    scroll-snap-align: none !important;
+    scroll-snap-stop: normal !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: stretch !important;
-    padding-top: calc(82px + env(safe-area-inset-top, 0px)) !important;
-    padding-bottom: clamp(10px, 1.8vh, 18px) !important;
+    padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: clamp(24px, 4vh, 48px) !important;
     padding-left: clamp(16px, 4.5vw, 22px) !important;
     padding-right: clamp(16px, 4.5vw, 22px) !important;
     margin: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    overflow-x: visible !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-y: contain !important;
+    overscroll-behavior-y: auto !important;
     box-sizing: border-box !important;
     pointer-events: auto !important;
-    scrollbar-width: thin !important;
-    scrollbar-color: rgba(15, 23, 42, 0.12) transparent !important;
+    scrollbar-width: none !important;
+  }
+
+  .landing-section-panel.landing-section-panel--hero {
+    min-height: 100dvh !important;
+    padding-top: calc(74px + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: clamp(20px, 3vh, 32px) !important;
   }
 
   .landing-section-panel::-webkit-scrollbar {
-    width: 4px !important;
-  }
-
-  .landing-section-panel::-webkit-scrollbar-track {
-    background: transparent !important;
-  }
-
-  .landing-section-panel::-webkit-scrollbar-thumb {
-    background: rgba(15, 23, 42, 0.12) !important;
-    border-radius: 4px !important;
+    display: none !important;
   }
 
   .landing-footer-wrapper {
-    scroll-snap-align: end !important;
+    scroll-snap-align: none !important;
     scroll-snap-stop: normal !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .landing-hero__content,
@@ -4124,16 +4136,26 @@ html.is-landing-page body {
     translate: 0 0 !important;
   }
   .landing-section-panel {
-    padding-top: calc(84px + env(safe-area-inset-top, 0px)) !important;
-    padding-bottom: clamp(14px, 2vh, 20px) !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    overflow-x: visible !important;
+    scroll-snap-align: none !important;
+    scroll-snap-stop: normal !important;
+    padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: clamp(24px, 4vh, 48px) !important;
     padding-left: clamp(16px, 4.5vw, 24px) !important;
     padding-right: clamp(16px, 4.5vw, 24px) !important;
     box-sizing: border-box !important;
   }
 
   .landing-section-panel.landing-section-panel--hero {
-    padding-top: calc(78px + env(safe-area-inset-top, 0px)) !important;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    max-height: none !important;
+    padding-top: calc(74px + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: clamp(20px, 3vh, 32px) !important;
     padding-left: clamp(16px, 4.5vw, 24px) !important;
     padding-right: clamp(16px, 4.5vw, 24px) !important;
     box-sizing: border-box !important;
@@ -5688,6 +5710,46 @@ html.is-landing-page body {
     filter: none !important;
   }
 }
+
+/* ── Mobile & Tablet: Guarantee all text and cards remain visible during free scroll ── */
+@media (max-width: 1024px) {
+  .landing-section-panel .hero-line,
+  .landing-section-panel .hero-subtitle,
+  .landing-section-panel .hero-desc,
+  .landing-section-panel .hero-specs-strip,
+  .landing-section-panel .hero-ctas,
+  .landing-section-panel .problem-heading,
+  .landing-section-panel .problem-word,
+  .landing-section-panel .problem-fault-card,
+  .landing-section-panel .product-heading,
+  .landing-section-panel .product-sub,
+  .landing-section-panel .product-spec-card,
+  .landing-section-panel .workflow-title,
+  .landing-section-panel .workflow-subtitle,
+  .landing-section-panel .roadmap-step-card,
+  .landing-section-panel .cmp-heading,
+  .landing-section-panel .cmp-frosted-stage,
+  .landing-section-panel .cmp-stat-card,
+  .landing-section-panel .dlr-heading,
+  .landing-section-panel .dlr-sub,
+  .landing-section-panel .dlr-pillar-card,
+  .landing-section-panel .dlr-cta,
+  .landing-section-panel .tech-heading,
+  .landing-section-panel .tech-sub,
+  .landing-section-panel .tech-module-card,
+  .landing-section-panel .tech-item,
+  .landing-section-panel .final-launch-title,
+  .landing-section-panel .final-launch-subtitle,
+  .landing-section-panel .final-bento-card,
+  .landing-section-panel .final-trust-strip {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    filter: none !important;
+    will-change: auto !important;
+  }
+}
+
 
 /* ================================================================
    COMPARISON SECTION — FROSTED GLASS SHOWDOWN MATRIX

@@ -17,6 +17,7 @@ import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.j
 import { getKioskPiPrinters, isKioskUsbPrinterConnected } from '../modules/kioskPiPrinters.js'
 import { permanentlyDeleteOrderFiles, isOrderFileExpired, RETENTION_MS } from '../modules/fileLifecycle.js'
 import { safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
+import { advanceSessionOnPinVerified } from './kioskSessions.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -95,7 +96,7 @@ export const usedPinsRegistry = new Set<string>()
  * Synchronizes print job telemetry state into both local memory and Redis cache.
  * Keeps data persistent across service reloads and accessible for high-throughput queries.
  */
-function syncJobState(job: PrintJobState) {
+export function syncJobState(job: PrintJobState) {
   printJobs.set(job.orderId, job)
   cacheSet(`print:job:${job.orderId}`, job, 86400).catch((err) => {
     console.warn(`[Redis Print Sync] Error caching job ${job.orderId}:`, err)
@@ -290,7 +291,7 @@ function dispatchWindowsPrintJob(job: PrintJobState) {
  * which controls the physical Brother CUPS printer.
  * Never executes on the developer host machine unless explicitly opted in via ALLOW_HOST_WINDOWS_PRINT=true.
  */
-function dispatchPrintJob(job: PrintJobState) {
+export function dispatchPrintJob(job: PrintJobState) {
   const targetKiosk = job.kioskId || 'PB-001'
   if (isKioskRelayConnected(targetKiosk)) {
     job.status = 'PRINTING'
@@ -1034,6 +1035,13 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
       const targetRange = String(job.pageRange || 'ALL').trim()
       const specifiedPages = parsePageRangeList(targetRange, docPages)
       const userPrintCount = specifiedPages.length * resolvedCopies
+
+      // Advance any active kiosk QR session to PRINTING state
+      try {
+        advanceSessionOnPinVerified(kioskId, pin, job.orderId)
+      } catch (ksErr) {
+        console.warn('[KioskSession] advanceSessionOnPinVerified notice:', ksErr)
+      }
 
       return {
         success: true,

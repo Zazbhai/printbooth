@@ -9,7 +9,12 @@ import { handleVerifyPinLogic } from './print.js'
 import { verifyKioskSecret } from '../modules/kioskAuth.js'
 import { getKioskPrintUrl, getPublicWebUrl } from '../config.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
-import { isKioskRelayConnected } from '../modules/wsRelay.js'
+import {
+  isKioskRelayConnected,
+  triggerKioskUpdate,
+  getKioskUpdateStatus,
+  getConnectedKioskIds,
+} from '../modules/wsRelay.js'
 import { getKioskPiPrinters } from '../modules/kioskPiPrinters.js'
 import { CupsAutomationService } from '../modules/cups.js'
 
@@ -706,3 +711,96 @@ kiosksRouter.post('/:id/pin/verify', async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, error: error.message })
   }
 })
+
+// GET /api/kiosks/:id/ads — Active background ad campaigns for this kiosk
+kiosksRouter.get('/:id/ads', async (req: Request, res: Response) => {
+  const kioskId = req.params.id
+  req.url = `/kiosk/${kioskId}`
+  // Delegate to advertisements router handler
+  return res.redirect(307, `/api/advertisements/kiosk/${kioskId}`)
+})
+
+// POST /api/kiosks/:id/trigger-update — Triggers immediate autonomous GitHub pull and build
+kiosksRouter.post('/:id/trigger-update', async (req: Request, res: Response) => {
+  try {
+    const kioskId = req.params.id
+    const { force, branch } = req.body || {}
+
+    if (!isKioskRelayConnected(kioskId)) {
+      return res.status(409).json({
+        success: false,
+        error: `Kiosk ${kioskId} is not connected via WebSocket right now. Background 5-min timer will pull on next reconnect.`,
+        isOnline: false,
+      })
+    }
+
+    const dispatched = triggerKioskUpdate(kioskId, { force, branch })
+    return res.json({
+      success: dispatched,
+      message: dispatched
+        ? `Update command sent to Kiosk ${kioskId}. Pulling latest commits and rebuilding UI in background.`
+        : 'Failed to dispatch update command',
+      kioskId,
+      dispatchedAt: Date.now(),
+    })
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/kiosks/:id/update-status — Returns latest GitHub update telemetry from kiosk
+kiosksRouter.get('/:id/update-status', async (req: Request, res: Response) => {
+  const kioskId = req.params.id
+  const status = getKioskUpdateStatus(kioskId)
+  return res.json({
+    success: true,
+    kioskId,
+    updateStatus: status || { status: 'IDLE', message: 'No update in progress' },
+    isConnected: isKioskRelayConnected(kioskId),
+  })
+})
+
+// POST /api/kiosks/webhook/github — Automated GitHub push webhook trigger
+// Automatically triggers all connected kiosks to pull updates and restart display
+kiosksRouter.post(['/webhook/github', '/git-update-trigger', '/github'], async (req: Request, res: Response) => {
+  try {
+    const event = req.headers['x-github-event'] || 'push'
+    const ref = req.body?.ref || '' // e.g. refs/heads/main
+    const branch = ref ? ref.replace('refs/heads/', '') : (req.body?.branch || 'main')
+    const commit = req.body?.after || req.body?.head_commit?.id || 'latest'
+    const commitMsg = req.body?.head_commit?.message || 'New commit pushed to GitHub'
+    const author = req.body?.head_commit?.author?.name || 'GitHub Webhook'
+
+    console.log(`[GitHub Auto-Update Trigger] 🚀 Push event on branch '${branch}'! Commit: ${typeof commit === 'string' ? commit.substring(0, 7) : commit} by ${author}: "${commitMsg}"`)
+
+    const targetKioskId = req.query.kioskId as string | undefined
+    let dispatchedCount = 0
+
+    if (targetKioskId) {
+      if (triggerKioskUpdate(targetKioskId, { branch, force: true })) {
+        dispatchedCount++
+      }
+    } else {
+      const connectedKiosks = getConnectedKioskIds()
+      for (const kId of connectedKiosks) {
+        if (triggerKioskUpdate(kId, { branch, force: true })) {
+          dispatchedCount++
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Git auto-update trigger received. Dispatched update & kiosk restart command to ${dispatchedCount} connected kiosk(s).`,
+      event,
+      branch,
+      commit: typeof commit === 'string' ? commit.substring(0, 7) : commit,
+      dispatchedCount,
+      timestamp: Date.now(),
+    })
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+

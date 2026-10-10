@@ -90,9 +90,9 @@
 }
 
 .merchant-status-beacon-pill.online {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #047857;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
 }
 
 .merchant-status-beacon-pill.offline {
@@ -109,8 +109,8 @@
 }
 
 .merchant-live-dot.online {
-  background: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
   animation: pulseDot 2s infinite;
 }
 
@@ -208,7 +208,7 @@
 .pricing-edit-link {
   font-size: 12px;
   font-weight: 600;
-  color: #059669;
+  color: #dc2626;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -217,7 +217,7 @@
 }
 
 .pricing-edit-link:hover {
-  color: #047857;
+  color: #b91c1c;
   text-decoration: underline;
 }
 
@@ -286,8 +286,8 @@
 }
 
 .merchant-icon-badge.emerald {
-  background: #ecfdf5;
-  color: #059669;
+  background: #fef2f2;
+  color: #dc2626;
 }
 .merchant-icon-badge.indigo {
   background: #eff6ff;
@@ -455,17 +455,17 @@
 }
 
 .hw-action-btn.primary {
-  background: #059669;
+  background: #dc2626;
   color: #ffffff;
-  border-color: #047857;
-  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.2);
+  border-color: #b91c1c;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
 }
 
 .hw-action-btn.primary:hover {
-  background: #047857;
-  border-color: #065f46;
+  background: #b91c1c;
+  border-color: #991b1b;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.32);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.32);
 }
 
 .hw-action-btn.primary:active {
@@ -802,7 +802,7 @@
   opacity: 0;
   transform: scale(0.8);
   transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
-  color: #059669;
+  color: #dc2626;
 }
 
 .merchant-copyable-target:hover .copy-hint-icon {
@@ -816,7 +816,7 @@
   top: -24px;
   left: 50%;
   transform: translateX(-50%);
-  background: #059669;
+  background: #dc2626;
   color: #ffffff;
   padding: 2px 8px;
   border-radius: 9999px;
@@ -825,7 +825,7 @@
   letter-spacing: 0.02em;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
   animation: merchantCopyPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   z-index: 50;
 }
@@ -874,7 +874,7 @@
   position: absolute;
   inset: -3px;
   border-radius: 50%;
-  background: #059669;
+  background: #dc2626;
   opacity: 0.6;
   animation: merchantBeaconPulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }

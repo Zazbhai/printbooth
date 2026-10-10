@@ -13,6 +13,7 @@ import PaymentSettingsPage from './pages/admin/PaymentSettingsPage'
 import HelpDeskPage from './pages/admin/HelpDeskPage'
 import InstallationRequestsPage from './pages/admin/InstallationRequestsPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdvertisementsPage from './pages/admin/AdvertisementsPage'
 
 // Merchant Pages
 import MerchantDashboardPage from './pages/merchant/MerchantDashboardPage'
@@ -22,6 +23,7 @@ import MerchantEarningsPage from './pages/merchant/MerchantEarningsPage'
 import MerchantSuppliesPage from './pages/merchant/MerchantSuppliesPage'
 import MerchantSettingsPage from './pages/merchant/MerchantSettingsPage'
 import MerchantPricingPage from './pages/merchant/MerchantPricingPage'
+import MerchantPagesPage from './pages/merchant/MerchantPagesPage'
 
 import LoginPage from './pages/LoginPage'
 import { AuthProvider, RequireRole, useAuth } from '@/lib/authContext'
@@ -64,6 +66,9 @@ export default function App() {
             <Route path="installations" element={<InstallationRequestsPage />} />
             <Route path="merchants" element={<MerchantsPage />} />
             <Route path="payments" element={<PaymentSettingsPage />} />
+            <Route path="advertisements" element={<AdvertisementsPage />} />
+            <Route path="ads" element={<Navigate to="/admin/advertisements" replace />} />
+            <Route path="campaigns" element={<Navigate to="/admin/advertisements" replace />} />
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="admins" element={<Navigate to="/admin/users" replace />} />
           </Route>
@@ -80,6 +85,8 @@ export default function App() {
             <Route index element={<Navigate to="/merchant/dashboard" replace />} />
             <Route path="dashboard" element={<MerchantDashboardPage />} />
             <Route path="kiosks" element={<MerchantKiosksPage />} />
+            <Route path="pages" element={<MerchantPagesPage />} />
+            <Route path="paper" element={<Navigate to="/merchant/pages" replace />} />
             <Route path="pricing" element={<MerchantPricingPage />} />
             <Route path="orders" element={<MerchantOrdersPage />} />
             <Route path="earnings" element={<MerchantEarningsPage />} />

@@ -294,6 +294,15 @@ export async function recordKioskHeartbeat(
           { kioskId, type: 'KIOSK_OFFLINE', acknowledged: false },
           { $set: { acknowledged: true, acknowledgedAt: now } }
         )
+
+        // Automatically clear any stale machine offline notifications
+        await Notification.deleteMany({
+          targetKioskId: kioskId,
+          $or: [
+            { title: { $regex: /Offline|Powered Off|Lost Connection|Disconnected/i } },
+            { message: { $regex: /Offline|Powered Off|lost connection|not responding/i } },
+          ],
+        }).catch(() => {})
       }
     } catch (err: any) {
       console.warn(`[Kiosk Liveness] Failed to update heartbeat in DB:`, err.message)

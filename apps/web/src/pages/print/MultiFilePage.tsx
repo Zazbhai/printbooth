@@ -27,7 +27,8 @@ import {
   persistActiveFileToSession,
   type ManagedFile,
 } from '../../lib/multiFileStore'
-import { clearUploadedDoc, setUploadedDoc } from '../../lib/documentStore'
+import { clearUploadedDoc, setUploadedDoc, getUploadedFileAsync } from '../../lib/documentStore'
+import { kioskSession } from '../../lib/kioskSession'
 import { ClearDocumentModal } from '../../components/ui/ClearDocumentModal'
 import { renderFilePages } from '../../lib/multiFileRenderer'
 import { generateDocumentPages } from '../../lib/documentPreview'
@@ -68,6 +69,29 @@ export default function MultiFilePage() {
   const [isUploadAnimating, setIsUploadAnimating] = useState(false)
   const [processingStatus, setProcessingStatus] = useState<string>('')
   const [showClearAllModal, setShowClearAllModal] = useState(false)
+
+  // Kiosk Remote Upload state: when user opened via kiosk QR
+  const isKioskMode = kioskSession.isKioskSession()
+  const [isTransferredToKiosk, setIsTransferredToKiosk] = useState(false)
+  const [isSendingToKiosk, setIsSendingToKiosk] = useState(false)
+  const [kioskLiveStatus, setKioskLiveStatus] = useState<any>(null)
+
+  useEffect(() => {
+    if (!isTransferredToKiosk) return
+    let active = true
+    const poll = async () => {
+      const status = await kioskSession.getStatus()
+      if (active && status.success) {
+        setKioskLiveStatus(status)
+      }
+    }
+    poll()
+    const timer = setInterval(poll, 1500)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [isTransferredToKiosk])
 
   // Synchronization refs for guaranteed full animation playback
   const processingCompleteRef = useRef(false)
@@ -267,6 +291,41 @@ export default function MultiFilePage() {
     }
   }
 
+  const handleUploadToKiosk = useCallback(async () => {
+    const ready = getAllFiles().filter(f => f.status === 'ready')
+    if (ready.length === 0) return
+
+    setIsSendingToKiosk(true)
+    const primary = ready[0]
+    const file = primary.file || (await getUploadedFileAsync())
+
+    const previews = primary.realPages?.map((p, idx) => ({
+      pageNumber: p.pageNumber || idx + 1,
+      url: p.url,
+      title: p.title || `Page ${idx + 1}`,
+    })) || []
+
+    const result = await kioskSession.uploadDocument({
+      file,
+      fileName: primary.fileName,
+      fileSize: primary.fileSize,
+      fileType: primary.fileType,
+      pageCount: primary.pageCount || 1,
+      previews,
+    })
+
+    setIsSendingToKiosk(false)
+    if (result.success) {
+      setIsTransferredToKiosk(true)
+    } else if ((result as any).machineInUse) {
+      window.dispatchEvent(new CustomEvent('kiosk:machine_in_use', {
+        detail: { kioskId: kioskSession.getKioskId() || 'PB-001' }
+      }))
+    } else {
+      setDropError(result.error || 'Failed to transfer document to kiosk screen. Please retry.')
+    }
+  }, [])
+
   const transitionToConfirm = useCallback(() => {
     if (safetyTimeoutRef.current) {
       clearTimeout(safetyTimeoutRef.current)
@@ -276,6 +335,13 @@ export default function MultiFilePage() {
     setIsProcessing(false)
     persistAllFilesToSession()
     persistActiveFileToSession()
+
+    // In Kiosk QR Mode: User only uploads from mobile! Send directly to kiosk screen.
+    if (isKioskMode) {
+      handleUploadToKiosk()
+      return
+    }
+
     const ready = getAllFiles().filter(f => f.status === 'ready')
     if (ready.length > 0) {
       const first = ready[0]
@@ -291,7 +357,7 @@ export default function MultiFilePage() {
     } else {
       navigate('/print/confirm')
     }
-  }, [flow, navigate])
+  }, [flow, navigate, isKioskMode, handleUploadToKiosk])
 
   // Cleanup safety timeout on unmount
   useEffect(() => {
@@ -407,6 +473,17 @@ export default function MultiFilePage() {
     uploadAnimRef.current?.reset()
   }
 
+  const handleCancelAndNewUpload = useCallback(async () => {
+    clearAllFiles()
+    clearUploadedDoc()
+    setFiles([])
+    setIsTransferredToKiosk(false)
+    uploadAnimRef.current?.reset()
+    try {
+      await kioskSession.cancel()
+    } catch {}
+  }, [])
+
   const handleUploadComplete = useCallback(() => {
     animationCompleteRef.current = true
     if (processingCompleteRef.current) {
@@ -431,6 +508,96 @@ export default function MultiFilePage() {
   }, [isProcessing, isUploadAnimating, printerIssue])
 
   const handleDragLeave = useCallback(() => setDragOver(false), [])
+
+  if (isTransferredToKiosk) {
+    const ready = getAllFiles().filter(f => f.status === 'ready')
+    const primary = ready[0]
+    const assignedKiosk = searchParams.get('id') || kioskSession.getKioskId() || 'PB-001'
+
+    const stateDesc = (() => {
+      switch (kioskLiveStatus?.state) {
+        case 'CONFIRMING':
+          return '👀 Kiosk Touchscreen: Reviewing pages on screen...'
+        case 'CONFIGURING':
+          return '⚙️ Kiosk Touchscreen: Selecting print options (Colour, Copies, Duplex)...'
+        case 'PAYING':
+          return '💳 Kiosk Touchscreen: UPI Payment in progress...'
+        case 'PRINTING':
+          return '🖨️ Kiosk: Printing your document on Brother hardware...'
+        case 'DONE':
+          return '🎉 Print complete! Please collect your document from the tray below.'
+        default:
+          return '🖥️ Connected to Kiosk Touchscreen — Awaiting user interaction'
+      }
+    })()
+
+    return (
+      <div className="mfp-root">
+        <div className="mfp-transferred-card">
+          <div className="mfp-transferred-icon-wrap">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </div>
+
+          <h2 className="mfp-transferred-title">Document Sent to Kiosk!</h2>
+          <p className="mfp-transferred-sub">
+            Your document has been sent directly to the <strong>Station {assignedKiosk}</strong> touchscreen.
+            Please look at the kiosk display to review pages, customize print settings, and pay.
+          </p>
+
+          {primary && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#f8fafc', padding: '10px 18px', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, fontWeight: 600 }}>
+              <FileTypeThumbIcon type={primary.fileType} size={18} />
+              <span style={{ color: '#09090b' }}>{primary.fileName}</span>
+              <span style={{ color: '#64748b' }}>• {primary.pageCount} Pages</span>
+            </div>
+          )}
+
+          <div className="mfp-kiosk-live-pill">
+            <div className="mfp-kiosk-live-label">
+              <span className="mfp-kiosk-banner-dot" />
+              <span>Live Kiosk Display Status</span>
+            </div>
+            <div className="mfp-kiosk-live-phase">
+              {stateDesc}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', marginTop: '16px', width: '100%', maxWidth: '380px' }}>
+            <button
+              type="button"
+              className="mfp-upload-another-btn"
+              style={{ flex: 1 }}
+              onClick={handleCancelAndNewUpload}
+              id="mfp-upload-another-btn"
+            >
+              Upload New Document
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelAndNewUpload}
+              id="mfp-cancel-transfer-btn"
+              style={{
+                padding: '12px 18px',
+                borderRadius: '12px',
+                border: '1px solid #fee2e2',
+                background: '#fff1f2',
+                color: '#dc2626',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mfp-root">
@@ -458,6 +625,19 @@ export default function MultiFilePage() {
           setUserDismissedNotice(true)
         }}
       />
+
+      {/* Kiosk Mode Banner when customer is uploading remotely via QR */}
+      {isKioskMode && (
+        <div className="mfp-kiosk-mode-banner">
+          <div className="mfp-kiosk-banner-left">
+            <span className="mfp-kiosk-banner-dot" />
+            <div>
+              <div className="mfp-kiosk-banner-title">Connected to Station {searchParams.get('id') || kioskSession.getKioskId() || 'PB-001'}</div>
+              <div className="mfp-kiosk-banner-sub">Upload file here. Preview, settings & payment will show on Kiosk touchscreen.</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="mfp-header">
@@ -665,10 +845,11 @@ export default function MultiFilePage() {
             type="button"
             onClick={transitionToConfirm}
             className="mfp-view-confirm-link"
-            style={{ border: 'none', cursor: 'pointer' }}
+            style={{ border: 'none', cursor: isSendingToKiosk ? 'wait' : 'pointer' }}
+            disabled={isSendingToKiosk}
             id="mfp-continue-btn"
           >
-            <span>Continue</span>
+            <span>{isKioskMode ? (isSendingToKiosk ? 'Transferring to Kiosk…' : 'Transfer to Kiosk Screen') : 'Continue'}</span>
             <span className="mfp-btn-icon-circle">
               <ArrowRight size={13} weight="bold" />
             </span>

@@ -89,14 +89,14 @@
 }
 
 .merchant-layout {
-  --primary: #059669;
+  --primary: #dc2626;
   --primary-foreground: #ffffff;
-  --clr-accent: #059669;
-  --clr-accent-light: #10b981;
-  --clr-accent-dim: rgba(5, 150, 105, 0.08);
-  --clr-accent-glow: rgba(5, 150, 105, 0.20);
-  --ring: rgba(5, 150, 105, 0.2);
-  --sidebar-primary: #059669;
+  --clr-accent: #dc2626;
+  --clr-accent-light: #ef4444;
+  --clr-accent-dim: rgba(220, 38, 38, 0.08);
+  --clr-accent-glow: rgba(220, 38, 38, 0.22);
+  --ring: rgba(220, 38, 38, 0.2);
+  --sidebar-primary: #dc2626;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -141,16 +141,16 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 3px 8px rgba(220, 38, 38, 0.35);
 }
 .merchant-layout .btn-primary {
-  background: #059669;
+  background: #dc2626;
   color: #ffffff;
   font-weight: 600;
-  border-color: #059669;
-  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
+  border-color: #dc2626;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.25);
 }
 .merchant-layout .btn-primary:hover {
-  background: #047857;
-  border-color: #047857;
-  box-shadow: 0 3px 8px rgba(5, 150, 105, 0.35);
+  background: #b91c1c;
+  border-color: #b91c1c;
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.35);
 }
 .btn-secondary {
   background: #ffffff;
@@ -185,6 +185,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
 }
 .badge-online { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+.merchant-layout .badge-online { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .badge-offline { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .badge-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .badge-warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
@@ -194,6 +195,7 @@ a { color: inherit; text-decoration: none; }
 /* Status dot */
 .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .status-dot.online { background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15); }
+.merchant-layout .status-dot.online { background: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15); }
 .status-dot.offline { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
 .status-dot.warning { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
 
@@ -207,7 +209,7 @@ a { color: inherit; text-decoration: none; }
   transition: border-color var(--dur-normal), box-shadow var(--dur-normal);
 }
 .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
-.merchant-layout .form-input:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12); }
+.merchant-layout .form-input:focus { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
 .form-input::placeholder { color: #94a3b8; }
 .form-label { font-size: 12.5px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
@@ -324,7 +326,7 @@ a { color: inherit; text-decoration: none; }
   opacity: 0.5;
 }
 
-/* Merchant Layout Variation: Soft Emerald / Cyan traveling beam */
+/* Merchant Layout Variation: Soft Laser-Red Traveling Beam */
 .merchant-layout .glass-card::before,
 .merchant-layout .card-animated-border::before,
 .admin-layout.merchant-layout .glass-card::before,
@@ -333,9 +335,9 @@ a { color: inherit; text-decoration: none; }
     from var(--border-angle, 0deg),
     transparent 0%,
     transparent 50%,
-    rgba(5, 150, 105, 0.15) 70%,
-    rgba(16, 185, 129, 0.6) 85%,
-    rgba(167, 243, 208, 0.95) 95%,
+    rgba(220, 38, 38, 0.15) 70%,
+    rgba(239, 68, 68, 0.5) 85%,
+    rgba(254, 202, 202, 0.9) 95%,
     transparent 100%
   );
 }
@@ -348,8 +350,8 @@ a { color: inherit; text-decoration: none; }
     from var(--border-angle, 0deg),
     transparent 0%,
     transparent 60%,
-    rgba(16, 185, 129, 0.12) 80%,
-    rgba(5, 150, 105, 0.22) 95%,
+    rgba(220, 38, 38, 0.12) 80%,
+    rgba(239, 68, 68, 0.2) 95%,
     transparent 100%
   );
 }
@@ -358,8 +360,8 @@ a { color: inherit; text-decoration: none; }
 .merchant-layout .card-animated-border:hover,
 .admin-layout.merchant-layout .glass-card:hover,
 .admin-layout.merchant-layout .card-animated-border:hover {
-  box-shadow: 0 4px 10px -2px rgba(15, 23, 42, 0.04), 0 16px 32px -6px rgba(5, 150, 105, 0.09);
-  border-color: rgba(167, 243, 208, 0.9) !important;
+  box-shadow: 0 4px 10px -2px rgba(15, 23, 42, 0.04), 0 16px 32px -6px rgba(220, 38, 38, 0.08);
+  border-color: rgba(254, 202, 202, 0.9) !important;
 }
 
 /* Animations */

@@ -22,6 +22,8 @@ import { printRouter } from './routes/print.js'
 import { installationsRouter } from './routes/installations.js'
 import { helpdeskRouter } from './routes/helpdesk.js'
 import { deviceRouter } from './routes/device.js'
+import { kioskSessionsRouter } from './routes/kioskSessions.js'
+import { advertisementsRouter } from './routes/advertisements.js'
 import { startFileRetentionCleanupDaemon } from './modules/fileLifecycle.js'
 import { getRealPrinterHardwareStatus } from './modules/printerDetector.js'
 import { getKioskPiPrinters } from './modules/kioskPiPrinters.js'
@@ -185,6 +187,13 @@ app.use('/api/admin/helpdesk', helpdeskRouter)
 app.use('/helpdesk', helpdeskRouter)
 app.use('/api/device', deviceRouter)
 app.use('/demo', deviceRouter)
+app.use('/api/kiosk-sessions', kioskSessionsRouter)
+app.use('/kiosk-sessions', kioskSessionsRouter)
+app.use('/api/advertisements', advertisementsRouter)
+app.use('/api/ads', advertisementsRouter)
+app.use('/advertisements', advertisementsRouter)
+app.use('/api/webhooks', kiosksRouter)
+app.use('/webhooks', kiosksRouter)
 
 // Sample PDF endpoint for device agent testing
 app.get(['/test_sample.pdf', '/api/test_sample.pdf'], (_req, res) => {

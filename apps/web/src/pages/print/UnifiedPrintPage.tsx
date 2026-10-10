@@ -14,12 +14,19 @@ import RecentPrintsPage from './RecentPrintsPage'
 import ErrorBoundary from '../../components/ui/ErrorBoundary'
 import PageTransition3D from '../../components/ui/PageTransition3D'
 import { InvalidKioskView } from '../../components/ui/InvalidKioskView'
+import { MachineInUseView } from '../../components/ui/MachineInUseView'
 import PrinterErrorOverlay from '../../components/ui/PrinterErrorOverlay'
 import NotFoundPage from '../NotFoundPage'
 import { getLiveKiosks, getKioskDetails, checkPrinterHardwareStatus } from '@/lib/api'
 import { wsRelayClient } from '@/lib/wsRelayClient'
 import { hasRealUploadedDoc } from '@/lib/documentStore'
-import { hasAnyReadyFile, setKioskPricing } from '@/lib/multiFileStore'
+import {
+  hasAnyReadyFile,
+  setKioskPricing,
+  getAllFiles,
+  calcFileTotalSheets,
+  computeTotalPrice,
+} from '@/lib/multiFileStore'
 import {
   isCanonicalKioskFormat,
   normalizeKioskTypo,
@@ -28,6 +35,7 @@ import {
   type KioskValidationResult,
 } from '@/lib/kioskValidation'
 import SEO from '../../components/common/SEO'
+import { kioskSession, getSessionTokenFromUrl, claimKioskSession } from '@/lib/kioskSession'
 import './PrintNeomorphism.css'
 
 const STEP_ORDER: Record<string, number> = {
@@ -94,6 +102,25 @@ export default function UnifiedPrintPage() {
     }
     return ''
   })
+
+  // Machine Already In Use state (when another user claimed the kiosk session)
+  const [machineInUseState, setMachineInUseState] = useState<{
+    inUse: boolean
+    kioskId?: string
+    token?: string
+  } | null>(null)
+
+  useEffect(() => {
+    const handleMachineInUseEvent = (e: any) => {
+      setMachineInUseState({
+        inUse: true,
+        kioskId: e.detail?.kioskId || printerId || 'PB-001',
+        token: e.detail?.token,
+      })
+    }
+    window.addEventListener('kiosk:machine_in_use', handleMachineInUseEvent)
+    return () => window.removeEventListener('kiosk:machine_in_use', handleMachineInUseEvent)
+  }, [printerId])
 
   // Purge corrupt machine IDs ONLY if confirmed invalid format (malformed / invalid characters)
   useEffect(() => {
@@ -210,12 +237,38 @@ export default function UnifiedPrintPage() {
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search) {
       if (paramStep === 'kiosk') return
+      // CRITICAL: Do NOT wipe URL parameters if kiosk session is present!
+      if (searchParams.get('session') || getSessionTokenFromUrl()) return
       window.history.replaceState(null, '', window.location.pathname)
     }
-  }, [paramStep])
+  }, [paramStep, searchParams])
+
+  // ── Kiosk QR Session: claim on mount if ?session= param present ──
+  useEffect(() => {
+    const token = getSessionTokenFromUrl() || (typeof window !== 'undefined' ? sessionStorage.getItem('pb_kiosk_session_token') : null)
+    if (!token) return
+    claimKioskSession(token).then(result => {
+      if (result.machineInUse) {
+        setMachineInUseState({
+          inUse: true,
+          kioskId: result.kioskId || printerId || 'PB-001',
+          token,
+        })
+      } else if (result.success) {
+        setMachineInUseState(null)
+      } else {
+        console.warn('[KioskSession] Claim result:', result.error)
+      }
+    })
+  }, [printerId])
 
   // ── Step management (Preserves stage and files across page refresh) ──
   const [currentStep, setCurrentStep] = useState<PrintStep>(() => {
+    // 0. If opened via kiosk QR session, always lock to upload on mobile phone
+    if (kioskSession.isKioskSession() || getSessionTokenFromUrl()) {
+      return 'upload'
+    }
+
     const activeKiosk = (urlId || savedKioskId || '').trim().toUpperCase()
     const hasSelectedKiosk = isCanonicalKioskFormat(activeKiosk)
     const savedStep = typeof window !== 'undefined' ? (sessionStorage.getItem('pb_print_step') as PrintStep | null) : null
@@ -252,6 +305,46 @@ export default function UnifiedPrintPage() {
     return 'kiosk'
   })
 
+  // ── Kiosk QR Session: report step changes back to kiosk display ──
+  useEffect(() => {
+    if (!kioskSession.isKioskSession()) return
+    const readyFiles = getAllFiles().filter(f => f.status === 'ready')
+    const primaryFile = readyFiles[0]
+    const fileName = readyFiles.length > 1
+      ? `${primaryFile?.fileName} (+${readyFiles.length - 1} more)`
+      : primaryFile?.fileName
+    const totalSheets = readyFiles.reduce((acc, f) => acc + (calcFileTotalSheets(f) || f.pageCount || 1), 0)
+    const amount = computeTotalPrice()
+    const colourMode = readyFiles.some(f => f.settings?.colour === 'COLOUR') ? 'COLOUR' : 'BW'
+    const copies = readyFiles[0]?.settings?.copies || 1
+
+    switch (currentStep) {
+      case 'upload':
+        kioskSession.reportUploading(fileName)
+        break
+      case 'confirm':
+      case 'settings':
+      case 'review':
+        kioskSession.reportConfiguring({
+          fileName,
+          totalPages: totalSheets || undefined,
+          copies,
+          colourMode,
+          amount: amount || undefined,
+        })
+        break
+      case 'payment':
+        kioskSession.reportPaying({
+          fileName,
+          totalPages: totalSheets || undefined,
+          amount: amount || undefined,
+        })
+        break
+      default:
+        break
+    }
+  }, [currentStep])
+
   const goToStep = useCallback((step: PrintStep) => {
     setCurrentStep(step)
     sessionStorage.setItem('pb_print_step', step)
@@ -265,6 +358,29 @@ export default function UnifiedPrintPage() {
       return next
     }, { replace: true })
   }, [setSearchParams])
+
+  const handleRetrySession = useCallback(() => {
+    const token =
+      machineInUseState?.token ||
+      getSessionTokenFromUrl() ||
+      (typeof window !== 'undefined' ? sessionStorage.getItem('pb_kiosk_session_token') : null)
+    if (!token) {
+      setMachineInUseState(null)
+      return
+    }
+    claimKioskSession(token).then(result => {
+      if (result.machineInUse) {
+        setMachineInUseState({
+          inUse: true,
+          kioskId: result.kioskId || printerId || 'PB-001',
+          token,
+        })
+      } else if (result.success) {
+        setMachineInUseState(null)
+        goToStep('upload')
+      }
+    })
+  }, [machineInUseState?.token, printerId, goToStep])
 
   // Guard against direct parameter access like ?step=confirm when no files exist
   useEffect(() => {
@@ -354,7 +470,8 @@ export default function UnifiedPrintPage() {
     'success',
     'history',
   ]
-  const effectiveStep = validSteps.includes(currentStep) ? currentStep : 'upload'
+  const isKioskSession = kioskSession.isKioskSession() || Boolean(getSessionTokenFromUrl())
+  const effectiveStep: PrintStep = isKioskSession ? 'upload' : (validSteps.includes(currentStep) ? currentStep : 'upload')
 
   const confirmMode = typeof window !== 'undefined' ? (sessionStorage.getItem('pb_confirm_mode') || 'doc') : 'doc'
   const pageKey = effectiveStep === 'confirm' ? `confirm_${confirmMode}` : effectiveStep
@@ -516,7 +633,7 @@ export default function UnifiedPrintPage() {
       }}
     >
       <PrinterErrorOverlay
-        isOpen={isNetworkOffline || (isStationOffline && effectiveStep !== 'kiosk')}
+        isOpen={!machineInUseState?.inUse && (isNetworkOffline || (isStationOffline && effectiveStep !== 'kiosk'))}
         title={isNetworkOffline ? 'NO INTERNET' : stationOfflineReason || 'PRINTER OFFLINE'}
         detail={isNetworkOffline ? 'Please check your internet connection.' : stationOfflineDetail || `Station ${kioskName || activeStationId} is currently offline.`}
         kioskName={kioskName}
@@ -536,7 +653,26 @@ export default function UnifiedPrintPage() {
         ]}
       />
       <PrintLayout>
-        {isInvalidMachine ? (
+        {machineInUseState?.inUse ? (
+          <MachineInUseView
+            kioskId={machineInUseState.kioskId || printerId || 'PB-001'}
+            kioskName={kioskName}
+            token={machineInUseState.token}
+            onRetry={handleRetrySession}
+            onSelectOtherKiosk={() => {
+              setMachineInUseState(null)
+              goToStep('kiosk')
+              setSearchParams(prev => {
+                const next = new URLSearchParams(prev)
+                next.delete('id')
+                next.delete('session')
+                next.set('step', 'kiosk')
+                return next
+              }, { replace: true })
+            }}
+            onGoHome={() => navigate('/')}
+          />
+        ) : isInvalidMachine ? (
           <InvalidKioskView
             attemptedId={validation.attemptedId}
             reason={validation.status}

@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════
    Merchant Pricing Page — Compact & Clean v3
    ═══════════════════════════════════════════════════════ */
 
@@ -50,15 +50,15 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
+  background: #dc2626;
   display: inline-block;
   animation: pLiveRing 2s ease-out infinite;
 }
 
 @keyframes pLiveRing {
-  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
-  70%  { box-shadow: 0 0 0 5px rgba(16,185,129,0); }
-  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  0%   { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); }
+  70%  { box-shadow: 0 0 0 5px rgba(220,38,38,0); }
+  100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
 }
 
 .pricing-header-actions {
@@ -109,15 +109,15 @@
 }
 
 .preset-tab:hover {
-  border-color: #059669;
-  background: #f0fdf4;
+  border-color: #dc2626;
+  background: #fef2f2;
   transform: translateY(-1px);
 }
 
 .preset-tab.is-active {
-  border-color: #059669;
-  background: #ecfdf5;
-  box-shadow: 0 0 0 3px rgba(5,150,105,0.08);
+  border-color: #dc2626;
+  background: #fef2f2;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08);
 }
 
 .preset-tab__name {
@@ -136,8 +136,8 @@
   font-family: var(--font-mono, monospace);
 }
 
-.preset-tab.is-active .preset-tab__name { color: #047857; }
-.preset-tab.is-active .preset-tab__rates { color: #059669; }
+.preset-tab.is-active .preset-tab__name { color: #b91c1c; }
+.preset-tab.is-active .preset-tab__rates { color: #dc2626; }
 
 .preset-recommended-badge {
   font-size: 9.5px;
@@ -213,8 +213,8 @@
 }
 
 .rate-row__icon.mono {
-  background: #ecfdf5;
-  color: #059669;
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .rate-row__icon.color-ink {
@@ -257,8 +257,8 @@
 }
 
 .cstep-btn:hover:not(:disabled) {
-  background: #059669;
-  border-color: #047857;
+  background: #dc2626;
+  border-color: #b91c1c;
   color: #ffffff;
   transform: scale(1.06);
 }
@@ -303,7 +303,7 @@
 .cstep-input::-webkit-inner-spin-button,
 .cstep-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 
-.cstep-input:focus { color: #059669; }
+.cstep-input:focus { color: #dc2626; }
 .cstep-input.color-focus:focus { color: #db2777; }
 
 .cstep-unit {
@@ -325,9 +325,9 @@
 }
 
 .rate-margin-pill.mono-pill {
-  background: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
 .rate-margin-pill.color-pill {
@@ -397,13 +397,13 @@
 .sim-row-label span:last-child {
   font-weight: 700;
   font-family: var(--font-mono, monospace);
-  color: #059669;
+  color: #dc2626;
   font-size: 11.5px;
 }
 
 .sim-range {
   width: 100%;
-  accent-color: #059669;
+  accent-color: #dc2626;
   cursor: pointer;
   height: 4px;
 }
@@ -459,14 +459,14 @@
 .sim-receipt-total-val {
   font-size: 24px;
   font-weight: 800;
-  color: #059669;
+  color: #dc2626;
   font-family: var(--font-mono, monospace);
   letter-spacing: -0.02em;
 }
 
 .sim-payout-strip {
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  border: 1px solid #a7f3d0;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 9px 12px;
   display: flex;
@@ -480,13 +480,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #047857;
+  color: #b91c1c;
 }
 
 .sim-payout-val {
   font-size: 16px;
   font-weight: 800;
-  color: #047857;
+  color: #dc2626;
   font-family: var(--font-mono, monospace);
 }
 

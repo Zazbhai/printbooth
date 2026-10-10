@@ -111,15 +111,19 @@ export default function LandingPage() {
     const dir = safeIndex >= activeSectionRef.current ? 'down' : 'up'
     setTransitionDirection(dir)
 
+    if (isMobileOrTablet) {
+      setActiveSection(safeIndex)
+      activeSectionRef.current = safeIndex
+      targetPanel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
     // Automatically cycle through transitions randomly without exposing controls to user (desktop only)
-    if (!isMobileOrTablet && safeIndex !== activeSectionRef.current) {
+    if (safeIndex !== activeSectionRef.current) {
       const remainingEffects = TRANSITION_EFFECTS.filter((e) => e !== transitionEffectRef.current)
       const nextEffect = remainingEffects[Math.floor(Math.random() * remainingEffects.length)] || 'slideUp'
       setTransitionEffect(nextEffect)
       transitionEffectRef.current = nextEffect
-    } else if (isMobileOrTablet) {
-      setTransitionEffect('slideUp')
-      transitionEffectRef.current = 'slideUp'
     }
 
     setIsFooterRevealed(false)
@@ -208,6 +212,9 @@ export default function LandingPage() {
     let resetTimer: ReturnType<typeof setTimeout> | null = null
 
     const handleWheel = (e: WheelEvent) => {
+      // In mobile or tablet view, allow completely free native scrolling
+      if (isMobileOrTablet) return
+
       // Don't intercept if user is typing in form controls
       const target = e.target as HTMLElement
       if (['input', 'textarea', 'select'].includes(target?.tagName?.toLowerCase()) || target?.isContentEditable) {
@@ -300,6 +307,9 @@ export default function LandingPage() {
 
   // ── Mobile Touch Section-by-Section Controller ────────────────────────────
   useEffect(() => {
+    // If mobile or tablet, completely disable touch hijacking so user scrolls freely!
+    if (isMobileOrTablet) return
+
     let startX = 0
     let startY = 0
     let startTime = 0
@@ -438,7 +448,38 @@ export default function LandingPage() {
       window.removeEventListener('touchmove', handleTouchMove)
       window.removeEventListener('touchend', handleTouchEnd)
     }
-  }, [nextSection, prevSection])
+  }, [nextSection, prevSection, isMobileOrTablet])
+
+  // ── Mobile & Tablet: Natural Free Scroll Section Sync ──────────────────────
+  useEffect(() => {
+    if (!isMobileOrTablet) return
+
+    const panels = document.querySelectorAll<HTMLElement>('.landing-section-panel')
+    if (!panels.length) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = Array.from(panels).indexOf(entry.target as HTMLElement)
+            if (index !== -1 && index !== activeSectionRef.current) {
+              const dir = index >= activeSectionRef.current ? 'down' : 'up'
+              setTransitionDirection(dir)
+              setActiveSection(index)
+              activeSectionRef.current = index
+            }
+          }
+        })
+      },
+      {
+        rootMargin: '-15% 0px -55% 0px',
+        threshold: 0,
+      }
+    )
+
+    panels.forEach((p) => observer.observe(p))
+    return () => observer.disconnect()
+  }, [isMobileOrTablet, loaded])
 
 
 
@@ -500,10 +541,12 @@ export default function LandingPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [nextSection, prevSection, goToSection, goToFooter])
 
-  // ── IntersectionObserver: track which section is most in view ────────────
+  // ── Desktop: IntersectionObserver track which section is most in view ────
   const landingPageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (isMobileOrTablet) return
+
     const panels = document.querySelectorAll<HTMLElement>('.landing-section-panel')
     if (!panels.length) return
 
@@ -542,7 +585,7 @@ export default function LandingPage() {
 
     panels.forEach((panel) => observer.observe(panel))
     return () => observer.disconnect()
-  }, [loaded]) // re-attach after page loads
+  }, [loaded, isMobileOrTablet]) // re-attach after page loads
 
   // ── Sync footer reveal state when scrolled into view ─────────────────────────
   useEffect(() => {

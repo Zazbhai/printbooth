@@ -16,6 +16,7 @@ import {
   Headset,
   HardDrives,
   UsersThree,
+  Megaphone,
 } from '@phosphor-icons/react'
 import { useAuth } from '@/lib/authContext'
 import './AdminLayout.css'
@@ -29,6 +30,7 @@ const adminNavItems = [
   { to: '/admin/installations', icon: <HardDrives size={18} weight="duotone" />, label: 'Installation Requests', badge: 2 },
   { to: '/admin/merchants', icon: <Storefront size={18} weight="duotone" />, label: 'Merchant Partners', badge: 4 },
   { to: '/admin/payments', icon: <CreditCard size={18} weight="duotone" />, label: 'Razorpay Payments' },
+  { to: '/admin/advertisements', icon: <Megaphone size={18} weight="duotone" />, label: 'Ad Campaigns' },
   { to: '/admin/users', icon: <UsersThree size={18} weight="duotone" />, label: 'Admin Management' },
 ]
 

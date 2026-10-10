@@ -17,6 +17,7 @@ import {
 } from '@phosphor-icons/react'
 import CustomerPrintOtpScreen from '@/components/print/CustomerPrintOtpScreen'
 import { markPrintCompleted, updatePrintStatus, saveRecentPrint } from '@/lib/recentPrintsStore'
+import { kioskSession } from '@/lib/kioskSession'
 import './StatusPage.css'
 
 interface PrintSheet {
@@ -228,6 +229,26 @@ export default function StatusPage() {
       wsRelayClient.off('PRINT_PROGRESS', handlePinVerified)
     }
   }, [isPinVerified, kioskId, orderId])
+
+  // ── Kiosk QR Session: report OTP to kiosk display when pin is ready ──
+  useEffect(() => {
+    if (!kioskSession.isKioskSession()) return
+    if (releasePin) {
+      kioskSession.reportOtpReady(
+        releasePin,
+        orderId,
+        sheetsQueue.length || undefined,
+      )
+    }
+  }, [releasePin, orderId, sheetsQueue.length])
+
+  // ── Kiosk QR Session: mark PRINTING when pin verified ──
+  useEffect(() => {
+    if (!kioskSession.isKioskSession()) return
+    if (isPinVerified) {
+      kioskSession.reportPrinting(orderId)
+    }
+  }, [isPinVerified, orderId])
 
   // Background polling for print status or external release
   useEffect(() => {

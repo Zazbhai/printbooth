@@ -2,6 +2,10 @@ import { getApiBaseUrl } from './config'
 
 const API_BASE = getApiBaseUrl()
 
+export function getApiBase(): string {
+  return getApiBaseUrl().replace(/\/api$/, '')
+}
+
 export async function getLiveKiosks() {
   try {
     const res = await fetch(`${API_BASE}/kiosks`)

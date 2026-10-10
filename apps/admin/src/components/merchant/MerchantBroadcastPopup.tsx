@@ -12,15 +12,29 @@ import {
   Clock,
   Storefront,
 } from '@phosphor-icons/react'
-import { getMerchantNotifications, markMerchantNotificationRead } from '@/lib/api'
+import { getMerchantNotifications, markMerchantNotificationRead, getMerchantPaper } from '@/lib/api'
 import { useActiveMerchant } from '@/lib/merchantContext'
 import './MerchantBroadcastPopup.css'
 
 const STORAGE_KEY_ACK = 'pb_ack_broadcast_ids'
 const STORAGE_KEY_REMIND = 'pb_broadcast_remind_until'
 
+const isOfflineNotification = (n: any): boolean => {
+  const text = `${n.title || ''} ${n.message || ''} ${n.description || ''}`.toLowerCase()
+  return (
+    text.includes('offline') ||
+    text.includes('powered off') ||
+    text.includes('lost connection') ||
+    text.includes('pi disconnected') ||
+    text.includes('hardware disconnected') ||
+    text.includes('spooler offline') ||
+    text.includes('printer is currently offline') ||
+    text.includes('not responding')
+  )
+}
+
 export default function MerchantBroadcastPopup() {
-  const { activeKioskId, activeMerchant } = useActiveMerchant()
+  const { activeKioskId, activeMerchant, isHardwareOnline } = useActiveMerchant()
   const [unreadList, setUnreadList] = useState<any[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
@@ -65,11 +79,27 @@ export default function MerchantBroadcastPopup() {
   const fetchUnreadBroadcasts = useCallback(async () => {
     if (!activeKioskId) return
     try {
+      // Check real-time hardware status
+      let hardwareOnline = isHardwareOnline
+      try {
+        const paper = await getMerchantPaper(activeKioskId)
+        if (typeof paper?.isOnline === 'boolean') {
+          hardwareOnline = paper.isOnline
+        }
+      } catch {}
+
       const data = await getMerchantNotifications(activeKioskId, activeMerchant?.merchantId)
       if (Array.isArray(data)) {
         const acked = getAckIds()
         const unread = data.filter((n) => {
           const id = n.notificationId || n._id
+          const isOffline = isOfflineNotification(n)
+          // When hardware is online, remove and auto-acknowledge all offline notifications
+          if (hardwareOnline && isOffline) {
+            saveAckId(id)
+            markMerchantNotificationRead(id, activeMerchant?.merchantId).catch(() => {})
+            return false
+          }
           return !n.isRead && !acked.has(id)
         })
 
@@ -78,12 +108,56 @@ export default function MerchantBroadcastPopup() {
         // If there are unread announcements and remind interval is not active, open modal
         if (unread.length > 0 && !isRemindActive()) {
           setIsOpen(true)
+        } else {
+          setIsOpen(false)
         }
       }
     } catch (err) {
       console.warn('[MerchantBroadcastPopup] Failed to fetch broadcasts:', err)
     }
-  }, [activeKioskId, activeMerchant?.merchantId])
+  }, [activeKioskId, activeMerchant?.merchantId, isHardwareOnline])
+
+  // Automatically close popup and purge offline notifications the moment hardware gets online
+  useEffect(() => {
+    if (isHardwareOnline) {
+      setUnreadList((prev) => {
+        const offlineItems = prev.filter(isOfflineNotification)
+        offlineItems.forEach((n) => {
+          const id = n.notificationId || n._id
+          saveAckId(id)
+          markMerchantNotificationRead(id, activeMerchant?.merchantId).catch(() => {})
+        })
+        const remaining = prev.filter((n) => !isOfflineNotification(n))
+        if (remaining.length === 0) {
+          setIsOpen(false)
+        }
+        return remaining
+      })
+    }
+  }, [isHardwareOnline, activeMerchant?.merchantId])
+
+  // Listen for real-time hardware status changes
+  useEffect(() => {
+    const handleHwEvent = (e: any) => {
+      if (e.detail?.isOnline) {
+        setUnreadList((prev) => {
+          const offlineItems = prev.filter(isOfflineNotification)
+          offlineItems.forEach((n) => {
+            const id = n.notificationId || n._id
+            saveAckId(id)
+            markMerchantNotificationRead(id, activeMerchant?.merchantId).catch(() => {})
+          })
+          const remaining = prev.filter((n) => !isOfflineNotification(n))
+          if (remaining.length === 0) {
+            setIsOpen(false)
+          }
+          return remaining
+        })
+      }
+    }
+    window.addEventListener('pb:hardware-status', handleHwEvent)
+    return () => window.removeEventListener('pb:hardware-status', handleHwEvent)
+  }, [activeMerchant?.merchantId])
 
   useEffect(() => {
     fetchUnreadBroadcasts()

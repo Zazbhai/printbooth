@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { getAdminMerchants, getMerchantKiosks } from './api'
+import { getAdminMerchants, getMerchantKiosks, getMerchantPaper } from './api'
 import { useAuth } from './authContext'
 
 export interface MerchantData {
@@ -37,6 +37,7 @@ interface MerchantContextType {
   merchantKiosks: any[]
   loading: boolean
   isLockedToSingleKiosk: boolean
+  isHardwareOnline: boolean
   refreshMerchants: () => Promise<void>
 }
 
@@ -129,6 +130,32 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
     }, { replace: true })
   }, [allowedKioskIds, merchantId, setSearchParams])
 
+  const [isHardwareOnline, setIsHardwareOnline] = useState<boolean>(true)
+
+  const checkHardwareStatus = useCallback(async () => {
+    try {
+      const paper = await getMerchantPaper(activeKioskId)
+      const online = Boolean(paper?.isOnline ?? true)
+      setIsHardwareOnline(online)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('pb:hardware-status', {
+            detail: { kioskId: activeKioskId, isOnline: online },
+          })
+        )
+      }
+      return online
+    } catch {
+      return true
+    }
+  }, [activeKioskId])
+
+  useEffect(() => {
+    checkHardwareStatus()
+    const timer = setInterval(checkHardwareStatus, 5000)
+    return () => clearInterval(timer)
+  }, [checkHardwareStatus])
+
   const activeMerchant = merchants.find(m => m.kioskId === activeKioskId) || merchants[0] || null
   const isLockedToSingleKiosk = isMerchant && (allowedKioskIds?.length ?? 1) <= 1
 
@@ -142,6 +169,7 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
         merchantKiosks,
         loading,
         isLockedToSingleKiosk,
+        isHardwareOnline,
         refreshMerchants: loadData,
       }}
     >
@@ -162,6 +190,7 @@ const DEFAULT_MERCHANT_CONTEXT: MerchantContextType = {
   merchantKiosks: [],
   loading: false,
   isLockedToSingleKiosk: false,
+  isHardwareOnline: true,
   refreshMerchants: async () => {},
 }
 

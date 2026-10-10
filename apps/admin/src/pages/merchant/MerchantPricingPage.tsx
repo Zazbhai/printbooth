@@ -139,7 +139,7 @@ export default function MerchantPricingPage() {
               <span style={{ color: "#e2e8f0" }}>·</span>
               <span style={{ fontFamily: "var(--font-mono, monospace)", fontWeight: 700 }}>{activeKioskId}</span>
               {activePreset && (
-                <span style={{ background: "#ecfdf5", color: "#047857", border: "1px solid #a7f3d0", borderRadius: 4, fontSize: 11, fontWeight: 700, padding: "1px 7px" }}>
+                <span style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 4, fontSize: 11, fontWeight: 700, padding: "1px 7px" }}>
                   {activePreset.name} preset active
                 </span>
               )}
@@ -153,7 +153,7 @@ export default function MerchantPricingPage() {
             <button type="button" className={`btn ${saveSuccess ? "btn-secondary" : "btn-primary"} btn-sm`}
               onClick={save} disabled={saving || !dirty} id="save-pricing-btn">
               {saving ? <span>Saving…</span> : saveSuccess ? (
-                <><CheckCircle size={14} weight="fill" color="#10b981" /><span>Saved!</span></>
+                <><CheckCircle size={14} weight="fill" color="#dc2626" /><span>Saved!</span></>
               ) : (
                 <><FloppyDisk size={14} weight="bold" /><span>Save Rates</span></>
               )}
@@ -178,7 +178,7 @@ export default function MerchantPricingPage() {
                       <span>{p.name}</span>
                       <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
                         {p.recommended && !isActive && <span className="preset-recommended-badge">REC</span>}
-                        {isActive && <CheckCircle size={13} weight="fill" color="#059669" />}
+                        {isActive && <CheckCircle size={13} weight="fill" color="#dc2626" />}
                       </span>
                     </span>
                     <span className="preset-tab__rates">

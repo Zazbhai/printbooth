@@ -406,8 +406,8 @@ export default function MerchantSettingsPage() {
                   gap: 8,
                   padding: 16,
                   borderRadius: 10,
-                  border: `2px solid ${form.paymentGateway === 'upiexpress' ? '#059669' : 'var(--clr-border, #e2e8f0)'}`,
-                  background: form.paymentGateway === 'upiexpress' ? 'rgba(5, 150, 105, 0.08)' : 'var(--clr-surface-2, rgba(255,255,255,0.02))',
+                  border: `2px solid ${form.paymentGateway === 'upiexpress' ? '#dc2626' : 'var(--clr-border, #e2e8f0)'}`,
+                  background: form.paymentGateway === 'upiexpress' ? 'rgba(220, 38, 38, 0.06)' : 'var(--clr-surface-2, rgba(255,255,255,0.02))',
                   cursor: 'pointer',
                   textAlign: 'left',
                   transition: 'all 0.2s ease',
@@ -415,10 +415,10 @@ export default function MerchantSettingsPage() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14, color: 'var(--clr-text-1)' }}>
-                    <Lightning size={18} weight="fill" color="#059669" />
+                    <Lightning size={18} weight="fill" color="#dc2626" />
                     <span>UPI Express</span>
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'rgba(5,150,105,0.15)', color: '#059669' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'rgba(220,38,38,0.12)', color: '#dc2626' }}>
                     0% Take-Rate
                   </span>
                 </div>
@@ -462,8 +462,8 @@ export default function MerchantSettingsPage() {
 
           {/* Credentials Inputs based on selected gateway */}
           {form.paymentGateway === 'upiexpress' ? (
-            <div style={{ background: 'rgba(5, 150, 105, 0.04)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid rgba(5, 150, 105, 0.2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#059669' }}>
+            <div style={{ background: 'rgba(220, 38, 38, 0.04)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid rgba(220, 38, 38, 0.18)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#dc2626' }}>
                 <ShieldCheck size={18} weight="fill" />
                 <span>UPI Express Settlement &amp; API Configuration</span>
               </div>

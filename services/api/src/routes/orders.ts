@@ -13,6 +13,7 @@ import { printJobs, usedPinsRegistry, parsePageRangeList } from './print.js'
 import { permanentlyDeleteOrderFiles } from '../modules/fileLifecycle.js'
 import { verifyKioskSecret, safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
+import { consumePaperForOrder } from '../modules/paperManager.js'
 
 export const ordersRouter = Router()
 
@@ -290,6 +291,16 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
         $inc: { todayRevenue: totalAmount, todayPages: pageCount * copies, totalRevenue: totalAmount },
       }
     )
+
+    // Deduct physical sheets from printer tray and record audit history
+    consumePaperForOrder(
+      cleanKioskId,
+      pageCount * copies,
+      orderId,
+      `Customer Print Order #${orderId} (${pageCount * copies} sheets)`
+    ).catch((err) => {
+      console.warn(`[Orders] Warning consuming paper for ${orderId}:`, err)
+    })
 
     cachePurgePattern('kiosks:*').catch(() => {})
     cachePurgePattern('admin:*').catch(() => {})

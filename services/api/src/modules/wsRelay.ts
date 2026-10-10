@@ -733,6 +733,15 @@ async function handleJsonMessage(client: WsClientInfo, msg: WsMessage) {
       break
     }
 
+    case 'UPDATE_STATUS': {
+      if (kioskId) {
+        const cleanKioskId = kioskId.toUpperCase()
+        recordKioskUpdateStatus(cleanKioskId, payload)
+        broadcastToAdmins('KIOSK_UPDATE_STATUS', { kioskId: cleanKioskId, ...payload, timestamp: Date.now() })
+      }
+      break
+    }
+
     case 'PRINT_PROGRESS': {
       // Spooler progress emitted from kiosk hardware engine -> relay to customer phone
       if (sessionId || orderId) {
@@ -907,6 +916,37 @@ export function triggerKioskUsbProbe(kioskId: string): boolean {
   relayToKiosk(kioskId, {
     type: 'CHECK_USB_PRINTER',
     payload: { requestedAt: Date.now() },
+  })
+  return true
+}
+
+// ── In-Memory Kiosk GitHub Update Telemetry Cache ──
+const kioskUpdateStatuses = new Map<string, any>()
+
+export function recordKioskUpdateStatus(kioskId: string, status: any) {
+  if (!kioskId) return
+  kioskUpdateStatuses.set(kioskId.toUpperCase(), {
+    ...status,
+    receivedAt: Date.now(),
+  })
+}
+
+export function getKioskUpdateStatus(kioskId: string) {
+  return kioskUpdateStatuses.get(kioskId.toUpperCase()) || null
+}
+
+/**
+ * Triggers an immediate autonomous GitHub pull, build and display reload on target Raspberry Pi.
+ */
+export function triggerKioskUpdate(kioskId: string, options?: { force?: boolean; branch?: string }): boolean {
+  if (!isKioskRelayConnected(kioskId)) return false
+  relayToKiosk(kioskId, {
+    type: 'TRIGGER_UPDATE',
+    payload: {
+      requestedAt: Date.now(),
+      force: Boolean(options?.force),
+      branch: options?.branch || 'main',
+    },
   })
   return true
 }

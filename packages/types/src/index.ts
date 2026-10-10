@@ -280,3 +280,36 @@ export interface DashboardStats {
   pendingAlerts: number;
   activeOrders: number;
 }
+
+// ──────── Advertisement & Kiosk Campaigns ────────
+export type AdMotionType = 'DRIFT' | 'FLOAT' | 'MARQUEE' | 'PULSE' | 'KEN_BURNS';
+export type AdMotionSpeed = 'SLOW' | 'NORMAL' | 'FAST';
+export type AdMediaType = 'IMAGE' | 'VIDEO' | 'TEXT_BANNER';
+export type AdStatus = 'ACTIVE' | 'PAUSED' | 'SCHEDULED' | 'COMPLETED';
+
+export interface Advertisement {
+  id: string;
+  campaignId: string;
+  title: string;
+  advertiser: string;
+  mediaType: AdMediaType;
+  mediaUrl: string;
+  headline?: string;
+  tagline?: string;
+  callToAction?: string;
+  qrCodeUrl?: string;
+  badgeText?: string;
+  accentColor?: string;
+  motionType: AdMotionType;
+  motionSpeed: AdMotionSpeed;
+  opacity: number; // 0.1 to 0.6
+  targetKiosks: string[]; // ['ALL'] or specific kiosk IDs
+  status: AdStatus;
+  priority: number;
+  startDate?: string;
+  endDate?: string;
+  impressionsCount: number;
+  clicksCount: number;
+  createdAt: string;
+  updatedAt: string;
+}

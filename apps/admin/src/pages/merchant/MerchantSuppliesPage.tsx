@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Package,
   CheckCircle,
@@ -34,6 +35,7 @@ export default function MerchantSuppliesPage() {
   }
 
   const paperLevel = supplies?.paperLevel ?? 0
+  const remainingPages = supplies?.remainingPages ?? Math.round((paperLevel / 100) * 150)
   const tonerLevel = supplies?.tonerLevel ?? 0
   const isOnline = supplies?.status === 'ONLINE' && (supplies?.isOnline !== false)
   const printerModel = supplies?.printerModel || 'Laser Print Engine'
@@ -42,10 +44,10 @@ export default function MerchantSuppliesPage() {
     {
       id: 'SUP-01',
       item: 'A4 Premium 75GSM Paper (Tray 1)',
-      onHand: isOnline ? `${paperLevel}% Remaining` : '0% · Sensor Offline',
-      minRecommended: '20% Minimum',
-      status: isOnline ? (paperLevel > 20 ? 'Adequate' : 'Low Stock') : 'Disconnected',
-      badgeClass: isOnline && paperLevel > 20 ? 'badge-online' : 'badge-danger',
+      onHand: isOnline ? `${remainingPages} Sheets (${paperLevel}%)` : '0 Sheets · Sensor Offline',
+      minRecommended: '25 Sheets Minimum',
+      status: isOnline ? (remainingPages > 25 ? 'Adequate' : 'Low Stock') : 'Disconnected',
+      badgeClass: isOnline && remainingPages > 25 ? 'badge-online' : 'badge-danger',
       detail: isOnline ? `${printerModel} tray sensor telemetry` : 'Hardware disconnected · No telemetry',
     },
     {
@@ -104,12 +106,17 @@ export default function MerchantSuppliesPage() {
           <p style={{ fontSize: 13, color: 'var(--clr-text-2)', lineHeight: 1.5 }}>
             Standard PrintBooth high-speed laser paper. Jam-resistant and moisture sealed.
           </p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--clr-border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--clr-border)', flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--clr-success)' }}>FREE (Partner Contract)</span>
-            <button className="btn btn-primary btn-sm" onClick={() => handleQuickOrder('A4 Paper Box (5 Reams)')}>
-              <Plus size={16} />
-              <span>Order Pack</span>
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Link to="/merchant/pages" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
+                <span>Manage Tray Sheets →</span>
+              </Link>
+              <button className="btn btn-primary btn-sm" onClick={() => handleQuickOrder('A4 Paper Box (5 Reams)')}>
+                <Plus size={16} />
+                <span>Order Pack</span>
+              </button>
+            </div>
           </div>
         </div>
 
