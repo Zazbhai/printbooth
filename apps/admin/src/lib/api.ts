@@ -894,13 +894,14 @@ export async function postPaperRefill(kioskId = 'PB-001', note?: string) {
   return res.data
 }
 
-export async function getMerchantOrders(kioskId = 'PB-001') {
-  const cacheKey = `merchant:orders:${kioskId}`
+export async function getMerchantOrders(kioskId = 'ALL', forceRefresh = false) {
+  const targetKiosk = kioskId || 'ALL'
+  const cacheKey = `merchant:orders:${targetKiosk}`
   const cached = apiCache.get(cacheKey)
 
-  const fetchPromise = api.get(`/merchant/orders?kioskId=${kioskId}`)
+  const fetchPromise = api.get(`/merchant/orders?kioskId=${encodeURIComponent(targetKiosk)}`)
     .then((res) => {
-      if (Array.isArray(res.data?.data) && res.data.data.length > 0) {
+      if (Array.isArray(res.data?.data)) {
         apiCache.set(cacheKey, { data: res.data.data, timestamp: Date.now() })
         return res.data.data
       }
@@ -911,12 +912,12 @@ export async function getMerchantOrders(kioskId = 'PB-001') {
       return null
     })
 
-  if (cached && (Date.now() - cached.timestamp) < SWR_TTL_MS) {
+  if (!forceRefresh && cached && (Date.now() - cached.timestamp) < SWR_TTL_MS) {
     return cached.data
   }
 
   const fresh = await fetchPromise
-  return fresh || cached?.data || FALLBACK_RECENT_ORDERS
+  return fresh ?? cached?.data ?? FALLBACK_RECENT_ORDERS
 }
 
 export async function confirmMerchantOrder(orderId: string, kioskId?: string) {

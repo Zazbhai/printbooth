@@ -45,26 +45,33 @@
 /* Stats grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .stat-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .stat-card__top {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .stat-card__icon {
   opacity: 0.9;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .stat-card__label {
@@ -72,21 +79,30 @@
   font-weight: 500;
   color: var(--clr-text-3);
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .stat-card__value {
-  font-size: clamp(22px, 2.4vw, 28px);
+  font-size: clamp(20px, 2.2vw, 28px);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--foreground);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stat-card__sub {
   font-size: 12px;
   color: var(--muted-foreground);
   line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Impeccable Polish: Interactive micro-interactions & elevation */
@@ -151,12 +167,15 @@ article[class*="shadow-custom"]:hover {
 /* Table Responsiveness Wrapper */
 .table-responsive {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 
 .table-responsive .data-table {
-  min-width: 640px;
+  min-width: 760px;
+  width: 100%;
 }
 
 /* Kiosks page */
@@ -943,6 +962,72 @@ article[class*="shadow-custom"]:hover {
   background-color: rgba(255, 255, 255, 0.04);
 }
 
+@media (max-width: 768px) {
+  .admin-page {
+    padding: clamp(12px, 3vw, 20px);
+    gap: 16px;
+    overflow-x: hidden;
+  }
+
+  .admin-page__header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .admin-page__header {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-page__title {
+    font-size: 20px;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .admin-page__sub {
+    font-size: 13px;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .page-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 14px 16px;
+  }
+
+  .stat-card__value {
+    font-size: 24px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-responsive {
+    border-radius: var(--radius-md, 8px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .copy-bubble-toast,
   .csv-export-btn:hover svg,
@@ -951,4 +1036,5 @@ article[class*="shadow-custom"]:hover {
     animation: none;
   }
 }
+
 

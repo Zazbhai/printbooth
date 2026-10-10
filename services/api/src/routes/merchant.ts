@@ -1297,22 +1297,32 @@ merchantRouter.post(['/paper/refill', '/pages/refill'], async (req: Request, res
 // GET /api/merchant/orders
 merchantRouter.get('/orders', async (req: Request, res: Response) => {
   try {
-    const rawKioskId = (req.query.kioskId as string) || (req.headers['x-kiosk-id'] as string) || 'PB-001'
-    const kioskId = rawKioskId && /^PB-\d{3}$/.test(rawKioskId.trim()) ? rawKioskId.trim() : 'PB-001'
+    const rawKioskId = (req.query.kioskId as string) || (req.headers['x-kiosk-id'] as string) || ''
+    const isAll = !rawKioskId || rawKioskId.trim().toUpperCase() === 'ALL'
+    const cleanKioskId = rawKioskId && /^PB-\d{3}$/i.test(rawKioskId.trim()) ? rawKioskId.trim().toUpperCase() : ''
+
     let orders: any[] = []
-    if (!isDbConnected()) {
-      orders = fallbackOrders.filter((o) => o.kioskId === kioskId)
-      if (orders.length === 0) orders = fallbackOrders
+    if (isDbConnected()) {
+      const query: any = {}
+      if (!isAll && cleanKioskId) {
+        query.kioskId = cleanKioskId
+      }
+      orders = await Order.find(query).sort({ createdAt: -1 }).limit(200).lean()
     } else {
-      orders = await Order.find({ kioskId }).sort({ createdAt: -1 }).limit(100).lean()
-      if (orders.length === 0) {
-        orders = fallbackOrders.filter((o) => o.kioskId === kioskId) || fallbackOrders
+      if (isAll) {
+        orders = fallbackOrders
+      } else if (cleanKioskId) {
+        orders = fallbackOrders.filter((o) => o.kioskId === cleanKioskId)
+        if (orders.length === 0) orders = fallbackOrders
+      } else {
+        orders = fallbackOrders
       }
     }
 
     const enriched = await Promise.all(
       orders.map(async (o) => {
-        const isBlocked = await isUserBlocked(kioskId, o.customerIp, o.customerMac)
+        const targetKiosk = o.kioskId || cleanKioskId || 'PB-001'
+        const isBlocked = await isUserBlocked(targetKiosk, o.customerIp, o.customerMac)
         return {
           ...o,
           isUserBlocked: isBlocked,

@@ -113,15 +113,20 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       })
     }
 
-    // Hardware Reachability Check: Prevent order dispatch to powered-off or disconnected Pi
+    // Hardware Reachability Check: Prevent order dispatch to powered-off or disconnected Pi in production
+    const isDev = process.env.NODE_ENV !== 'production' || process.env.ALLOW_OFFLINE_STAGING === 'true'
     const reachability = await isKioskPiReachable(cleanKioskId)
     if (!reachability.isReachable) {
-      await markKioskOffline(cleanKioskId, reachability.reason)
-      return res.status(400).json({
-        success: false,
-        kioskOffline: true,
-        error: `Station ${cleanKioskId} is currently offline or powered off. Direct print jobs cannot be accepted until hardware is powered on.`,
-      })
+      if (!isDev) {
+        await markKioskOffline(cleanKioskId, reachability.reason)
+        return res.status(400).json({
+          success: false,
+          kioskOffline: true,
+          error: `Station ${cleanKioskId} is currently offline or powered off. Direct print jobs cannot be accepted until hardware is powered on.`,
+        })
+      } else {
+        console.info(`[Orders] Dev mode active: staging order for station ${cleanKioskId} despite unlinked physical Pi.`)
+      }
     }
 
     const ratePerPage = colourMode === 'COLOUR' ? 10.0 : 2.0

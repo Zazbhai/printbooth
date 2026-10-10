@@ -34,13 +34,24 @@ interface BlockedRecord {
 }
 
 export default function MerchantOrdersPage() {
-  const { activeKioskId, activeMerchant } = useActiveMerchant()
+  const { activeKioskId, activeMerchant, merchantKiosks } = useActiveMerchant()
+  const [selectedKiosk, setSelectedKiosk] = useState<string>('ALL')
   const [orders, setOrders] = useState<any[]>([])
   const [blockedUsers, setBlockedUsers] = useState<BlockedRecord[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'BLOCKED'>('ALL')
   const [loading, setLoading] = useState(false)
   const [actionMsg, setActionMsg] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null)
+
+  // Computed list of unique accessible kiosks
+  const availableKiosks = Array.from(
+    new Set([
+      'PB-001',
+      'PB-002',
+      ...(merchantKiosks?.map((k: any) => k.kioskId || k.id).filter(Boolean) || []),
+      ...(activeKioskId ? [activeKioskId] : []),
+    ])
+  )
 
   // Block modal state
   const [blockModalOpen, setBlockModalOpen] = useState(false)
@@ -57,12 +68,14 @@ export default function MerchantOrdersPage() {
     }, 4500)
   }, [])
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (force = false) => {
     setLoading(true)
     try {
+      const targetQuery = selectedKiosk || 'ALL'
+      const blockQuery = targetQuery === 'ALL' ? (activeKioskId || 'PB-001') : targetQuery
       const [orderList, blockedList] = await Promise.all([
-        getMerchantOrders(activeKioskId),
-        getMerchantBlockedUsers(activeKioskId),
+        getMerchantOrders(targetQuery, force),
+        getMerchantBlockedUsers(blockQuery),
       ])
 
       const rawOrders = Array.isArray(orderList)
@@ -76,7 +89,7 @@ export default function MerchantOrdersPage() {
     } finally {
       setLoading(false)
     }
-  }, [activeKioskId])
+  }, [selectedKiosk, activeKioskId])
 
   useEffect(() => {
     loadData()
@@ -100,8 +113,9 @@ export default function MerchantOrdersPage() {
   // Accept Payment -> Confirm Payment & Status
   const handleAcceptPayment = async (order: any) => {
     const orderId = order.orderId || order.id || order.orderNumber
+    const targetKiosk = order.kioskId || activeKioskId || 'PB-001'
     try {
-      await confirmMerchantOrder(orderId, activeKioskId)
+      await confirmMerchantOrder(orderId, targetKiosk)
       // Update local state immediately
       setOrders((prev) =>
         prev.map((o) => {
@@ -129,11 +143,12 @@ export default function MerchantOrdersPage() {
   // Reject unverified payment
   const handleRejectPayment = async (order: any) => {
     const orderId = order.orderId || order.id || order.orderNumber
+    const targetKiosk = order.kioskId || activeKioskId || 'PB-001'
     if (!window.confirm(`Reject payment confirmation for Order #${order.orderNumber || orderId}?`)) {
       return
     }
     try {
-      await rejectMerchantOrder(orderId, activeKioskId)
+      await rejectMerchantOrder(orderId, targetKiosk)
       setOrders((prev) =>
         prev.map((o) => {
           const match = (o.orderId || o.id || o.orderNumber) === orderId
@@ -185,9 +200,10 @@ export default function MerchantOrdersPage() {
     }
 
     setIsSubmittingBlock(true)
+    const targetKiosk = targetOrderForBlock?.kioskId || (selectedKiosk !== 'ALL' ? selectedKiosk : activeKioskId) || 'PB-001'
     try {
       const res = await blockMerchantUser({
-        kioskId: activeKioskId,
+        kioskId: targetKiosk,
         ip: ip || undefined,
         mac: mac || undefined,
         reason: banReason,
@@ -214,7 +230,7 @@ export default function MerchantOrdersPage() {
         })
       )
 
-      showToast(`User (${ip || mac}) is blocked from using Machine ${activeKioskId}.`, 'success')
+      showToast(`User (${ip || mac}) is blocked from using Machine ${targetKiosk}.`, 'success')
       setBlockModalOpen(false)
     } catch (err: any) {
       showToast(err?.message || 'Failed to block user', 'error')
@@ -227,13 +243,14 @@ export default function MerchantOrdersPage() {
   const handleUnblockUser = async (ip?: string, mac?: string) => {
     if (!ip && !mac) return
     const identifier = ip || mac
-    if (!window.confirm(`Lift ban and allow ${identifier} to use Machine ${activeKioskId} again?`)) {
+    const targetKiosk = (selectedKiosk !== 'ALL' ? selectedKiosk : activeKioskId) || 'PB-001'
+    if (!window.confirm(`Lift ban and allow ${identifier} to use Machine ${targetKiosk} again?`)) {
       return
     }
 
     try {
       await unblockMerchantUser({
-        kioskId: activeKioskId,
+        kioskId: targetKiosk,
         ip: ip || undefined,
         mac: mac || undefined,
       })
@@ -312,38 +329,75 @@ export default function MerchantOrdersPage() {
     <div className="admin-page animate-fadeInUp">
       {/* ─── Header Row ─── */}
       <div className="admin-page__header-row">
-        <div className="admin-page__header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span className="badge badge-info">Store Activity & Access Control</span>
-            <span style={{ fontSize: 13, color: 'var(--clr-text-3)' }}>
-              Machine {activeKioskId} • {activeMerchant?.storeName || 'Campus Partner Hub'}
+        <div className="admin-page__header" style={{ minWidth: 0, maxWidth: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+            <span className="badge badge-info" style={{ whiteSpace: 'nowrap' }}>Store Activity & Access Control</span>
+            <span style={{ fontSize: 13, color: 'var(--clr-text-3)', wordBreak: 'break-word' }}>
+              {selectedKiosk === 'ALL' ? 'All Machine Stations' : `Station ${selectedKiosk}`} • {activeMerchant?.storeName || 'Campus Partner Hub'}
             </span>
           </div>
-          <h1 className="admin-page__title">Store Print Transactions & Customer Access</h1>
-          <p className="admin-page__sub">
-            Review every customer print order for your machine, verify cash/UPI payments, and allow or ban customer IPs and devices.
+          <h1 className="admin-page__title" style={{ wordBreak: 'break-word' }}>Store Print Transactions & Customer Access</h1>
+          <p className="admin-page__sub" style={{ wordBreak: 'break-word' }}>
+            Review every customer print order for your machines, verify cash/UPI payments, and allow or ban customer IPs and devices.
           </p>
         </div>
 
-        <div className="page-actions">
+        <div className="page-actions" style={{ flexWrap: 'wrap', gap: 8 }}>
           <button
             className="btn btn-secondary btn-sm"
             onClick={handleOpenManualBlock}
             id="manual-block-user-btn"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
           >
             <Prohibit size={16} color="#ef4444" />
             <span>Block IP / Device</span>
           </button>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={loadData}
+            onClick={() => loadData(true)}
             title="Refresh order records"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
           >
             <span>↻ Refresh</span>
           </button>
         </div>
+      </div>
+
+      {/* ─── Station / Machine Filter Pills ─── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+          background: 'var(--clr-surface-2, rgba(255,255,255,0.03))',
+          padding: '10px 14px',
+          borderRadius: 'var(--radius-md, 8px)',
+          border: '1px solid var(--clr-border, rgba(255,255,255,0.08))',
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--clr-text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: 4 }}>
+          Machine Station:
+        </span>
+        <button
+          type="button"
+          className={`btn btn-sm ${selectedKiosk === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setSelectedKiosk('ALL')}
+          style={{ fontSize: 12, padding: '4px 12px', whiteSpace: 'nowrap' }}
+        >
+          All Stations (Storewide)
+        </button>
+        {availableKiosks.map((kid) => (
+          <button
+            key={kid}
+            type="button"
+            className={`btn btn-sm ${selectedKiosk === kid ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setSelectedKiosk(kid)}
+            style={{ fontSize: 12, padding: '4px 12px', whiteSpace: 'nowrap' }}
+          >
+            Station {kid}
+          </button>
+        ))}
       </div>
 
       {/* ─── Toast Feedback Notification ─── */}
@@ -367,14 +421,15 @@ export default function MerchantOrdersPage() {
             gap: 10,
             fontSize: 13,
             fontWeight: 600,
+            wordBreak: 'break-word',
           }}
         >
           {actionMsg.type === 'success' ? (
-            <CheckCircle size={18} color="var(--clr-success, #10b981)" />
+            <CheckCircle size={18} color="var(--clr-success, #10b981)" style={{ flexShrink: 0 }} />
           ) : actionMsg.type === 'error' ? (
-            <XCircle size={18} color="#ef4444" />
+            <XCircle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
           ) : (
-            <WarningCircle size={18} color="#3b82f6" />
+            <WarningCircle size={18} color="#3b82f6" style={{ flexShrink: 0 }} />
           )}
           <span>{actionMsg.text}</span>
         </div>
@@ -390,7 +445,9 @@ export default function MerchantOrdersPage() {
             <span className="stat-card__label">Total Transactions</span>
           </div>
           <div className="stat-card__value">{orders.length}</div>
-          <div className="stat-card__sub">All recorded print orders for this machine</div>
+          <div className="stat-card__sub" style={{ wordBreak: 'break-word' }}>
+            {selectedKiosk === 'ALL' ? 'Storewide print order volume across all kiosks' : `All recorded print orders for Machine ${selectedKiosk}`}
+          </div>
         </div>
 
         <div className="glass-card stat-card">
@@ -406,7 +463,7 @@ export default function MerchantOrdersPage() {
           >
             {pendingOrders.length}
           </div>
-          <div className="stat-card__sub">
+          <div className="stat-card__sub" style={{ wordBreak: 'break-word' }}>
             {pendingOrders.length > 0 ? 'Requires merchant payment confirmation' : 'All transactions verified'}
           </div>
         </div>
@@ -421,7 +478,9 @@ export default function MerchantOrdersPage() {
           <div className="stat-card__value" style={{ color: 'var(--clr-success, #10b981)' }}>
             ₹{confirmedVolume.toFixed(2)}
           </div>
-          <div className="stat-card__sub">Earned directly for Machine {activeKioskId}</div>
+          <div className="stat-card__sub" style={{ wordBreak: 'break-word' }}>
+            Earned directly for {selectedKiosk === 'ALL' ? 'all store stations' : `Machine ${selectedKiosk}`}
+          </div>
         </div>
 
         <div className="glass-card stat-card">
@@ -437,13 +496,15 @@ export default function MerchantOrdersPage() {
           >
             {blockedUsers.length}
           </div>
-          <div className="stat-card__sub">Banned IPs / devices on this machine</div>
+          <div className="stat-card__sub" style={{ wordBreak: 'break-word' }}>
+            Banned IPs / devices on {selectedKiosk === 'ALL' ? 'store stations' : `Machine ${selectedKiosk}`}
+          </div>
         </div>
       </div>
 
       {/* ─── Search & Filters Bar ─── */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 'min(100%, 240px)' }}>
           <MagnifyingGlass
             size={16}
             style={{
@@ -457,7 +518,7 @@ export default function MerchantOrdersPage() {
           <input
             type="text"
             className="form-input"
-            style={{ paddingLeft: 36 }}
+            style={{ paddingLeft: 36, width: '100%', boxSizing: 'border-box' }}
             placeholder="Search by Order #, Document, Token, Customer IP, or Phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -468,26 +529,34 @@ export default function MerchantOrdersPage() {
           <button
             className={`btn btn-sm ${filter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('ALL')}
+            style={{ whiteSpace: 'nowrap' }}
           >
             All ({orders.length})
           </button>
           <button
             className={`btn btn-sm ${filter === 'PENDING' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('PENDING')}
-            style={pendingOrders.length > 0 && filter !== 'PENDING' ? { borderColor: '#f59e0b', color: '#f59e0b' } : {}}
+            style={{
+              whiteSpace: 'nowrap',
+              ...(pendingOrders.length > 0 && filter !== 'PENDING' ? { borderColor: '#f59e0b', color: '#f59e0b' } : {}),
+            }}
           >
             Pending Approval ({pendingOrders.length})
           </button>
           <button
             className={`btn btn-sm ${filter === 'CONFIRMED' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('CONFIRMED')}
+            style={{ whiteSpace: 'nowrap' }}
           >
             Confirmed
           </button>
           <button
             className={`btn btn-sm ${filter === 'BLOCKED' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('BLOCKED')}
-            style={blockedUsers.length > 0 && filter !== 'BLOCKED' ? { borderColor: '#ef4444', color: '#ef4444' } : {}}
+            style={{
+              whiteSpace: 'nowrap',
+              ...(blockedUsers.length > 0 && filter !== 'BLOCKED' ? { borderColor: '#ef4444', color: '#ef4444' } : {}),
+            }}
           >
             Blocked Customers ({blockedUsers.length})
           </button>
@@ -579,15 +648,31 @@ export default function MerchantOrdersPage() {
                       }
                     >
                       {/* Order & Time */}
-                      <td>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--clr-text-1)' }}>
-                          {orderId}
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--clr-text-1)' }}>
+                            {orderId}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 700,
+                              padding: '1px 5px',
+                              borderRadius: 4,
+                              background: 'var(--clr-surface-2, rgba(255,255,255,0.06))',
+                              border: '1px solid var(--clr-border, rgba(255,255,255,0.08))',
+                              color: 'var(--clr-text-3)',
+                            }}
+                          >
+                            {order.kioskId || 'PB-001'}
+                          </span>
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--clr-text-4)', marginTop: 2 }}>{timeStr}</div>
                       </td>
 
                       {/* Pickup Token */}
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         <span
                           style={{
                             fontFamily: 'var(--font-mono)',
@@ -597,6 +682,7 @@ export default function MerchantOrdersPage() {
                             background: 'var(--clr-surface-2, rgba(255,255,255,0.06))',
                             borderRadius: 4,
                             color: 'var(--clr-text-1)',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           #{token}
@@ -611,7 +697,7 @@ export default function MerchantOrdersPage() {
                             alignItems: 'center',
                             gap: 8,
                             color: 'var(--clr-text-1)',
-                            maxWidth: 220,
+                            maxWidth: 'clamp(140px, 20vw, 240px)',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -620,17 +706,17 @@ export default function MerchantOrdersPage() {
                           }}
                           title={fileName}
                         >
-                          <FilePdf size={16} color="#ff4d52" weight="fill" />
-                          <span>{fileName}</span>
+                          <FilePdf size={16} color="#ff4d52" weight="fill" style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</span>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--clr-text-3)', marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: 'var(--clr-text-3)', marginTop: 2, whiteSpace: 'nowrap' }}>
                           {pages} {pages === 1 ? 'page' : 'pages'} {copies > 1 ? `· ${copies} copies` : ''} · {mode}
                         </div>
                       </td>
 
                       {/* Customer Identity (IP / MAC) */}
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <span
                             style={{
                               fontFamily: 'var(--font-mono)',
@@ -639,6 +725,7 @@ export default function MerchantOrdersPage() {
                               background: 'var(--clr-surface-2, rgba(255,255,255,0.05))',
                               borderRadius: 4,
                               color: 'var(--clr-text-2)',
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             {customerIp}
@@ -653,6 +740,7 @@ export default function MerchantOrdersPage() {
                                 padding: '1px 5px',
                                 borderRadius: 4,
                                 textTransform: 'uppercase',
+                                whiteSpace: 'nowrap',
                               }}
                             >
                               Blocked
@@ -660,7 +748,7 @@ export default function MerchantOrdersPage() {
                           )}
                         </div>
                         {(customerMac || customerPhone) && (
-                          <div style={{ fontSize: 11, color: 'var(--clr-text-4)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
+                          <div style={{ fontSize: 11, color: 'var(--clr-text-4)', marginTop: 2, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
                             {customerMac ? `MAC: ${customerMac}` : ''}
                             {customerMac && customerPhone ? ' · ' : ''}
                             {customerPhone ? `Ph: ${customerPhone}` : ''}
@@ -669,31 +757,31 @@ export default function MerchantOrdersPage() {
                       </td>
 
                       {/* Gross Paid */}
-                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--clr-text-2)', fontSize: 13 }}>
+                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--clr-text-2)', fontSize: 13, whiteSpace: 'nowrap' }}>
                         {grossAmount}
                       </td>
 
                       {/* Merchant Share */}
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--clr-success, #10b981)', fontSize: 13 }}>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--clr-success, #10b981)', fontSize: 13, whiteSpace: 'nowrap' }}>
                         +{cutAmount}
                       </td>
 
                       {/* Payment Status */}
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         {isConfirmed && (
-                          <span className="badge badge-online" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <span className="badge badge-online" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
                             <Check size={12} weight="bold" />
                             <span>Payment Confirmed</span>
                           </span>
                         )}
                         {isPending && (
-                          <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
                             <HourglassMedium size={12} />
                             <span>Awaiting Confirmation</span>
                           </span>
                         )}
                         {isRejected && (
-                          <span className="badge" style={{ background: 'rgba(239,68,68,0.2)', color: '#fca5a5', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <span className="badge" style={{ background: 'rgba(239,68,68,0.2)', color: '#fca5a5', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
                             <XCircle size={12} />
                             <span>Rejected</span>
                           </span>
@@ -701,7 +789,7 @@ export default function MerchantOrdersPage() {
                       </td>
 
                       {/* Actions */}
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           {/* Payment Confirmation Action */}
                           {isPending && (
@@ -788,23 +876,23 @@ export default function MerchantOrdersPage() {
 
       {/* ─── Machine Access Blocklist Section ─── */}
       <div className="glass-card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ minWidth: 0, maxWidth: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Prohibit size={18} color="#ef4444" weight="bold" />
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--clr-text-1)', margin: 0 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--clr-text-1)', margin: 0, wordBreak: 'break-word' }}>
                 Machine Access Blocklist ({blockedUsers.length} Banned)
               </h2>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--clr-text-3)', margin: '4px 0 0' }}>
-              Enforced by IP and MAC address filtering. Blocked devices are denied access from uploading files or printing at Machine {activeKioskId}.
+            <p style={{ fontSize: 12, color: 'var(--clr-text-3)', margin: '4px 0 0', wordBreak: 'break-word' }}>
+              Enforced by IP and MAC address filtering. Blocked devices are denied access from uploading files or printing at Machine {selectedKiosk === 'ALL' ? 'fleet stations' : selectedKiosk}.
             </p>
           </div>
 
           <button
             className="btn btn-secondary btn-sm"
             onClick={handleOpenManualBlock}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
           >
             <PlusCircle size={15} />
             <span>Block Another IP / Device</span>
@@ -908,31 +996,34 @@ export default function MerchantOrdersPage() {
             className="glass-card"
             style={{
               width: '100%',
-              maxWidth: 520,
+              maxWidth: 'min(520px, calc(100vw - 32px))',
               background: 'var(--clr-bg-800, #111827)',
               border: '1px solid var(--clr-border-strong, rgba(255,255,255,0.15))',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
-              padding: '24px',
+              padding: 'clamp(16px, 4vw, 24px)',
+              boxSizing: 'border-box',
+              maxHeight: 'calc(100vh - 40px)',
+              overflowY: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#ef4444', marginBottom: 12 }}>
-              <UserMinus size={24} weight="fill" />
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--clr-text-1)' }}>
+              <UserMinus size={24} weight="fill" style={{ flexShrink: 0 }} />
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--clr-text-1)', wordBreak: 'break-word' }}>
                 Block Customer from Machine?
               </h2>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--clr-text-3)', lineHeight: 1.5, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, color: 'var(--clr-text-3)', lineHeight: 1.5, marginBottom: 16, wordBreak: 'break-word' }}>
               {targetOrderForBlock ? (
                 <>
                   Blocking customer for Order <strong>#{targetOrderForBlock.orderNumber || targetOrderForBlock.orderId}</strong> ({targetOrderForBlock.fileName}).
-                  This will ban their device from Station <strong style={{ color: 'var(--clr-text-1)' }}>{activeKioskId}</strong>.
+                  This will ban their device from Station <strong style={{ color: 'var(--clr-text-1)' }}>{targetOrderForBlock.kioskId || activeKioskId}</strong>.
                 </>
               ) : (
                 <>
                   This will block the customer's device from creating print orders or executing jobs on Station{' '}
-                  <strong style={{ color: 'var(--clr-text-1)' }}>{activeKioskId}</strong>.
+                  <strong style={{ color: 'var(--clr-text-1)' }}>{selectedKiosk === 'ALL' ? activeKioskId : selectedKiosk}</strong>.
                 </>
               )}
             </p>

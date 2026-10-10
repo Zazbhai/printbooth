@@ -966,38 +966,38 @@ export default function MerchantDashboardPage() {
 
             {/* Telemetry Key-Value Table */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4, borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
                 <span style={{ color: '#64748b' }}>Assigned Station</span>
-                <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'var(--font-mono, monospace)' }}>
+                <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'var(--font-mono, monospace)', wordBreak: 'break-word', textAlign: 'right' }}>
                   {activeKioskId} ({merchantInfo.storeName || 'MIT ADT Campus Hub'})
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4, borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
                 <span style={{ color: '#64748b' }}>Printer Driver</span>
-                <span style={{ fontWeight: 600, color: '#0f172a', textAlign: 'right', maxWidth: 280, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={dbData?.hardware?.printer?.model || kioskInfo.printerModel}>
+                <span style={{ fontWeight: 600, color: '#0f172a', textAlign: 'right', maxWidth: '100%', wordBreak: 'break-word' }} title={dbData?.hardware?.printer?.model || kioskInfo.printerModel}>
                   {dbData?.hardware?.printer?.model || kioskInfo.printerModel || 'Brother Industries, Ltd HL-L5210DW series'}
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4, borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
                 <span style={{ color: '#64748b' }}>Network Connection</span>
-                <span style={{ fontWeight: 600, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontWeight: 600, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', wordBreak: 'break-word', textAlign: 'right' }}>
                   {network?.activeConnectionType === 'ETHERNET' ? (
                     <>
-                      <PlugsConnected size={14} weight="fill" />
+                      <PlugsConnected size={14} weight="fill" style={{ flexShrink: 0 }} />
                       <span>Ethernet LAN • IP {network.primaryIp || '192.168.1.42'}</span>
                     </>
                   ) : (
                     <>
-                      <WifiHigh size={14} weight="bold" />
+                      <WifiHigh size={14} weight="bold" style={{ flexShrink: 0 }} />
                       <span>Wi-Fi ({network?.wifi?.ssid || dbData?.hardware?.wifi?.ssid || 'Airtel_Homeseva'}) • IP {network?.primaryIp || dbData?.hardware?.wifi?.ipAddress || '192.168.1.42'}</span>
                     </>
                   )}
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                 <span style={{ color: '#64748b' }}>CUPS Server Status</span>
-                <span style={{ fontWeight: 600, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <CheckCircle size={14} weight="fill" />
+                <span style={{ fontWeight: 600, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', wordBreak: 'break-word' }}>
+                  <CheckCircle size={14} weight="fill" style={{ flexShrink: 0 }} />
                   <span>CUPS 2.4.2 Linux (Spooler Ready)</span>
                 </span>
               </div>

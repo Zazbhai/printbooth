@@ -104,7 +104,12 @@ export function requireMerchant(req: Request, res: Response, next: NextFunction)
     // For merchants: verify they are only querying their authorized kiosk
     if (req.user.role === 'merchant') {
       const requestedKioskId = (req.query.kioskId as string) || (req.body?.kioskId as string)
-      if (requestedKioskId && req.user.kioskId && requestedKioskId !== req.user.kioskId) {
+      if (
+        requestedKioskId &&
+        requestedKioskId.toUpperCase() !== 'ALL' &&
+        req.user.kioskId &&
+        requestedKioskId !== req.user.kioskId
+      ) {
         return res.status(403).json({
           success: false,
           error: `Forbidden: Access denied to kiosk ${requestedKioskId}. Your merchant rights are restricted to kiosk ${req.user.kioskId}.`,

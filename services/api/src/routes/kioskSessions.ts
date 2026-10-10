@@ -18,6 +18,8 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { cacheGet, cacheSet } from '../redis.js'
 import { dispatchPrintJob, syncJobState, type PrintJobState } from './print.js'
+import { Order } from '../models/Order.js'
+import { isDbConnected } from '../db.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -680,6 +682,72 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
 })
 
 /**
+ * Persists/syncs kiosk session state into the main Order database so
+ * it immediately appears on Merchant Store Orders and Admin Dashboard.
+ */
+export async function syncSessionToOrder(session: KioskSession) {
+  try {
+    if (!session || !session.sessionId) return
+    const orderId = session.orderId || `ORD-${session.sessionId.slice(-6)}`
+    const orderNumber = `PB-2026-${orderId.replace(/[^0-9]/g, '').slice(-4) || Math.floor(1000 + Math.random() * 9000)}`
+    const fileName = session.document?.fileName || session.fileName || 'Kiosk_Document.pdf'
+    const fileSize = session.document?.fileSize || 0
+    const pageCount = session.document?.pageCount || session.totalPages || 1
+    const copies = session.settings?.copies || session.copies || 1
+    const colourMode = (session.settings?.colour || session.colourMode || 'BW').toUpperCase()
+    const duplex = (session.settings?.duplex || 'SINGLE').toUpperCase()
+    const paperSize = session.settings?.paperSize || 'A4'
+    const amount = typeof session.amount === 'number' && session.amount > 0 ? session.amount : 2 * pageCount * copies
+    const merchantCut = Number((amount * 0.18).toFixed(2))
+
+    let status: any = 'PAID'
+    if (session.state === 'DONE') status = 'COMPLETED'
+    else if (session.state === 'PRINTING') status = 'PRINTING'
+    else if (session.state === 'PAYING') status = 'PAYMENT_PENDING'
+
+    if (isDbConnected()) {
+      await Order.findOneAndUpdate(
+        { orderId },
+        {
+          $set: {
+            orderId,
+            orderNumber,
+            kioskId: session.kioskId,
+            fileName,
+            fileSize,
+            status,
+            pageCount,
+            copies,
+            colourMode,
+            duplex,
+            paperSize,
+            amount,
+            merchantCut,
+            pickupCode: session.otp,
+            releasePin: session.otp,
+            otp: session.otp,
+            customerIp: session.claimedIp || '127.0.0.1',
+            paidAt: session.state === 'PAYING' ? undefined : new Date(),
+            completedAt: session.state === 'DONE' ? new Date() : undefined,
+            paymentConfirmation: {
+              status: 'CONFIRMED',
+              confirmedAt: new Date(),
+              confirmedBy: 'Touchscreen UPI / Direct',
+            },
+          },
+          $setOnInsert: {
+            createdAt: new Date(session.createdAt || Date.now()),
+          },
+        },
+        { upsert: true, new: true }
+      )
+    }
+  } catch (err) {
+    console.warn('[KioskSession] Failed to sync session to Order:', err)
+  }
+}
+
+/**
  * POST /api/kiosk-sessions/:sessionId/pay
  * Called by kiosk touchscreen when moving to or completing payment.
  */
@@ -702,6 +770,7 @@ kioskSessionsRouter.post('/:sessionId/pay', (req: Request, res: Response) => {
   session.phaseStep = 4
 
   saveSession(session)
+  syncSessionToOrder(session)
   res.json({ success: true, orderId, otp, session })
 })
 
@@ -749,6 +818,7 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
 
   syncJobState(jobState)
   saveSession(session)
+  syncSessionToOrder(session)
 
   try {
     dispatchPrintJob(jobState)
@@ -776,6 +846,7 @@ kioskSessionsRouter.post('/:sessionId/complete', (req: Request, res: Response) =
   session.completedAt = Date.now()
 
   saveSession(session)
+  syncSessionToOrder(session)
   res.json({ success: true, state: session.state })
 })
 
