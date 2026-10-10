@@ -12,6 +12,7 @@ import MerchantsPage from './pages/admin/MerchantsPage'
 import PaymentSettingsPage from './pages/admin/PaymentSettingsPage'
 import HelpDeskPage from './pages/admin/HelpDeskPage'
 import InstallationRequestsPage from './pages/admin/InstallationRequestsPage'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
 
 // Merchant Pages
 import MerchantDashboardPage from './pages/merchant/MerchantDashboardPage'
@@ -63,6 +64,8 @@ export default function App() {
             <Route path="installations" element={<InstallationRequestsPage />} />
             <Route path="merchants" element={<MerchantsPage />} />
             <Route path="payments" element={<PaymentSettingsPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="admins" element={<Navigate to="/admin/users" replace />} />
           </Route>
 
           {/* ──────── Merchant Partner Portal (Merchant & Admin Emulation) ──────── */}
@@ -91,6 +94,8 @@ export default function App() {
           <Route path="/orders" element={<RootRedirect />} />
           <Route path="/alerts" element={<Navigate to="/admin/alerts" replace />} />
           <Route path="/pricing" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/users" element={<Navigate to="/admin/users" replace />} />
+          <Route path="/admins" element={<Navigate to="/admin/users" replace />} />
 
           <Route path="*" element={<RootRedirect />} />
         </Routes>

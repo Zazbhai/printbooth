@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   DownloadSimple,
   ArrowsClockwise,
+  Camera,
 } from '@phosphor-icons/react'
 import {
   getAdminKiosks,
@@ -24,9 +25,11 @@ import {
   getAdminKioskProvisionKit,
   rotateAdminKioskSecret,
   getAdminMerchants,
+  updateAdminKioskPhoto,
 } from '@/lib/api'
 import { getKioskPrintUrl } from '@/lib/config'
 import Select, { type TSelectData } from '@/components/ui/select'
+import KioskPhotoEditorModal from '@/components/KioskPhotoEditorModal'
 import './AdminPage.css'
 
 const KIOSK_STATUS_OPTIONS: TSelectData[] = [
@@ -67,6 +70,19 @@ export default function KiosksPage() {
   const [copiedCommand, setCopiedCommand] = useState(false)
   const [copiedEnv, setCopiedEnv] = useState(false)
   const [rotatingSecret, setRotatingSecret] = useState(false)
+
+  // Photo Edit modal state
+  const [photoEditKiosk, setPhotoEditKiosk] = useState<{ kioskId: string; name?: string; photoUrl?: string } | null>(null)
+
+  const handleSaveAdminKioskPhoto = async (newPhotoUrl: string) => {
+    if (!photoEditKiosk) return
+    await updateAdminKioskPhoto(photoEditKiosk.kioskId, newPhotoUrl)
+    setKiosks(prev =>
+      prev.map(k => (k.id === photoEditKiosk.kioskId || k.kioskId === photoEditKiosk.kioskId) ? { ...k, kioskPhotoUrl: newPhotoUrl } : k)
+    )
+    setFeedback(`✓ Installation photo updated for station ${photoEditKiosk.kioskId}!`)
+    setTimeout(() => setFeedback(null), 3500)
+  }
 
   const handleRotateSecretFromModal = async () => {
     if (!activeKitData?.kioskId) return
@@ -563,24 +579,60 @@ export default function KiosksPage() {
                   </span>
                 </div>
 
-                {k.kioskPhotoUrl && (
-                  <div
-                    style={{
-                      height: 120,
-                      borderRadius: 8,
-                      overflow: 'hidden',
-                      marginBottom: 12,
-                      border: '1px solid var(--clr-border)',
-                      background: 'var(--clr-surface-2, #f8fafc)',
-                    }}
-                  >
+                <div
+                  style={{
+                    position: 'relative',
+                    height: 120,
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    marginBottom: 12,
+                    border: '1px solid var(--clr-border)',
+                    background: 'var(--clr-surface-2, #18181b)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {k.kioskPhotoUrl ? (
                     <img
                       src={k.kioskPhotoUrl}
                       alt={k.name || id}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'var(--clr-text-4)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Camera size={16} />
+                      <span>No hardware photo</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPhotoEditKiosk({ kioskId: id, name: k.name, photoUrl: k.kioskPhotoUrl })}
+                    style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      background: 'rgba(21, 21, 23, 0.88)',
+                      color: '#c8ff00',
+                      border: '1px solid rgba(200, 255, 0, 0.35)',
+                      borderRadius: 6,
+                      padding: '3px 7px',
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      cursor: 'pointer',
+                      backdropFilter: 'blur(6px)',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                      zIndex: 2,
+                    }}
+                    title="Edit or update photo for this kiosk station"
+                  >
+                    <Camera size={12} weight="bold" />
+                    <span>{k.kioskPhotoUrl ? 'Edit' : 'Upload'}</span>
+                  </button>
+                </div>
 
                 <div
                   className="kiosk-detail-card__actions"
@@ -1088,6 +1140,20 @@ export default function KiosksPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Kiosk Hardware Photo Editor Modal */}
+      {photoEditKiosk && (
+        <KioskPhotoEditorModal
+          isOpen={Boolean(photoEditKiosk)}
+          onClose={() => setPhotoEditKiosk(null)}
+          kioskId={photoEditKiosk.kioskId}
+          venueName={photoEditKiosk.name}
+          currentPhotoUrl={photoEditKiosk.photoUrl}
+          onSave={handleSaveAdminKioskPhoto}
+          title="Edit Kiosk Station Photo"
+          subtitle={`Update installation photo for kiosk station ${photoEditKiosk.kioskId} (${photoEditKiosk.name || 'Station'}).`}
+        />
       )}
     </div>
   )

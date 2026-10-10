@@ -9,7 +9,7 @@ import { cachePurgePattern, cacheSet, cacheGet } from '../redis.js'
 import { relayToKiosk } from '../modules/wsRelay.js'
 
 import { isUserBlocked, normalizeIp } from '../modules/blocklist.js'
-import { printJobs, usedPinsRegistry } from './print.js'
+import { printJobs, usedPinsRegistry, parsePageRangeList } from './print.js'
 import { permanentlyDeleteOrderFiles } from '../modules/fileLifecycle.js'
 import { verifyKioskSecret, safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
@@ -146,6 +146,10 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
     const pickupCode = releasePin
     const otp = releasePin
 
+    const docPages = Math.max(1, Number(req.body.totalDocPages || req.body.docPageCount || pageCount) || 1)
+    const selectedPages = parsePageRangeList(normPageRange, docPages)
+    const specifiedPageCount = selectedPages.length
+
     const orderData: any = {
       orderId,
       orderNumber,
@@ -153,18 +157,26 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       fileName,
       fileSize,
       status: 'PAID',
-      pageCount,
+      pageCount: specifiedPageCount,
+      totalDocPages: docPages,
+      docPageCount: docPages,
+      selectedPages,
       copies,
       colourMode,
       duplex,
       paperSize,
       pageRange: normPageRange,
+      pages: normPageRange,
       scaling: normScaling,
       pagesPerSheet: normPagesPerSheet,
       printSettings: {
         ...(printSettings || {}),
         pageRange: normPageRange,
         pages: normPageRange,
+        selectedPages,
+        pageCount: specifiedPageCount,
+        totalDocPages: docPages,
+        docPageCount: docPages,
         scaling: normScaling,
         pagesPerSheet: normPagesPerSheet,
         copies,
@@ -212,10 +224,14 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
         duplex,
         paperSize,
         pageRange: normPageRange,
+        pages: normPageRange,
+        selectedPages,
+        pageCount: specifiedPageCount,
+        totalDocPages: docPages,
+        docPageCount: docPages,
         scaling: normScaling,
         orientation: (orderData.printSettings?.orientation || 'AUTO').toUpperCase(),
         pagesPerSheet: normPagesPerSheet,
-        pageCount,
         pageColours: pageColours || printSettings?.pageColours,
         pageCopies: pageCopies || printSettings?.pageCopies,
         printSettings: orderData.printSettings,

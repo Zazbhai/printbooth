@@ -16,6 +16,7 @@ import {
   ArrowSquareOut,
   Image as ImageIcon,
   MapPin,
+  Camera,
 } from '@phosphor-icons/react'
 import {
   getMerchantHardware,
@@ -25,11 +26,13 @@ import {
   getMerchantNetwork,
   scanMerchantWifi,
   connectMerchantWifi,
+  updateMerchantKioskPhoto,
   type IKioskNetworkTelemetry,
 } from '@/lib/api'
 import { getKioskPrintUrl } from '@/lib/config'
 import { useActiveMerchant } from '@/lib/merchantContext'
 import Select, { type TSelectData } from '@/components/ui/select'
+import KioskPhotoEditorModal from '@/components/KioskPhotoEditorModal'
 import '../AdminPage.css'
 import '../admin/MerchantsPage.css'
 
@@ -45,7 +48,7 @@ const URGENCY_OPTIONS: TSelectData[] = [
 ]
 
 export default function MerchantKiosksPage() {
-  const { activeKioskId, setActiveKioskId, activeMerchant, merchantKiosks } = useActiveMerchant()
+  const { activeKioskId, setActiveKioskId, activeMerchant, merchantKiosks, refreshMerchants } = useActiveMerchant()
   const [hardware, setHardware] = useState<any>(null)
   const [network, setNetwork] = useState<IKioskNetworkTelemetry | null>(null)
   const [loadingPrinters, setLoadingPrinters] = useState(false)
@@ -54,6 +57,14 @@ export default function MerchantKiosksPage() {
   const [refillModalOpen, setRefillModalOpen] = useState(false)
   const [refillSent, setRefillSent] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
+
+  const handleSaveKioskPhoto = async (newPhotoUrl: string) => {
+    await updateMerchantKioskPhoto(activeKioskId, newPhotoUrl)
+    if (refreshMerchants) {
+      await refreshMerchants()
+    }
+  }
 
   // Wi-Fi & Raspberry Pi Network States
   const [wifiModalOpen, setWifiModalOpen] = useState(false)
@@ -389,7 +400,28 @@ export default function MerchantKiosksPage() {
               <ImageIcon size={18} color="var(--clr-accent-light)" weight="bold" />
               <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--clr-text-1)' }}>Physical Kiosk Installation</h3>
             </div>
-            <span className="badge badge-online">Verified Installation</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="badge badge-online">Verified Installation</span>
+              <button
+                type="button"
+                onClick={() => setPhotoModalOpen(true)}
+                className="btn btn-secondary btn-sm"
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  borderColor: 'rgba(200, 255, 0, 0.35)',
+                  color: 'var(--clr-accent, #c8ff00)',
+                  background: 'rgba(200, 255, 0, 0.08)',
+                }}
+                title="Edit or upload new photo of this kiosk"
+              >
+                <Camera size={14} weight="bold" />
+                <span>Edit Photo</span>
+              </button>
+            </div>
           </div>
 
           <div style={{ borderRadius: 12, overflow: 'hidden', height: 180, background: 'var(--clr-surface-2, #f8fafc)', position: 'relative', border: '1px solid var(--clr-border)' }}>
@@ -404,6 +436,32 @@ export default function MerchantKiosksPage() {
                 No photo uploaded
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => setPhotoModalOpen(true)}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                background: 'rgba(15, 23, 42, 0.85)',
+                color: '#fff',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                padding: '4px 8px',
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                cursor: 'pointer',
+                backdropFilter: 'blur(6px)',
+                zIndex: 2,
+              }}
+              title="Update physical kiosk hardware installation photo"
+            >
+              <Camera size={13} weight="bold" />
+              <span>Change</span>
+            </button>
             <div style={{
               position: 'absolute',
               bottom: 0,
@@ -1229,6 +1287,18 @@ export default function MerchantKiosksPage() {
           </div>
         </div>
       )}
+
+      {/* Kiosk Photo Editor Modal */}
+      <KioskPhotoEditorModal
+        isOpen={photoModalOpen}
+        onClose={() => setPhotoModalOpen(false)}
+        kioskId={activeKioskId}
+        venueName={activeMerchant?.storeName}
+        currentPhotoUrl={activeMerchant?.kioskPhotoUrl}
+        onSave={handleSaveKioskPhoto}
+        title="Update Kiosk Hardware Photo"
+        subtitle={`Upload a photo of kiosk station ${activeKioskId} installed at ${activeMerchant?.storeName || 'venue'}.`}
+      />
     </div>
   )
 }

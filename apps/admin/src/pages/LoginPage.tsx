@@ -2,7 +2,6 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ShieldCheck,
-  Storefront,
   ArrowRight,
   LockKey,
   EnvelopeSimple,
@@ -13,7 +12,7 @@ import {
   IdentificationBadge,
 } from '@phosphor-icons/react'
 import { useAuth } from '../lib/authContext'
-import { merchantLogin, getAdminMerchants, requestMerchantPasswordReset } from '../lib/api'
+import { adminLogin, merchantLogin, getAdminMerchants, requestMerchantPasswordReset } from '../lib/api'
 import { createHelpDeskTicket } from '../lib/helpdesk'
 import MerchantBlockedNotice from '../components/merchant/MerchantBlockedNotice'
 
@@ -51,12 +50,11 @@ export default function LoginPage() {
   const [isResetMode, setIsResetMode] = useState(false)
 
   // Sign In state
-  const [role, setRole] = useState<'merchant' | 'admin'>('merchant')
   const [merchantPresets, setMerchantPresets] = useState<MerchantPreset[]>(DEFAULT_PRESETS)
   const [selectedMerchant, setSelectedMerchant] = useState<MerchantPreset>(DEFAULT_PRESETS[0])
   const [signInForm, setSignInForm] = useState({
-    identifier: 'merchant_adt',
-    password: 'merchant123',
+    identifier: '',
+    password: '',
   })
   const [signInError, setSignInError] = useState('')
   const [isSigningIn, setIsSigningIn] = useState(false)
@@ -73,7 +71,7 @@ export default function LoginPage() {
   const [resetForm, setResetForm] = useState({
     identifier: '',
     phone: '',
-    kioskId: 'PB-001',
+    kioskId: '',
     reason: '',
   })
   const [resetError, setResetError] = useState('')
@@ -99,86 +97,85 @@ export default function LoginPage() {
             requirePasswordChange: Boolean(m.requirePasswordChange),
           }))
           setMerchantPresets(presets)
-          setSelectedMerchant(presets[0])
-          if (role === 'merchant') {
-            setSignInForm({
-              identifier: presets[0].username || presets[0].email,
-              password: presets[0].password || 'merchant123',
-            })
+          if (presets[0]) {
+            setSelectedMerchant(presets[0])
           }
         }
       })
       .catch(() => {})
-  }, [role])
+  }, [])
 
-  const handleRoleChange = (newRole: 'admin' | 'merchant') => {
-    setRole(newRole)
-    setSignInError('')
-    if (newRole === 'admin') {
-      setSignInForm({ identifier: 'admin@printbooth.in', password: 'admin' })
-    } else {
-      setSignInForm({
-        identifier: selectedMerchant.username || selectedMerchant.email,
-        password: selectedMerchant.password || 'merchant123',
-      })
-    }
-  }
-
-  const handleMerchantPresetChange = (preset: MerchantPreset) => {
-    setSelectedMerchant(preset)
-    setSignInForm({
-      identifier: preset.username || preset.email,
-      password: preset.password || 'merchant123',
-    })
-    setResetForm((prev) => ({
-      ...prev,
-      identifier: preset.username || preset.email,
-      kioskId: preset.kioskId,
-    }))
-    setSignInError('')
-  }
-
-  // ── Handle Sign In Submission ──
+  // ── Handle Sign In Submission (Auto-detect Admin vs Merchant) ──
   const handleSignInSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setSignInError('')
+
+    const cleanId = signInForm.identifier.trim()
+    const cleanPass = signInForm.password
+
+    if (!cleanId || !cleanPass) {
+      setSignInError('Please enter both your identifier and password.')
+      return
+    }
+
     setIsSigningIn(true)
 
     try {
-      if (role === 'admin') {
-        if (signInForm.identifier === 'admin@printbooth.in' && signInForm.password === 'admin') {
+      const lowerId = cleanId.toLowerCase()
+
+      // ── 1. Authenticate Platform Admin via API & Registry ──
+      try {
+        const adminRes = await adminLogin({
+          identifier: cleanId,
+          password: cleanPass,
+        })
+        if (adminRes?.success && adminRes?.data) {
           login({
-            email: 'admin@printbooth.in',
-            name: 'Platform Administrator',
+            email: adminRes.data.email,
+            name: adminRes.data.name || 'Platform Administrator',
             role: 'admin',
-            token: 'pb_adm_' + Date.now(),
+            token: adminRes.data.token || ('pb_adm_' + Date.now()),
           })
           navigate('/admin/dashboard')
           return
-        } else {
-          setSignInError('Invalid admin credentials. Use admin@printbooth.in / admin')
+        }
+      } catch (adminErr: any) {
+        const errResp = adminErr.response?.data
+        if (
+          errResp?.isBlocked ||
+          errResp?.status === 'BLOCKED' ||
+          errResp?.error?.toLowerCase().includes('blocked') ||
+          errResp?.error?.toLowerCase().includes('suspended')
+        ) {
+          setSignInError(errResp?.error || 'Account Blocked: Your administrator account has been suspended by Platform Administration.')
+          return
+        }
+        if (adminErr.response?.status === 401 && errResp?.error?.toLowerCase().includes('password')) {
+          setSignInError(errResp.error)
           return
         }
       }
 
-      // Merchant login
+      // ── 2. Authenticate as Merchant Partner via API ──
       try {
         const res = await merchantLogin({
-          identifier: signInForm.identifier,
-          password: signInForm.password,
+          identifier: cleanId,
+          password: cleanPass,
         })
         if (res?.success && res?.data) {
+          const userData = res.data
+          const detectedRole = userData.role === 'admin' ? 'admin' : 'merchant'
           login({
-            email: res.data.email,
-            name: res.data.name,
-            storeName: res.data.storeName,
-            role: 'merchant',
-            token: res.data.token,
-            kioskId: res.data.kioskId,
-            merchantId: res.data.merchantId,
-            requirePasswordChange: Boolean(res.data.requirePasswordChange),
+            email: userData.email,
+            name: userData.name,
+            storeName: userData.storeName,
+            role: detectedRole,
+            token: userData.token,
+            kioskId: userData.kioskId,
+            merchantId: userData.merchantId,
+            requirePasswordChange: Boolean(userData.requirePasswordChange),
           })
-          navigate('/merchant/dashboard')
+          navigate(detectedRole === 'admin' ? '/admin/dashboard' : '/merchant/dashboard')
           return
         }
       } catch (err: any) {
@@ -190,59 +187,71 @@ export default function LoginPage() {
           errResp?.error?.includes('suspended')
         ) {
           setBlockedNotice({
-            kioskId: errResp?.kioskId || selectedMerchant.kioskId,
-            storeName: selectedMerchant.storeName,
-            merchantName: selectedMerchant.name,
+            kioskId: errResp?.kioskId || selectedMerchant?.kioskId || 'PB-001',
+            storeName: errResp?.storeName || selectedMerchant?.storeName || 'Partner Store',
+            merchantName: errResp?.merchantName || selectedMerchant?.name || cleanId,
             companyContact: errResp?.companyContact,
           })
           setSignInError(errResp?.error || 'Account suspended by administrator.')
           return
         }
-        if (err.response?.status === 401 && errResp?.error) {
+
+        // Check if backend rejected with incorrect password
+        if (err.response?.status === 401 && errResp?.error?.toLowerCase().includes('password')) {
           setSignInError(errResp.error)
           return
         }
 
-        // Local fallback authentication
-        const matched =
-          merchantPresets.find(
-            (p) =>
-              (p.email && p.email.toLowerCase() === signInForm.identifier.toLowerCase()) ||
-              (p.username && p.username.toLowerCase() === signInForm.identifier.toLowerCase())
-          ) || selectedMerchant
+        // ── 3. Local fallback authentication (when backend is offline or mock presets) ──
+        const matched = merchantPresets.find(
+          (p) =>
+            (p.email && p.email.toLowerCase() === lowerId) ||
+            (p.username && p.username.toLowerCase() === lowerId) ||
+            (p.merchantId && p.merchantId.toLowerCase() === lowerId)
+        )
 
-        if (matched.isBlocked) {
-          setBlockedNotice({
-            kioskId: matched.kioskId,
-            storeName: matched.storeName,
-            merchantName: matched.name,
-          })
-          setSignInError('This merchant account has been suspended by the platform administrator.')
+        if (matched) {
+          if (matched.isBlocked) {
+            setBlockedNotice({
+              kioskId: matched.kioskId,
+              storeName: matched.storeName,
+              merchantName: matched.name,
+            })
+            setSignInError('This merchant account has been suspended by the platform administrator.')
+            return
+          }
+
+          const validPass = matched.password || 'merchant123'
+          if (
+            cleanPass === validPass ||
+            cleanPass === 'merchant' ||
+            cleanPass === '1234'
+          ) {
+            login({
+              email: matched.email,
+              name: matched.name,
+              storeName: matched.storeName,
+              role: 'merchant',
+              token: 'pb_mer_' + Date.now(),
+              kioskId: matched.kioskId,
+              merchantId: matched.merchantId,
+              requirePasswordChange: Boolean(matched.requirePasswordChange),
+            })
+            navigate('/merchant/dashboard')
+            return
+          } else {
+            setSignInError('Invalid merchant credentials. Please verify your password.')
+            return
+          }
+        }
+
+        if (errResp?.error) {
+          setSignInError(errResp.error)
           return
         }
 
-        const validPass = matched.password || 'merchant123'
-        if (
-          signInForm.password === validPass ||
-          signInForm.password === 'merchant' ||
-          signInForm.password === '1234'
-        ) {
-          login({
-            email: matched.email,
-            name: matched.name,
-            storeName: matched.storeName,
-            role: 'merchant',
-            token: 'pb_mer_' + Date.now(),
-            kioskId: matched.kioskId,
-            merchantId: matched.merchantId,
-            requirePasswordChange: Boolean(matched.requirePasswordChange),
-          })
-          navigate('/merchant/dashboard')
-          return
-        } else {
-          setSignInError('Invalid merchant credentials. Please verify username and password.')
-          return
-        }
+        setSignInError('Invalid credentials. No account found matching this username or email.')
+        return
       }
     } finally {
       setIsSigningIn(false)
@@ -439,74 +448,6 @@ export default function LoginPage() {
           text-align: center;
           max-width: 360px;
           line-height: 1.4;
-        }
-
-        /* Role switcher tabs */
-        .role-switcher {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 4px;
-          width: 100%;
-          max-width: 380px;
-          background: #f1f5f9;
-          padding: 4px;
-          border-radius: 12px;
-          margin-bottom: 14px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .role-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 7px 10px;
-          border: none;
-          background: transparent;
-          color: #64748b;
-          font-size: 12px;
-          font-weight: 600;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .role-btn.active.merchant-active {
-          background: #059669;
-          color: #ffffff;
-          box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);
-        }
-
-        .role-btn.active.admin-active {
-          background: #dc2626;
-          color: #ffffff;
-          box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
-        }
-
-        .preset-select-wrap {
-          width: 100%;
-          max-width: 380px;
-          margin-bottom: 10px;
-        }
-
-        .preset-select {
-          width: 100%;
-          height: 38px;
-          padding: 0 12px;
-          font-size: 12px;
-          border-radius: 10px;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
-          color: #334155;
-          font-weight: 500;
-          outline: none;
-          cursor: pointer;
-          transition: 0.2s;
-        }
-
-        .preset-select:focus {
-          border-color: #059669;
-          box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
         }
 
         .input-field {
@@ -936,72 +877,26 @@ export default function LoginPage() {
         <div className="forms-container">
           <div className="signin-signup">
             {/* ── Form 1: Sign In ── */}
-            <form className="sign-in-form" onSubmit={handleSignInSubmit}>
-              <span className={`brand-pill ${role === 'merchant' ? 'merchant' : ''}`}>
-                {role === 'merchant' ? 'Store Partner Portal' : 'Admin Operations'}
+            <form className="sign-in-form" onSubmit={handleSignInSubmit} autoComplete="off">
+              <span className="brand-pill">
+                <ShieldCheck size={13} weight="bold" />
+                <span>Console Portal</span>
               </span>
               <h2 className="title">Sign In</h2>
               <p className="sub-text">
-                {role === 'merchant'
-                  ? 'Access your kiosk station status, telemetry & revenue payouts.'
-                  : 'Platform superuser console for fleet hardware & network controls.'}
+                Enter your credentials to access your console dashboard. Role is auto-detected.
               </p>
 
-              {/* Role Switcher Tabs */}
-              <div className="role-switcher">
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'merchant' ? 'active merchant-active' : ''}`}
-                  onClick={() => handleRoleChange('merchant')}
-                >
-                  <Storefront size={15} weight="bold" />
-                  <span>Merchant</span>
-                </button>
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'admin' ? 'active admin-active' : ''}`}
-                  onClick={() => handleRoleChange('admin')}
-                >
-                  <ShieldCheck size={15} weight="bold" />
-                  <span>Platform Admin</span>
-                </button>
-              </div>
-
-              {/* Merchant Venue Selector (Demo & quick convenience) */}
-              {role === 'merchant' && merchantPresets.length > 0 && (
-                <div className="preset-select-wrap">
-                  <select
-                    className="preset-select"
-                    value={selectedMerchant.kioskId}
-                    onChange={(e) => {
-                      const m =
-                        merchantPresets.find((p) => p.kioskId === e.target.value) ||
-                        merchantPresets[0]
-                      handleMerchantPresetChange(m)
-                    }}
-                  >
-                    {merchantPresets.map((m) => (
-                      <option key={m.kioskId} value={m.kioskId}>
-                        {m.storeName} ({m.kioskId}) {m.isBlocked ? '— [Suspended]' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               {/* Input: Username or Email */}
-              <div className={`input-field ${role === 'merchant' ? 'merchant-field' : ''}`}>
+              <div className="input-field">
                 <i>
                   <EnvelopeSimple size={18} weight="bold" />
                 </i>
                 <input
-                  type={role === 'merchant' ? 'text' : 'email'}
-                  placeholder={
-                    role === 'merchant'
-                      ? 'Partner Username or Email'
-                      : 'admin@printbooth.in'
-                  }
+                  type="text"
+                  placeholder="Username or Email Address"
                   required
+                  autoComplete="off"
                   value={signInForm.identifier}
                   onChange={(e) =>
                     setSignInForm((f) => ({ ...f, identifier: e.target.value }))
@@ -1010,7 +905,7 @@ export default function LoginPage() {
               </div>
 
               {/* Input: Password */}
-              <div className={`input-field ${role === 'merchant' ? 'merchant-field' : ''}`}>
+              <div className="input-field">
                 <i>
                   <LockKey size={18} weight="bold" />
                 </i>
@@ -1018,6 +913,7 @@ export default function LoginPage() {
                   type="password"
                   placeholder="Password"
                   required
+                  autoComplete="new-password"
                   value={signInForm.password}
                   onChange={(e) =>
                     setSignInForm((f) => ({ ...f, password: e.target.value }))
@@ -1030,7 +926,7 @@ export default function LoginPage() {
               {/* Submit Button */}
               <button
                 type="submit"
-                className={`btn ${role === 'merchant' ? 'merchant-btn' : ''}`}
+                className="btn"
                 disabled={isSigningIn}
               >
                 <span>{isSigningIn ? 'Authenticating…' : 'Sign In'}</span>
@@ -1044,11 +940,12 @@ export default function LoginPage() {
                 onClick={() => {
                   setResetError('')
                   setResetSuccess(null)
-                  setResetForm((prev) => ({
-                    ...prev,
-                    identifier: signInForm.identifier || selectedMerchant.username || '',
-                    kioskId: selectedMerchant.kioskId,
-                  }))
+                  setResetForm({
+                    identifier: '',
+                    phone: '',
+                    kioskId: '',
+                    reason: '',
+                  })
                   setIsResetMode(true)
                 }}
               >
@@ -1058,7 +955,7 @@ export default function LoginPage() {
             </form>
 
             {/* ── Form 2: Request Password Change (Help Desk Ticket) ── */}
-            <form className="sign-up-form" onSubmit={handleResetSubmit}>
+            <form className="sign-up-form" onSubmit={handleResetSubmit} autoComplete="off">
               <span className="brand-pill merchant">
                 <Lifebuoy size={12} weight="bold" />
                 <span>Help Desk Support</span>
@@ -1189,11 +1086,12 @@ export default function LoginPage() {
                 onClick={() => {
                   setResetError('')
                   setResetSuccess(null)
-                  setResetForm((prev) => ({
-                    ...prev,
-                    identifier: signInForm.identifier || selectedMerchant.username || '',
-                    kioskId: selectedMerchant.kioskId,
-                  }))
+                  setResetForm({
+                    identifier: '',
+                    phone: '',
+                    kioskId: '',
+                    reason: '',
+                  })
                   setIsResetMode(true)
                 }}
               >
@@ -1207,8 +1105,8 @@ export default function LoginPage() {
           <div className="panel right-panel">
             <div className="content">
               <span className="panel-badge">
-                <Storefront size={14} weight="bold" />
-                <span>Merchant Console</span>
+                <ShieldCheck size={14} weight="bold" />
+                <span>Console Portal</span>
               </span>
               <h3>Remember Credentials?</h3>
               <p>

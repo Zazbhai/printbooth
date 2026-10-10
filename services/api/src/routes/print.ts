@@ -818,6 +818,46 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
   }
 })
 
+// Helper to parse human and API page ranges into 1-indexed page array
+export function parsePageRangeList(rangeStr: string | number[] | undefined | null, total: number): number[] {
+  const maxTotal = Math.max(1, isNaN(Number(total)) ? 1 : Number(total))
+  if (Array.isArray(rangeStr)) {
+    const valid = rangeStr.map(Number).filter(n => !isNaN(n) && n >= 1 && n <= maxTotal)
+    if (valid.length > 0) return Array.from(new Set(valid)).sort((a, b) => a - b)
+  }
+  if (!rangeStr || typeof rangeStr !== 'string' || rangeStr.trim().toUpperCase() === 'ALL' || rangeStr.trim() === '*') {
+    return Array.from({ length: maxTotal }, (_, i) => i + 1)
+  }
+  const clean = rangeStr.trim()
+  if (clean.startsWith('[') && clean.endsWith(']')) {
+    try {
+      const arr = JSON.parse(clean)
+      if (Array.isArray(arr) && arr.length > 0) {
+        return parsePageRangeList(arr, maxTotal)
+      }
+    } catch {}
+  }
+  const selected = new Set<number>()
+  const parts = clean.split(',').map(s => s.trim()).filter(Boolean)
+  for (const part of parts) {
+    if (part.includes('-')) {
+      const [startStr, endStr] = part.split('-').map(s => s.trim())
+      const start = Math.max(1, parseInt(startStr, 10) || 1)
+      const end = Math.min(maxTotal, parseInt(endStr, 10) || maxTotal)
+      if (start <= end) {
+        for (let i = start; i <= end; i++) selected.add(i)
+      }
+    } else {
+      const p = parseInt(part, 10)
+      if (!isNaN(p) && p >= 1 && p <= maxTotal) {
+        selected.add(p)
+      }
+    }
+  }
+  const res = Array.from(selected).sort((a, b) => a - b)
+  return res.length > 0 ? res : Array.from({ length: maxTotal }, (_, i) => i + 1)
+}
+
 // ── Verification Engine: Verifies OTP / Release PIN and triggers physical printing ──
 export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
   const kioskId = (rawKioskId || 'PB-001').trim().toUpperCase()
@@ -981,15 +1021,19 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
         simulateTestPrintJob(job)
       }
 
-      let resolvedJobPages = Math.max(1, job.totalPages || 1)
-      if (resolvedJobPages <= 1 && isDbConnected()) {
+      let docPages = Math.max(1, Number((job as any).totalDocPages || (job as any).docPageCount || job.totalPages || 1))
+      if (isDbConnected()) {
         try {
           const dbDoc = await Order.findOne({ $or: [{ orderId: job.orderId }, { orderNumber: job.orderId }] })
           if (dbDoc && dbDoc.pageCount && dbDoc.pageCount > 1) {
-            resolvedJobPages = dbDoc.pageCount * resolvedCopies
+            docPages = Number(dbDoc.totalDocPages || dbDoc.docPageCount || dbDoc.pageCount) || docPages
           }
         } catch {}
       }
+
+      const targetRange = String(job.pageRange || 'ALL').trim()
+      const specifiedPages = parsePageRangeList(targetRange, docPages)
+      const userPrintCount = specifiedPages.length * resolvedCopies
 
       return {
         success: true,
@@ -997,14 +1041,32 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
         message: 'PIN verified successfully! Hardware printing started.',
         order: {
           orderId: job.orderId,
+          orderNumber: (job as any).orderNumber || job.orderId,
           fileName: job.fileName,
           copies: resolvedCopies,
           colourMode: resolvedColour,
           duplex: job.duplex,
           paperSize: job.paperSize || 'A4',
-          pageRange: job.pageRange || 'ALL',
-          pageCount: resolvedJobPages,
-          totalPages: resolvedJobPages,
+          pageRange: targetRange,
+          pages: targetRange,
+          selectedPages: specifiedPages,
+          pageCount: specifiedPages.length,
+          totalPages: userPrintCount,
+          totalDocPages: docPages,
+          docPageCount: docPages,
+          printSettings: {
+            pageRange: targetRange,
+            pages: targetRange,
+            selectedPages: specifiedPages,
+            copies: resolvedCopies,
+            colourMode: resolvedColour,
+            duplex: job.duplex,
+            paperSize: job.paperSize,
+            pageColours: job.pageColours,
+            pageCopies: job.pageCopies,
+          },
+          pageColours: job.pageColours,
+          pageCopies: job.pageCopies,
           status: 'PRINTING',
         },
       }
@@ -1217,19 +1279,44 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     simulateTestPrintJob(existingJob)
   }
 
+  const docPages = Math.max(1, Number(order.totalDocPages || order.docPageCount || order.pageCount || 1))
+  const targetRange = String(order.pageRange || order.printSettings?.pageRange || order.printSettings?.pages || 'ALL').trim()
+  const specifiedPages = parsePageRangeList(targetRange, docPages)
+  const userPrintCount = specifiedPages.length * (resolvedCopies || order.copies || 1)
+
   return {
     success: true,
     valid: true,
     message: 'PIN verified successfully! Physical printing initiated.',
     order: {
       orderId: order.orderId,
+      orderNumber: canonicalOrderNumber,
       fileName: order.fileName,
-      copies: order.copies,
-      colourMode: order.colourMode,
-      duplex: order.duplex,
-      paperSize: order.paperSize || 'A4',
-      pageCount: Math.max(1, (order.pageCount || 1) * (resolvedCopies || order.copies || 1)),
-      totalPages: Math.max(1, (order.pageCount || 1) * (resolvedCopies || order.copies || 1)),
+      copies: resolvedCopies,
+      colourMode: resolvedColour,
+      duplex: resolvedDuplex,
+      paperSize: resolvedPaper,
+      pageRange: targetRange,
+      pages: targetRange,
+      selectedPages: specifiedPages,
+      pageCount: specifiedPages.length,
+      totalPages: userPrintCount,
+      totalDocPages: docPages,
+      docPageCount: docPages,
+      printSettings: {
+        ...(order.printSettings || {}),
+        pageRange: targetRange,
+        pages: targetRange,
+        selectedPages: specifiedPages,
+        copies: resolvedCopies,
+        colourMode: resolvedColour,
+        duplex: resolvedDuplex,
+        paperSize: resolvedPaper,
+        pageColours: resolvedPageColours,
+        pageCopies: resolvedPageCopies,
+      },
+      pageColours: resolvedPageColours,
+      pageCopies: resolvedPageCopies,
       status: 'PRINTING',
     },
   }

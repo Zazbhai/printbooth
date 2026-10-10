@@ -6,7 +6,8 @@ import { Merchant } from '../models/Merchant.js'
 import { PricingRule } from '../models/Pricing.js'
 import { Notification } from '../models/Notification.js'
 import { isDbConnected } from '../db.js'
-import { fallbackKiosks, fallbackOrders, fallbackMerchants, fallbackNotifications, getFallbackAdminSummary } from '../fallbackData.js'
+import { AdminUser } from '../models/AdminUser.js'
+import { fallbackKiosks, fallbackOrders, fallbackMerchants, fallbackNotifications, fallbackAdmins, getFallbackAdminSummary } from '../fallbackData.js'
 import { requireAdmin } from '../modules/auth.js'
 import { getRealPrinterHardwareStatus } from '../modules/printerDetector.js'
 import { generateKioskSecret, generatePiEnvContent, resolveKioskApiBaseUrl } from '../modules/kioskAuth.js'
@@ -15,7 +16,90 @@ import { cacheMiddleware, cachePurgePattern, getCacheStats } from '../redis.js'
 
 export const adminRouter = Router()
 
-// Enforce Platform Administrator privileges on all /api/admin endpoints
+// POST /api/admin/login — Authenticate administrator account (Pre-auth route)
+adminRouter.post('/login', async (req: Request, res: Response) => {
+  try {
+    const { identifier, username, email, password } = req.body
+    const loginId = (identifier || username || email || '').trim().toLowerCase()
+    const loginPass = (password || '').trim()
+
+    if (!loginId || !loginPass) {
+      return res.status(400).json({ success: false, error: 'Username/Email and Password are required.' })
+    }
+
+    let adminUser: any = null
+    if (isDbConnected()) {
+      adminUser = await AdminUser.findOne({
+        $or: [
+          { email: new RegExp(`^${loginId}$`, 'i') },
+          { username: new RegExp(`^${loginId}$`, 'i') },
+          { adminId: new RegExp(`^${loginId}$`, 'i') },
+        ],
+      }).lean()
+    }
+    if (!adminUser) {
+      adminUser = fallbackAdmins.find(
+        (a: any) =>
+          (a.email && a.email.toLowerCase() === loginId) ||
+          (a.username && a.username.toLowerCase() === loginId) ||
+          (a.adminId && a.adminId.toLowerCase() === loginId)
+      )
+    }
+
+    // Special fallback for root admin if not in DB yet
+    if (!adminUser && (loginId === 'admin@printbooth.in' || loginId === 'admin')) {
+      adminUser = fallbackAdmins[0]
+    }
+
+    if (!adminUser) {
+      return res.status(401).json({ success: false, error: 'No administrator account found with this username or email.' })
+    }
+
+    // Check if admin is blocked
+    if (adminUser.status === 'BLOCKED') {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        status: 'BLOCKED',
+        error: 'Account Blocked: Your administrator account has been suspended by Platform Administration. Please contact the system owner.',
+      })
+    }
+
+    // Validate password
+    const validPassword = adminUser.password || 'admin'
+    if (loginPass !== validPassword) {
+      return res.status(401).json({ success: false, error: 'Incorrect administrator password.' })
+    }
+
+    // Update lastLogin if in DB
+    if (isDbConnected() && adminUser._id) {
+      await AdminUser.findByIdAndUpdate(adminUser._id, { lastLogin: new Date() }).catch(() => {})
+    } else if (adminUser) {
+      adminUser.lastLogin = new Date().toISOString()
+    }
+
+    const token = 'pb_adm_' + Date.now()
+    return res.json({
+      success: true,
+      message: 'Admin signed in successfully.',
+      data: {
+        token,
+        adminId: adminUser.adminId || 'ADM-001',
+        name: adminUser.name || 'Platform Administrator',
+        email: adminUser.email || 'admin@printbooth.in',
+        username: adminUser.username || 'admin',
+        role: 'admin',
+        adminRole: adminUser.role || 'SUPERADMIN',
+        isRoot: Boolean(adminUser.isRoot),
+      },
+    })
+  } catch (err: any) {
+    console.error('[Admin Login Error]:', err)
+    return res.status(500).json({ success: false, error: 'Internal server error authenticating admin.' })
+  }
+})
+
+// Enforce Platform Administrator privileges on all /api/admin endpoints below
 adminRouter.use(requireAdmin)
 
 // GET /api/admin/dashboard (cached 15s in Redis)
@@ -391,6 +475,65 @@ adminRouter.get('/kiosks/:id', async (req: Request, res: Response) => {
   }
 })
 
+// PUT /api/admin/kiosks/:id/photo — Update physical kiosk hardware installation photo
+adminRouter.put('/kiosks/:id/photo', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id
+    const photoUrl = req.body.kioskPhotoUrl || req.body.photoUrl
+
+    if (!photoUrl || !String(photoUrl).trim()) {
+      return res.status(400).json({ success: false, error: 'Valid kiosk photo URL or base64 image data is required.' })
+    }
+
+    const cleanPhotoUrl = String(photoUrl).trim()
+
+    let updatedKiosk: any = null
+    if (isDbConnected()) {
+      updatedKiosk = await Kiosk.findOneAndUpdate(
+        { $or: [{ kioskId: id }, { _id: id }] },
+        { $set: { kioskPhotoUrl: cleanPhotoUrl } },
+        { new: true }
+      ).lean()
+    }
+
+    // Sync in fallback data
+    const fbKiosk = fallbackKiosks.find((k) => (k.kioskId || k.id) === id)
+    if (fbKiosk) {
+      fbKiosk.kioskPhotoUrl = cleanPhotoUrl
+      if (!updatedKiosk) updatedKiosk = fbKiosk
+    }
+
+    // Also sync the associated merchant partner record
+    const targetKioskId = updatedKiosk?.kioskId || id
+    if (isDbConnected()) {
+      await Merchant.findOneAndUpdate(
+        { kioskId: targetKioskId },
+        { $set: { kioskPhotoUrl: cleanPhotoUrl } }
+      )
+    }
+    const fbMerchant = fallbackMerchants.find((m) => m.kioskId === targetKioskId)
+    if (fbMerchant) {
+      fbMerchant.kioskPhotoUrl = cleanPhotoUrl
+    }
+
+    await cachePurgePattern('admin:*')
+    await cachePurgePattern('merchant:*')
+    await cachePurgePattern('kiosks:*')
+
+    res.json({
+      success: true,
+      message: `Kiosk photo updated successfully for station ${targetKioskId}.`,
+      data: {
+        kioskId: targetKioskId,
+        kioskPhotoUrl: cleanPhotoUrl,
+        kiosk: updatedKiosk,
+      },
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // POST /api/admin/kiosks — Deploy a new Raspberry Pi Kiosk Station bound to a Merchant
 adminRouter.post('/kiosks', async (req: Request, res: Response) => {
   try {
@@ -462,7 +605,7 @@ adminRouter.post('/kiosks', async (req: Request, res: Response) => {
         colorSingle: 10.0,
         colorDouble: 18.0,
       },
-      kioskPhotoUrl: merchant.kioskPhotoUrl || 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
+      kioskPhotoUrl: (req.body.kioskPhotoUrl && String(req.body.kioskPhotoUrl).trim()) || merchant.kioskPhotoUrl || 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
       qrCodeUrl: getKioskPrintUrl(cleanId, req),
     })
 
@@ -978,6 +1121,20 @@ adminRouter.put('/merchants/:id', async (req: Request, res: Response) => {
 
     if (!updatedDoc) {
       return res.status(404).json({ success: false, error: `Merchant with ID ${id} not found.` })
+    }
+
+    if (updates.kioskPhotoUrl) {
+      const targetKioskId = updatedDoc.kioskId || id
+      if (isDbConnected()) {
+        await Kiosk.findOneAndUpdate(
+          { kioskId: targetKioskId },
+          { $set: { kioskPhotoUrl: updates.kioskPhotoUrl } }
+        )
+      }
+      const fbKiosk = fallbackKiosks.find((k) => (k.kioskId || k.id) === targetKioskId)
+      if (fbKiosk) {
+        fbKiosk.kioskPhotoUrl = updates.kioskPhotoUrl
+      }
     }
 
     if (updates.isBlocked !== undefined || updates.status !== undefined) {
@@ -1589,3 +1746,414 @@ adminRouter.post('/redis/flush', async (_req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message })
   }
 })
+
+// ═══════════════════════════════════════════════════════════════════
+// ── ADMIN & USER MANAGEMENT ENDPOINTS ──
+// ═══════════════════════════════════════════════════════════════════
+
+// GET /api/admin/users — Retrieve all administrators, merchant partners, and campus users
+adminRouter.get('/users', async (_req: Request, res: Response) => {
+  try {
+    let admins: any[] = []
+    let merchants: any[] = []
+    let orders: any[] = []
+
+    if (isDbConnected()) {
+      ;[admins, merchants, orders] = await Promise.all([
+        AdminUser.find().sort({ createdAt: -1 }).lean(),
+        Merchant.find().sort({ createdAt: -1 }).lean(),
+        Order.find().sort({ createdAt: -1 }).lean(),
+      ])
+    }
+
+    if (!admins || admins.length === 0) {
+      admins = [...fallbackAdmins]
+    }
+    if (!merchants || merchants.length === 0) {
+      merchants = [...fallbackMerchants]
+    }
+
+    // Aggregate unique customer directory from orders or seed users
+    const customerMap = new Map<string, any>()
+    for (const ord of orders) {
+      const phone = (ord.customerPhone || '').trim()
+      const email = (ord.customerEmail || '').trim()
+      const key = phone || email || ord.orderNumber || ord.id
+      if (!customerMap.has(key)) {
+        customerMap.set(key, {
+          userId: 'CUST-' + key.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase(),
+          identifier: phone || email || 'Campus Student',
+          phone,
+          email,
+          totalOrders: 1,
+          totalSpent: ord.amount || 0,
+          totalPages: ord.pages || 1,
+          lastActive: ord.createdAt || new Date().toISOString(),
+          role: 'CUSTOMER',
+          status: 'ACTIVE',
+        })
+      } else {
+        const existing = customerMap.get(key)
+        existing.totalOrders += 1
+        existing.totalSpent += (ord.amount || 0)
+        existing.totalPages += (ord.pages || 1)
+        if (new Date(ord.createdAt) > new Date(existing.lastActive)) {
+          existing.lastActive = ord.createdAt
+        }
+      }
+    }
+
+    const customers = Array.from(customerMap.values())
+
+    const safeAdmins = admins.map((a: any) => ({
+      adminId: a.adminId || a._id,
+      _id: a._id,
+      name: a.name,
+      email: a.email,
+      username: a.username,
+      role: a.role || 'OPERATIONS',
+      status: a.status || 'ACTIVE',
+      phone: a.phone || '',
+      notes: a.notes || '',
+      isRoot: Boolean(a.isRoot || a.email === 'admin@printbooth.in' || a.username === 'admin'),
+      lastLogin: a.lastLogin,
+      createdAt: a.createdAt,
+    }))
+
+    const safeMerchants = merchants.map((m: any) => ({
+      merchantId: m.merchantId || m._id,
+      _id: m._id,
+      name: m.name,
+      storeName: m.storeName,
+      email: m.email,
+      username: m.username,
+      phone: m.phone,
+      kioskId: m.kioskId,
+      status: m.isBlocked ? 'BLOCKED' : (m.status || 'ACTIVE'),
+      totalEarnings: m.totalEarnings || 0,
+      createdAt: m.createdAt,
+    }))
+
+    const stats = {
+      totalAdmins: safeAdmins.length,
+      activeAdmins: safeAdmins.filter((a) => a.status === 'ACTIVE').length,
+      blockedAdmins: safeAdmins.filter((a) => a.status === 'BLOCKED').length,
+      totalMerchants: safeMerchants.length,
+      totalCustomers: customers.length,
+      totalUsers: safeAdmins.length + safeMerchants.length + customers.length,
+    }
+
+    res.json({
+      success: true,
+      data: {
+        admins: safeAdmins,
+        merchants: safeMerchants,
+        customers,
+        stats,
+      },
+    })
+  } catch (error: any) {
+    console.error('[Admin Users GET error]:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/admin/users — Create a new Administrator account
+adminRouter.post('/users', async (req: Request, res: Response) => {
+  try {
+    const { name, email, username, password, role, phone, notes } = req.body
+
+    const cleanName = (name || '').trim()
+    const cleanEmail = (email || '').trim().toLowerCase()
+    const cleanUsername = (username || '').trim().toLowerCase()
+    const cleanPassword = (password || '').trim() || 'admin123'
+    const cleanRole = ['SUPERADMIN', 'OPERATIONS', 'SUPPORT'].includes(role) ? role : 'OPERATIONS'
+    const cleanPhone = (phone || '').trim()
+    const cleanNotes = (notes || '').trim()
+
+    if (!cleanName || !cleanEmail || !cleanUsername) {
+      return res.status(400).json({ success: false, error: 'Full name, email address, and username are required.' })
+    }
+
+    // Check duplicate in DB or fallback
+    let existing: any = null
+    if (isDbConnected()) {
+      existing = await AdminUser.findOne({
+        $or: [{ email: cleanEmail }, { username: cleanUsername }],
+      }).lean()
+    } else {
+      existing = fallbackAdmins.find(
+        (a: any) =>
+          a.email.toLowerCase() === cleanEmail ||
+          a.username.toLowerCase() === cleanUsername
+      )
+    }
+
+    if (existing) {
+      return res.status(409).json({ success: false, error: 'An administrator with this email or username already exists.' })
+    }
+
+    const adminId = 'ADM-' + Math.floor(1000 + Math.random() * 9000)
+
+    const newAdminData = {
+      adminId,
+      name: cleanName,
+      email: cleanEmail,
+      username: cleanUsername,
+      password: cleanPassword,
+      role: cleanRole,
+      status: 'ACTIVE' as const,
+      phone: cleanPhone,
+      notes: cleanNotes,
+      isRoot: false,
+      lastLogin: new Date(),
+    }
+
+    let createdDoc: any = null
+    if (isDbConnected()) {
+      createdDoc = await AdminUser.create(newAdminData)
+    }
+
+    fallbackAdmins.unshift({
+      ...newAdminData,
+      _id: createdDoc?._id || adminId,
+      createdAt: new Date().toISOString(),
+    })
+
+    res.status(201).json({
+      success: true,
+      message: 'Administrator account created successfully.',
+      data: {
+        adminId,
+        name: cleanName,
+        email: cleanEmail,
+        username: cleanUsername,
+        role: cleanRole,
+        status: 'ACTIVE',
+        phone: cleanPhone,
+        notes: cleanNotes,
+        isRoot: false,
+        createdAt: new Date().toISOString(),
+      },
+    })
+  } catch (error: any) {
+    console.error('[Create Admin error]:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// PUT /api/admin/users/:id — Update Administrator account details
+adminRouter.put('/users/:id', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id
+    const { name, email, username, role, phone, notes } = req.body
+
+    let admin: any = null
+    if (isDbConnected()) {
+      admin = await AdminUser.findOne({
+        $or: [{ adminId: rawId }, { _id: rawId.length === 24 ? rawId : null }],
+      })
+    }
+
+    const fbIndex = fallbackAdmins.findIndex(
+      (a: any) => a.adminId === rawId || a._id === rawId || a.email === rawId || a.username === rawId
+    )
+
+    if (!admin && fbIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Administrator not found.' })
+    }
+
+    const isRoot = admin?.isRoot || (fbIndex !== -1 && fallbackAdmins[fbIndex].isRoot) || false
+
+    const updates: any = {}
+    if (name) updates.name = name.trim()
+    if (email) updates.email = email.trim().toLowerCase()
+    if (username) updates.username = username.trim().toLowerCase()
+    if (phone !== undefined) updates.phone = phone.trim()
+    if (notes !== undefined) updates.notes = notes.trim()
+    if (role && !isRoot) {
+      updates.role = ['SUPERADMIN', 'OPERATIONS', 'SUPPORT'].includes(role) ? role : 'OPERATIONS'
+    }
+
+    if (admin) {
+      Object.assign(admin, updates)
+      await admin.save()
+    }
+
+    if (fbIndex !== -1) {
+      fallbackAdmins[fbIndex] = { ...fallbackAdmins[fbIndex], ...updates }
+    }
+
+    res.json({
+      success: true,
+      message: 'Administrator updated successfully.',
+      data: admin?.toObject() || fallbackAdmins[fbIndex],
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/admin/users/:id/change-password — Update Administrator password
+adminRouter.post('/users/:id/change-password', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id
+    const { newPassword } = req.body
+
+    const cleanPass = (newPassword || '').trim()
+    if (!cleanPass || cleanPass.length < 4) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 4 characters long.' })
+    }
+
+    let admin: any = null
+    if (isDbConnected()) {
+      admin = await AdminUser.findOne({
+        $or: [{ adminId: rawId }, { _id: rawId.length === 24 ? rawId : null }],
+      })
+      if (admin) {
+        admin.password = cleanPass
+        await admin.save()
+      }
+    }
+
+    const fbIndex = fallbackAdmins.findIndex(
+      (a: any) => a.adminId === rawId || a._id === rawId || a.email === rawId || a.username === rawId
+    )
+    if (fbIndex !== -1) {
+      fallbackAdmins[fbIndex].password = cleanPass
+    }
+
+    if (!admin && fbIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Administrator not found.' })
+    }
+
+    res.json({
+      success: true,
+      message: 'Administrator password updated successfully.',
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/admin/users/:id/block — Block / Suspend Administrator
+adminRouter.post('/users/:id/block', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id
+
+    let admin: any = null
+    if (isDbConnected()) {
+      admin = await AdminUser.findOne({
+        $or: [{ adminId: rawId }, { _id: rawId.length === 24 ? rawId : null }],
+      })
+    }
+
+    const fbIndex = fallbackAdmins.findIndex(
+      (a: any) => a.adminId === rawId || a._id === rawId || a.email === rawId || a.username === rawId
+    )
+
+    const isRoot = admin?.isRoot || (fbIndex !== -1 && fallbackAdmins[fbIndex].isRoot) || rawId === 'ADM-001'
+    if (isRoot) {
+      return res.status(403).json({ success: false, error: 'Primary root platform administrator cannot be blocked.' })
+    }
+
+    if (admin) {
+      admin.status = 'BLOCKED'
+      await admin.save()
+    }
+    if (fbIndex !== -1) {
+      fallbackAdmins[fbIndex].status = 'BLOCKED'
+    }
+
+    if (!admin && fbIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Administrator not found.' })
+    }
+
+    res.json({
+      success: true,
+      message: 'Administrator account suspended.',
+      data: { status: 'BLOCKED' },
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/admin/users/:id/unblock — Reactivate Administrator
+adminRouter.post('/users/:id/unblock', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id
+
+    let admin: any = null
+    if (isDbConnected()) {
+      admin = await AdminUser.findOne({
+        $or: [{ adminId: rawId }, { _id: rawId.length === 24 ? rawId : null }],
+      })
+      if (admin) {
+        admin.status = 'ACTIVE'
+        await admin.save()
+      }
+    }
+
+    const fbIndex = fallbackAdmins.findIndex(
+      (a: any) => a.adminId === rawId || a._id === rawId || a.email === rawId || a.username === rawId
+    )
+    if (fbIndex !== -1) {
+      fallbackAdmins[fbIndex].status = 'ACTIVE'
+    }
+
+    if (!admin && fbIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Administrator not found.' })
+    }
+
+    res.json({
+      success: true,
+      message: 'Administrator account reactivated.',
+      data: { status: 'ACTIVE' },
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// DELETE /api/admin/users/:id — Delete Administrator
+adminRouter.delete('/users/:id', async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id
+
+    let admin: any = null
+    if (isDbConnected()) {
+      admin = await AdminUser.findOne({
+        $or: [{ adminId: rawId }, { _id: rawId.length === 24 ? rawId : null }],
+      })
+    }
+
+    const fbIndex = fallbackAdmins.findIndex(
+      (a: any) => a.adminId === rawId || a._id === rawId || a.email === rawId || a.username === rawId
+    )
+
+    const isRoot = admin?.isRoot || (fbIndex !== -1 && fallbackAdmins[fbIndex].isRoot) || rawId === 'ADM-001'
+    if (isRoot) {
+      return res.status(403).json({ success: false, error: 'Primary root platform administrator cannot be deleted.' })
+    }
+
+    if (admin) {
+      await AdminUser.findByIdAndDelete(admin._id)
+    }
+    if (fbIndex !== -1) {
+      fallbackAdmins.splice(fbIndex, 1)
+    }
+
+    if (!admin && fbIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Administrator not found.' })
+    }
+
+    res.json({
+      success: true,
+      message: 'Administrator deleted successfully.',
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+

@@ -15,7 +15,7 @@ import {
   CaretDown,
 } from '@phosphor-icons/react'
 import { createPrintOrder, sendPrintJob } from '@/lib/api'
-import { getAllFiles, hasAnyReadyFile, type FileSettings, type ManagedFile } from '@/lib/multiFileStore'
+import { getAllFiles, hasAnyReadyFile, parsePageRange, type FileSettings, type ManagedFile } from '@/lib/multiFileStore'
 import { getUploadedFileAsync, hasRealUploadedDoc } from '@/lib/documentStore'
 import { getFileFromCache } from '@/lib/fileCache'
 import { isCanonicalKioskFormat } from '@/lib/kioskValidation'
@@ -401,10 +401,13 @@ export default function PaymentPage() {
     const effectiveColourMode = hasAnyColourPage ? 'COLOUR' : 'BW'
 
     try {
+      const selectedPgs = parsePageRange(settings.pages || 'ALL', pageCount)
+      const effectivePageCount = selectedPgs.length
+
       const created = await createPrintOrder({
         kioskId,
         fileName,
-        pageCount,
+        pageCount: effectivePageCount,
         copies: settings.copies || 1,
         colourMode: effectiveColourMode,
         duplex: settings.duplex || 'SINGLE',
@@ -416,6 +419,10 @@ export default function PaymentPage() {
         printSettings: {
           pageRange: settings.pages || 'ALL',
           pages: settings.pages || 'ALL',
+          selectedPages: selectedPgs,
+          pageCount: effectivePageCount,
+          totalDocPages: pageCount,
+          docPageCount: pageCount,
           copies: settings.copies || 1,
           colourMode: effectiveColourMode,
           colour: effectiveColourMode,
@@ -478,8 +485,8 @@ export default function PaymentPage() {
           }]
 
       const computedSheets = isMultiFile
-        ? multiFiles.reduce((acc, f) => acc + (f.pageCount || 1) * (f.settings?.copies || settings.copies || 1), 0)
-        : Math.max(1, pageCount * settings.copies)
+        ? multiFiles.reduce((acc, f) => acc + parsePageRange(f.settings?.pages || 'ALL', f.pageCount || 1).length * (f.settings?.copies || settings.copies || 1), 0)
+        : Math.max(1, parsePageRange(settings.pages || 'ALL', pageCount || 1).length * (settings.copies || 1))
 
       saveRecentPrint({
         orderId: finalOrderId || orderId,
@@ -488,7 +495,9 @@ export default function PaymentPage() {
         kioskName,
         totalPrice,
         totalSheets: computedSheets,
-        totalPages: isMultiFile ? multiFiles.reduce((s, f) => s + f.pageCount, 0) : pageCount,
+        totalPages: isMultiFile
+          ? multiFiles.reduce((s, f) => s + parsePageRange(f.settings?.pages || 'ALL', f.pageCount || 1).length, 0)
+          : parsePageRange(settings.pages || 'ALL', pageCount || 1).length,
         status: 'AWAITING_PIN',
         files: recordedFiles,
         paymentRef: paymentRef || undefined,

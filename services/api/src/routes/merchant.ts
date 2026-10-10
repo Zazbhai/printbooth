@@ -17,6 +17,7 @@ import { NetworkDetectorService } from '../modules/networkDetector.js'
 import { sendPiScanPrinters, isKioskRelayConnected } from '../modules/wsRelay.js'
 import { createTicket } from '../modules/helpdeskStore.js'
 import { generateKioskSecret, generatePiEnvContent, resolveKioskApiBaseUrl } from '../modules/kioskAuth.js'
+import { cachePurgePattern } from '../redis.js'
 
 export const merchantRouter = Router()
 
@@ -1365,6 +1366,9 @@ merchantRouter.put('/settings', async (req: Request, res: Response) => {
     if (req.body.address) updateFields.address = req.body.address
     if (lat !== undefined) updateFields.lat = lat
     if (lng !== undefined) updateFields.lng = lng
+    if (req.body.kioskPhotoUrl !== undefined && String(req.body.kioskPhotoUrl).trim().length > 0) {
+      updateFields.kioskPhotoUrl = String(req.body.kioskPhotoUrl).trim()
+    }
 
     // Payment Gateway & API Credentials
     if (req.body.paymentGateway) {
@@ -1388,6 +1392,7 @@ merchantRouter.put('/settings', async (req: Request, res: Response) => {
       if (req.body.storeName) fbKiosk.name = req.body.storeName
       if (lat !== undefined) fbKiosk.lat = lat
       if (lng !== undefined) fbKiosk.lng = lng
+      if (updateFields.kioskPhotoUrl) fbKiosk.kioskPhotoUrl = updateFields.kioskPhotoUrl
       if (updateFields.paymentGateway) fbKiosk.paymentGateway = updateFields.paymentGateway
       if (updateFields.upiExpressApiKey !== undefined) fbKiosk.upiExpressApiKey = updateFields.upiExpressApiKey
       if (updateFields.upiExpressUpiId !== undefined) fbKiosk.upiExpressUpiId = updateFields.upiExpressUpiId
@@ -1407,6 +1412,7 @@ merchantRouter.put('/settings', async (req: Request, res: Response) => {
       if (req.body.storeName) kioskUpdates.name = req.body.storeName
       if (lat !== undefined) kioskUpdates.lat = lat
       if (lng !== undefined) kioskUpdates.lng = lng
+      if (updateFields.kioskPhotoUrl) kioskUpdates.kioskPhotoUrl = updateFields.kioskPhotoUrl
       if (updateFields.paymentGateway) kioskUpdates.paymentGateway = updateFields.paymentGateway
       if (updateFields.upiExpressApiKey !== undefined) kioskUpdates.upiExpressApiKey = updateFields.upiExpressApiKey
       if (updateFields.upiExpressUpiId !== undefined) kioskUpdates.upiExpressUpiId = updateFields.upiExpressUpiId
@@ -1420,7 +1426,69 @@ merchantRouter.put('/settings', async (req: Request, res: Response) => {
       updated = fbMerchant
     }
 
+    await cachePurgePattern('merchant:*')
+    await cachePurgePattern('admin:*')
+    await cachePurgePattern('kiosks:*')
+
     res.json({ success: true, databaseConnected: isDbConnected(), data: updated })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// PUT /api/merchant/kiosk/photo - Direct photo update endpoint for merchant
+merchantRouter.put('/kiosk/photo', async (req: Request, res: Response) => {
+  try {
+    const kioskId = (req.query.kioskId as string) || req.body.kioskId || 'PB-001'
+    const photoUrl = req.body.kioskPhotoUrl || req.body.photoUrl
+
+    if (!photoUrl || !String(photoUrl).trim()) {
+      return res.status(400).json({ success: false, error: 'A valid image URL or image data string is required.' })
+    }
+
+    const cleanPhotoUrl = String(photoUrl).trim()
+
+    // Sync fallback data
+    const fbMerchant = fallbackMerchants.find((m) => m.kioskId === kioskId)
+    if (fbMerchant) fbMerchant.kioskPhotoUrl = cleanPhotoUrl
+
+    const fbKiosk = fallbackKiosks.find((k) => (k.kioskId || k.id) === kioskId)
+    if (fbKiosk) fbKiosk.kioskPhotoUrl = cleanPhotoUrl
+
+    let updatedMerchant: any = null
+    let updatedKiosk: any = null
+
+    if (isDbConnected()) {
+      updatedMerchant = await Merchant.findOneAndUpdate(
+        { kioskId },
+        { $set: { kioskPhotoUrl: cleanPhotoUrl } },
+        { new: true }
+      ).lean()
+
+      updatedKiosk = await Kiosk.findOneAndUpdate(
+        { kioskId },
+        { $set: { kioskPhotoUrl: cleanPhotoUrl } },
+        { new: true }
+      ).lean()
+    } else {
+      updatedMerchant = fbMerchant
+      updatedKiosk = fbKiosk
+    }
+
+    await cachePurgePattern('merchant:*')
+    await cachePurgePattern('admin:*')
+    await cachePurgePattern('kiosks:*')
+
+    res.json({
+      success: true,
+      message: 'Kiosk photo updated successfully.',
+      data: {
+        kioskId,
+        kioskPhotoUrl: cleanPhotoUrl,
+        merchant: updatedMerchant,
+        kiosk: updatedKiosk,
+      },
+    })
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message })
   }

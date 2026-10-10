@@ -14,16 +14,19 @@ import {
   Eye,
   EyeSlash,
   ShieldCheck,
+  Camera,
 } from '@phosphor-icons/react'
 import { getMerchantSettings, updateMerchantSettings } from '@/lib/api'
 import { useActiveMerchant } from '@/lib/merchantContext'
+import KioskPhotoEditorModal from '@/components/KioskPhotoEditorModal'
 import '../AdminPage.css'
 
 export default function MerchantSettingsPage() {
-  const { activeKioskId, activeMerchant } = useActiveMerchant()
+  const { activeKioskId, activeMerchant, refreshMerchants } = useActiveMerchant()
   const [saved, setSaved] = useState(false)
   const [locating, setLocating] = useState(false)
   const [showSecret, setShowSecret] = useState(false)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const [locMsg, setLocMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [form, setForm] = useState({
     storeName: activeMerchant?.storeName || 'MIT ADT Campus Print Hub',
@@ -48,6 +51,7 @@ export default function MerchantSettingsPage() {
     upiExpressUpiId: (activeMerchant as any)?.upiExpressUpiId || '',
     razorpayKeyId: (activeMerchant as any)?.razorpayKeyId || '',
     razorpayKeySecret: (activeMerchant as any)?.razorpayKeySecret || '',
+    kioskPhotoUrl: activeMerchant?.kioskPhotoUrl || '',
   })
 
   useEffect(() => {
@@ -72,6 +76,7 @@ export default function MerchantSettingsPage() {
           upiExpressUpiId: data.upiExpressUpiId !== undefined ? data.upiExpressUpiId : prev.upiExpressUpiId,
           razorpayKeyId: data.razorpayKeyId !== undefined ? data.razorpayKeyId : prev.razorpayKeyId,
           razorpayKeySecret: data.razorpayKeySecret !== undefined ? data.razorpayKeySecret : prev.razorpayKeySecret,
+          kioskPhotoUrl: data.kioskPhotoUrl || prev.kioskPhotoUrl,
         }))
       }
     }
@@ -109,8 +114,19 @@ export default function MerchantSettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     await updateMerchantSettings(form, activeKioskId)
+    if (refreshMerchants) {
+      await refreshMerchants()
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
+  }
+
+  const handleSaveModalPhoto = async (newPhotoUrl: string) => {
+    setForm(prev => ({ ...prev, kioskPhotoUrl: newPhotoUrl }))
+    await updateMerchantSettings({ ...form, kioskPhotoUrl: newPhotoUrl }, activeKioskId)
+    if (refreshMerchants) {
+      await refreshMerchants()
+    }
   }
 
   return (
@@ -223,6 +239,84 @@ export default function MerchantSettingsPage() {
                 value={form.pincode}
                 onChange={e => setForm({ ...form, pincode: e.target.value })}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Physical Kiosk Installation Photo Card ─── */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Camera size={20} color="var(--clr-accent-light, #38bdf8)" weight="bold" />
+                <span>Physical Kiosk Installation Photo</span>
+              </h2>
+              <span className="card-meta">Photograph of the physical kiosk hardware station {activeKioskId} installed at your venue</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPhotoModalOpen(true)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                borderColor: 'rgba(200, 255, 0, 0.35)',
+                color: 'var(--clr-accent, #c8ff00)',
+                background: 'rgba(200, 255, 0, 0.08)',
+              }}
+            >
+              <Camera size={15} weight="bold" />
+              <span>Change Photo</span>
+            </button>
+          </div>
+
+          <div
+            style={{
+              position: 'relative',
+              borderRadius: 12,
+              overflow: 'hidden',
+              height: 190,
+              background: 'var(--clr-surface-2, #18181b)',
+              border: '1px solid var(--clr-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            onClick={() => setPhotoModalOpen(true)}
+            title="Click to change or upload new kiosk installation photo"
+          >
+            {form.kioskPhotoUrl ? (
+              <img
+                src={form.kioskPhotoUrl}
+                alt={`${form.storeName} Kiosk Installation`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--clr-text-3)' }}>
+                <Camera size={32} weight="duotone" color="var(--clr-accent)" />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>No Installation Photo Uploaded</span>
+                <span style={{ fontSize: 11.5, color: 'var(--clr-text-4)' }}>Click here to upload or select a preset photo</span>
+              </div>
+            )}
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: '8px 12px',
+              background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 12,
+              color: '#fff',
+            }}>
+              <span style={{ fontWeight: 600 }}>{form.storeName}</span>
+              <span style={{ fontFamily: 'monospace', background: 'rgba(200, 255, 0, 0.15)', color: '#c8ff00', padding: '2px 7px', borderRadius: 4 }}>
+                {activeKioskId}
+              </span>
             </div>
           </div>
         </div>
@@ -591,6 +685,18 @@ export default function MerchantSettingsPage() {
           </div>
         </div>
       </form>
+
+      {/* Kiosk Installation Photo Modal */}
+      <KioskPhotoEditorModal
+        isOpen={photoModalOpen}
+        onClose={() => setPhotoModalOpen(false)}
+        kioskId={activeKioskId}
+        venueName={form.storeName}
+        currentPhotoUrl={form.kioskPhotoUrl}
+        onSave={handleSaveModalPhoto}
+        title="Update Kiosk Installation Photo"
+        subtitle={`Set the official photo of your hardware station ${activeKioskId} displayed to campus users.`}
+      />
     </div>
   )
 }

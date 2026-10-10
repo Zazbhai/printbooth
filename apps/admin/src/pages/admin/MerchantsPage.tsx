@@ -165,6 +165,8 @@ export default function MerchantsPage() {
 
   // Form State
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputEditRef = useRef<HTMLInputElement>(null)
+  const [editDragActive, setEditDragActive] = useState(false)
   const [newMerchant, setNewMerchant] = useState({
     name: '',
     storeName: '',
@@ -288,6 +290,53 @@ export default function MerchantsPage() {
     const randomPhoto = SAMPLE_KIOSK_PHOTOS[Math.floor(Math.random() * SAMPLE_KIOSK_PHOTOS.length)]
     setNewMerchant(prev => ({ ...prev, kioskPhotoUrl: randomPhoto }))
     setErrorMessage('')
+  }
+
+  // Handle Photo File Upload in Edit Modal
+  const handleEditPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setEditErrorMessage('Please select a valid image file (PNG, JPG, WEBP).')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string
+      setEditingMerchant((prev: any) => ({ ...prev, kioskPhotoUrl: base64 }))
+      setEditErrorMessage('')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Handle Drag & Drop Photo in Edit Modal
+  const handleEditDropPhoto = (e: React.DragEvent) => {
+    e.preventDefault()
+    setEditDragActive(false)
+    const file = e.dataTransfer.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setEditErrorMessage('Please drop a valid image file (PNG, JPG, WEBP).')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string
+      setEditingMerchant((prev: any) => ({ ...prev, kioskPhotoUrl: base64 }))
+      setEditErrorMessage('')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Use Sample Photo in Edit Modal
+  const handleEditUseSamplePhoto = () => {
+    const randomPhoto = SAMPLE_KIOSK_PHOTOS[Math.floor(Math.random() * SAMPLE_KIOSK_PHOTOS.length)]
+    setEditingMerchant((prev: any) => ({ ...prev, kioskPhotoUrl: randomPhoto }))
+    setEditErrorMessage('')
   }
 
   const handleAddMerchant = async (e: React.FormEvent) => {
@@ -432,6 +481,7 @@ export default function MerchantsPage() {
         upiExpressUpiId: editingMerchant.upiExpressUpiId.trim(),
         razorpayKeyId: editingMerchant.razorpayKeyId.trim(),
         razorpayKeySecret: editingMerchant.razorpayKeySecret.trim(),
+        kioskPhotoUrl: editingMerchant.kioskPhotoUrl ? editingMerchant.kioskPhotoUrl.trim() : '',
       }
 
       if (editingMerchant.password && editingMerchant.password.trim().length > 0) {
@@ -1985,6 +2035,69 @@ export default function MerchantsPage() {
                       onChange={e => setEditingMerchant({ ...editingMerchant, commission: e.target.value })}
                     />
                   </div>
+                </div>
+
+                {/* Kiosk Photo Upload / Update Section */}
+                <div className="merchant-form-group">
+                  <div className="photo-label-row">
+                    <label className="merchant-form-label">
+                      Physical Kiosk Installation Photo
+                    </label>
+                    <button
+                      type="button"
+                      className="sample-photo-btn"
+                      onClick={handleEditUseSamplePhoto}
+                      title="Select a high-resolution realistic kiosk setup"
+                    >
+                      Select Sample Photo
+                    </button>
+                  </div>
+
+                  {editingMerchant.kioskPhotoUrl ? (
+                    <div className="photo-preview-box">
+                      <img
+                        src={editingMerchant.kioskPhotoUrl}
+                        alt="Kiosk Preview"
+                        className="photo-preview-img"
+                      />
+                      <button
+                        type="button"
+                        className="photo-remove-btn"
+                        onClick={() => setEditingMerchant((prev: any) => ({ ...prev, kioskPhotoUrl: '' }))}
+                        title="Remove photo"
+                      >
+                        <Trash size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className={`photo-dropzone ${editDragActive ? 'drag-active' : ''}`}
+                      onClick={() => fileInputEditRef.current?.click()}
+                      onDragOver={e => {
+                        e.preventDefault()
+                        setEditDragActive(true)
+                      }}
+                      onDragLeave={() => setEditDragActive(false)}
+                      onDrop={handleEditDropPhoto}
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputEditRef}
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={handleEditPhotoSelect}
+                      />
+                      <Camera size={32} color="var(--primary)" weight="duotone" />
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--foreground)' }}>
+                          Click or drag to upload kiosk photo
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted-foreground)' }}>
+                          Supports PNG, JPG, or WEBP (Max 10MB)
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Modal Footer */}
