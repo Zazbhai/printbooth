@@ -161,11 +161,17 @@ export default function AlertsPage() {
 
   const handleAck = async (alertId: string) => {
     await ackAlert(alertId)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pb_alerts_updated'))
+    }
     await loadAlerts()
   }
 
   const handleAckAll = async () => {
     await ackAllAlerts()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pb_alerts_updated'))
+    }
     await loadAlerts()
   }
 

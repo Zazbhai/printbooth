@@ -347,12 +347,16 @@ export default function MultiFilePage() {
       sessionStorage.setItem('pb_page_count', String(first.pageCount))
       sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
     }
-    sessionStorage.setItem('pb_confirm_mode', 'doc')
-    sessionStorage.setItem('pb_print_step', 'confirm')
-
-    // In Kiosk QR Mode: initiate fast transfer to kiosk in background
+    // In Kiosk QR Mode: initiate fast transfer to kiosk in background and proceed straight to settings
     if (isKioskMode) {
       handleUploadToKiosk()
+      sessionStorage.setItem('pb_print_step', 'settings')
+      if (flow?.goToStep) {
+        flow.goToStep('settings')
+      } else {
+        navigate('/print/settings')
+      }
+      return
     }
 
     if (flow?.goToStep) {
@@ -636,7 +640,7 @@ export default function MultiFilePage() {
             <span className="mfp-kiosk-banner-dot" />
             <div>
               <div className="mfp-kiosk-banner-title">Connected to Station {searchParams.get('id') || kioskSession.getKioskId() || 'PB-001'}</div>
-              <div className="mfp-kiosk-banner-sub">Upload file here. Preview, settings & payment will show on Kiosk touchscreen.</div>
+              <div className="mfp-kiosk-banner-sub">Upload file here. The kiosk display mirrors your steps in real-time — zero touch required.</div>
             </div>
           </div>
         </div>
@@ -836,7 +840,7 @@ export default function MultiFilePage() {
       </div>
 
       {/* Sticky Bottom Action Bar when files are uploaded & ready */}
-      {readyCount > 0 && !isProcessing && !isUploadAnimating && !printerIssue?.hasIssue && (
+      {readyCount > 0 && !isProcessing && !isUploadAnimating && (
         <div className="mfp-action-bar">
           <div className="mfp-action-info">
             <span className="mfp-action-count">
@@ -851,7 +855,7 @@ export default function MultiFilePage() {
             style={{ border: 'none', cursor: 'pointer' }}
             id="mfp-continue-btn"
           >
-            <span>Continue</span>
+            <span>{isKioskMode ? 'Transfer to Kiosk & Continue' : 'Continue'}</span>
             <span className="mfp-btn-icon-circle">
               <ArrowRight size={13} weight="bold" />
             </span>

@@ -484,7 +484,7 @@ export default function PaymentPage() {
       sessionStorage.setItem('pb_order_id', finalOrderId)
       sessionStorage.setItem('pb_release_pin', releasePin)
       if (paymentRef) sessionStorage.setItem('pb_payment_ref', paymentRef)
-      log(`✓ Order recorded: ${finalOrderId} | PIN: ${releasePin}`, 'success')
+      log(`✓ Order recorded: ${finalOrderId}`, 'success')
     } catch (e) {
       log(`Order record failed (non-blocking): ${e}`, 'warn')
       if (!releasePin) {
@@ -534,7 +534,7 @@ export default function PaymentPage() {
         totalPages: isMultiFile
           ? multiFiles.reduce((s, f) => s + parsePageRange(f.settings?.pages || 'ALL', f.pageCount || 1).length, 0)
           : parsePageRange(settings.pages || 'ALL', pageCount || 1).length,
-        status: 'AWAITING_PIN',
+        status: 'PRINTING',
         files: recordedFiles,
         paymentRef: paymentRef || undefined,
       })
@@ -595,7 +595,7 @@ export default function PaymentPage() {
             })
             if (res && res.success !== false) {
               dispatchSuccess = true
-              log(`✓ "${mf.fileName}" staged with Release PIN ${releasePin}!`, 'success')
+              log(`✓ "${mf.fileName}" dispatched for instant autonomous printing!`, 'success')
             } else {
               lastError = res?.error || 'Failed to dispatch print job'
               log(`✗ Print dispatch response error: ${lastError}`, 'error')
@@ -635,7 +635,7 @@ export default function PaymentPage() {
         })
         if (res && res.success !== false) {
           dispatchSuccess = true
-          log(`✓ "${singleFile.name}" staged with Release PIN ${releasePin}!`, 'success')
+          log(`✓ "${singleFile.name}" dispatched for instant autonomous printing!`, 'success')
         } else {
           lastError = res?.error || 'Failed to dispatch print job'
           log(`✗ Print dispatch response error: ${lastError}`, 'error')
@@ -672,7 +672,7 @@ export default function PaymentPage() {
         })
         if (res && res.success !== false) {
           dispatchSuccess = true
-          log(`✓ "${fileName}" staged with Release PIN ${releasePin}!`, 'success')
+          log(`✓ "${fileName}" dispatched for instant autonomous printing!`, 'success')
         } else {
           lastError = res?.error || 'Failed to dispatch print job'
           log(`✗ Print dispatch notice: ${lastError}`, 'warn')

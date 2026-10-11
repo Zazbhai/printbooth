@@ -165,7 +165,7 @@ export const FALLBACK_ALERTS = [
     type: 'PAPER_LOW',
     message: 'Tray 1 Paper stock level has dropped below 20% (approx. 45 sheets remaining).',
     createdAt: new Date(Date.now() - 18 * 60000).toISOString(),
-    acknowledged: false,
+    acknowledged: true,
   },
   {
     alertId: 'ALT-1080',
@@ -371,7 +371,7 @@ export async function getAdminAlerts() {
 
   const fetchPromise = api.get('/admin/alerts')
     .then((res) => {
-      if (Array.isArray(res.data?.data) && res.data.data.length > 0) {
+      if (Array.isArray(res.data?.data)) {
         apiCache.set(cacheKey, { data: res.data.data, timestamp: Date.now() })
         return res.data.data
       }
@@ -387,12 +387,19 @@ export async function getAdminAlerts() {
   }
 
   const fresh = await fetchPromise
-  return fresh || cached?.data || FALLBACK_ALERTS
+  if (fresh !== null) {
+    return fresh
+  }
+  return cached?.data || []
 }
 
 export async function ackAlert(alertId: string) {
   try {
     const res = await api.post(`/admin/alerts/${alertId}/ack`)
+    apiCache.delete('admin:alerts')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pb_alerts_updated'))
+    }
     return res.data?.data
   } catch (err) {
     console.warn('[API] Could not ack alert:', err)
@@ -403,6 +410,10 @@ export async function ackAlert(alertId: string) {
 export async function ackAllAlerts() {
   try {
     const res = await api.post('/admin/alerts/ack-all')
+    apiCache.delete('admin:alerts')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pb_alerts_updated'))
+    }
     return res.data?.data
   } catch (err) {
     console.warn('[API] Could not ack all alerts:', err)

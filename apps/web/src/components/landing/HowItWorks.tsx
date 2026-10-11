@@ -3,7 +3,7 @@ import {
   UploadCloud,
   SlidersHorizontal,
   QrCode,
-  KeyRound,
+  Printer,
   FileCheck2,
   Check,
 } from 'lucide-react'
@@ -20,7 +20,7 @@ interface StepItem {
   desc: string
   pos: 'up' | 'down'
   side: 'left' | 'right'
-  slotType: 'upload' | 'custom' | 'pay' | 'pin' | 'dispense'
+  slotType: 'upload' | 'custom' | 'pay' | 'print' | 'dispense'
   icon: typeof UploadCloud
 }
 
@@ -54,12 +54,12 @@ const steps: StepItem[] = [
   },
   {
     id: '04',
-    title: 'Enter PIN',
-    desc: 'Type your secure 4-digit code on the kiosk screen',
+    title: 'Automatic Printing',
+    desc: 'Zero codes required — job prints automatically on payment confirmation',
     pos: 'down',
     side: 'right',
-    slotType: 'pin',
-    icon: KeyRound,
+    slotType: 'print',
+    icon: Printer,
   },
   {
     id: '05',
@@ -141,14 +141,15 @@ export default function HowItWorks({ isActive = false }: HowItWorksProps) {
             </div>
           </div>
         )
-      case 'pin':
+      case 'print':
         return (
-          <div className="step-visual-slot step-visual-slot--pin" aria-hidden="true">
-            <div className="clean-otp-pods">
-              <span className="otp-digit filled"><span className="digit-core" /></span>
-              <span className="otp-digit filled"><span className="digit-core" /></span>
-              <span className="otp-digit filled"><span className="digit-core" /></span>
-              <span className="otp-digit active"><span className="digit-cursor" /></span>
+          <div className="step-visual-slot step-visual-slot--print" aria-hidden="true">
+            <div className="clean-printer-sync">
+              <div className="clean-mini-printer">
+                <span className="printer-feed-slot" />
+                <span className="printer-laser-line" />
+                <div className="printer-paper-glide" />
+              </div>
             </div>
           </div>
         )

@@ -235,10 +235,11 @@ export default function PrintSettingsPage() {
         totalPages: pageCount,
         copies: settings.copies,
         colourMode: settings.colour,
+        duplex: settings.duplex,
         amount: grandTotal,
       })
     }
-  }, [displayFileName, pageCount, settings.copies, settings.colour, grandTotal])
+  }, [displayFileName, pageCount, settings.copies, settings.colour, settings.duplex, grandTotal])
 
   // Carousel Cards with interactive in-card editing
   const CARDS: CarouselCard[] = [
@@ -341,18 +342,27 @@ export default function PrintSettingsPage() {
       sessionStorage.setItem('pb_settings', JSON.stringify({ ...localSettings, scaling: 'FIT', paperSize: 'A4' }))
     }
     sessionStorage.setItem('pb_total_price', String(grandTotal))
-    sessionStorage.setItem('pb_confirm_mode', 'final')
-    sessionStorage.setItem('pb_print_step', 'confirm')
 
     if (kioskSession.isKioskSession()) {
-      kioskSession.reportReviewing({
+      kioskSession.reportPaying({
         fileName: displayFileName,
         totalPages: pageCount,
         copies: settings.copies,
         colourMode: settings.colour,
+        duplex: settings.duplex,
         amount: grandTotal,
       })
+      sessionStorage.setItem('pb_print_step', 'payment')
+      if (flow?.goToStep) {
+        flow.goToStep('payment')
+      } else {
+        navigate('/print/payment')
+      }
+      return
     }
+
+    sessionStorage.setItem('pb_confirm_mode', 'final')
+    sessionStorage.setItem('pb_print_step', 'confirm')
 
     if (flow?.goToStep) {
       flow.goToStep('confirm')
@@ -365,6 +375,24 @@ export default function PrintSettingsPage() {
     <div className="clean-settings-container">
       {/* Header */}
       <div className="clean-header">
+        {kioskSession.isKioskSession() && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 14px',
+            borderRadius: 999,
+            background: 'rgba(22, 163, 74, 0.08)',
+            border: '1px solid rgba(22, 163, 74, 0.22)',
+            color: '#16a34a',
+            fontSize: 12,
+            fontWeight: 700,
+            marginBottom: 10,
+          }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 6px #16a34a' }} />
+            <span>Mirrored on Kiosk Display ({flow?.printerId || 'Station'}) • Zero-Touch</span>
+          </div>
+        )}
         <h1 className="clean-title">Print Settings</h1>
         <div className="clean-subtitle">
           <span className="subtitle-item">
@@ -564,7 +592,7 @@ export default function PrintSettingsPage() {
           id="settings-continue"
           type="button"
         >
-          <span>Review Order</span>
+          <span>{kioskSession.isKioskSession() ? `Proceed to Pay ₹${grandTotal.toFixed(2)}` : 'Review Order'}</span>
           <ArrowRight size={16} className="btn-arrow btn-arrow--right" />
         </ShinyButton>
       </div>

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
   CheckCircle,
-  Copy,
-  Check,
   Printer,
   MapPin,
   ArrowsClockwise,
@@ -61,9 +59,8 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
   const navigate = useNavigate()
   const flow = usePrintFlow()
   const [prints, setPrints] = useState<RecentPrintRecord[]>(() => getRecentPrints())
-  const [filter, setFilter] = useState<'ALL' | 'AWAITING_PIN' | 'COMPLETED'>('ALL')
+  const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL')
   const [search, setSearch] = useState('')
-  const [copiedOtpId, setCopiedOtpId] = useState<string | null>(null)
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
 
   // Live subscription to storage changes (cross-tab & background updates)
@@ -77,7 +74,7 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
   // Filter and search computation
   const filteredPrints = useMemo(() => {
     return prints.filter(item => {
-      if (filter === 'AWAITING_PIN' && item.status !== 'AWAITING_PIN' && item.status !== 'PRINTING') {
+      if (filter === 'ACTIVE' && item.status === 'COMPLETED') {
         return false
       }
       if (filter === 'COMPLETED' && item.status !== 'COMPLETED') {
@@ -97,21 +94,14 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
   // Aggregate stats
   const stats = useMemo(() => {
     const total = prints.length
-    const active = prints.filter(p => p.status === 'AWAITING_PIN' || p.status === 'PRINTING').length
+    const active = prints.filter(p => p.status !== 'COMPLETED').length
     const completed = prints.filter(p => p.status === 'COMPLETED').length
     const totalSheets = prints.reduce((acc, p) => acc + (p.totalSheets || 1), 0)
     return { total, active, completed, totalSheets }
   }, [prints])
 
-  const handleCopyOtp = (orderId: string, otp: string) => {
-    navigator.clipboard.writeText(otp)
-    setCopiedOtpId(orderId)
-    setTimeout(() => setCopiedOtpId(null), 2000)
-  }
-
-  const handleOpenLiveOtp = (order: RecentPrintRecord) => {
+  const handleTrackOrder = (order: RecentPrintRecord) => {
     sessionStorage.setItem('pb_order_id', order.orderId)
-    sessionStorage.setItem('pb_release_pin', order.otp)
     sessionStorage.setItem('pb_kiosk_id', order.kioskId)
     sessionStorage.setItem('pb_kiosk_name', order.kioskName)
     sessionStorage.setItem('pb_total_price', String(order.totalPrice))
@@ -166,7 +156,7 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
           </div>
           <h1 className="rcp-title">Recent Print Orders</h1>
           <p className="rcp-subtitle">
-            All your print jobs, instant release OTP codes, and station release statuses saved on this device.
+            All your print jobs, orders, and kiosk dispensing statuses saved on this device.
           </p>
         </div>
 
@@ -235,8 +225,8 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
             </button>
             <button
               type="button"
-              className={`rcp-filter-pill ${filter === 'AWAITING_PIN' ? 'active' : ''}`}
-              onClick={() => setFilter('AWAITING_PIN')}
+              className={`rcp-filter-pill ${filter === 'ACTIVE' ? 'active' : ''}`}
+              onClick={() => setFilter('ACTIVE')}
             >
               <span className="rcp-filter-dot pulse-red" />
               <span>Active ({stats.active})</span>
@@ -285,7 +275,7 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
             </h3>
             <p className="rcp-empty-desc">
               {prints.length === 0
-                ? 'Your printed documents, payment receipts, and 4-digit release OTPs will appear here automatically.'
+                ? 'Your printed documents, receipts, and station details will appear here automatically.'
                 : 'Try clearing your search term or changing the status filter tab.'}
             </p>
             {prints.length === 0 && (
@@ -306,13 +296,10 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
         ) : (
           filteredPrints.map(order => {
             const isCompleted = order.status === 'COMPLETED'
-            const isAwaitingPin = order.status === 'AWAITING_PIN'
-            const isPrinting = order.status === 'PRINTING'
             const primaryFile = order.files[0] || { fileName: 'Document' }
-            const isCopied = copiedOtpId === order.orderId
 
             return (
-              <article key={order.orderId} className={`rcp-card ${isAwaitingPin ? 'is-awaiting' : ''}`}>
+              <article key={order.orderId} className={`rcp-card ${!isCompleted ? 'is-awaiting' : ''}`}>
                 {/* Status Indicator Bar */}
                 <div className={`rcp-card-topbar ${order.status.toLowerCase()}`}>
                   <div className="rcp-card-status-pill">
@@ -321,15 +308,10 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
                         <CheckCircle size={13} weight="fill" color="#059669" />
                         <span>PRINT COMPLETED</span>
                       </>
-                    ) : isPrinting ? (
+                    ) : (
                       <>
                         <ArrowsClockwise size={13} weight="bold" className="spin-slow" color="#0284c7" />
                         <span>PRINTING IN PROGRESS</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="rcp-card-pulse-dot" />
-                        <span>ENTER OTP AT KIOSK</span>
                       </>
                     )}
                   </div>
@@ -387,46 +369,29 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
                     </div>
                   </div>
 
-                  {/* Right: OTP Capsule & Price */}
+                  {/* Right: Summary & Price */}
                   <div className="rcp-otp-container">
                     <div className="rcp-otp-header">
-                      <span className="rcp-otp-label">Release OTP</span>
+                      <span className="rcp-otp-label">Total Paid</span>
                       <span className="rcp-price-tag">₹{order.totalPrice}.00</span>
                     </div>
 
-                    {/* 4-Digit Inset OTP Slots */}
-                    <div
-                      className="rcp-otp-slots"
-                      onClick={() => handleCopyOtp(order.orderId, order.otp)}
-                      title="Click to copy OTP"
-                    >
-                      {order.otp.split('').map((char, idx) => (
-                        <span key={idx} className="rcp-otp-digit">
-                          {char}
-                        </span>
-                      ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: isCompleted ? '#059669' : '#0284c7', margin: '4px 0 8px' }}>
+                      {isCompleted ? <CheckCircle size={14} weight="fill" /> : <ArrowsClockwise size={14} weight="bold" className="spin-slow" />}
+                      <span>{isCompleted ? 'Auto-Dispensed' : 'Hardware Printing'}</span>
                     </div>
 
                     {/* Action buttons */}
                     <div className="rcp-card-btn-row">
-                      <button
-                        type="button"
-                        className={`rcp-copy-btn ${isCopied ? 'copied' : ''}`}
-                        onClick={() => handleCopyOtp(order.orderId, order.otp)}
-                      >
-                        {isCopied ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
-                        <span>{isCopied ? 'Copied ✓' : 'Copy OTP'}</span>
-                      </button>
-
-                      {isAwaitingPin && (
+                      {!isCompleted && (
                         <button
                           type="button"
                           className="rcp-live-kiosk-btn"
-                          onClick={() => handleOpenLiveOtp(order)}
-                          title="Open full interactive machine release screen"
+                          onClick={() => handleTrackOrder(order)}
+                          title="Track live hardware printing status"
                         >
                           <Sparkle size={12} weight="fill" />
-                          <span>Kiosk PIN</span>
+                          <span>Track Status</span>
                         </button>
                       )}
 
@@ -468,7 +433,7 @@ export default function RecentPrintsPage({ onClose, isModal = false }: RecentPri
             </div>
             <h3 className="rcp-modal-title">Clear Print History?</h3>
             <p className="rcp-modal-desc">
-              This will remove all saved orders and OTPs from this device. Any uncollected prints at the physical kiosk station will still be printable using their paper receipts.
+              This will remove all saved orders and print records from this device.
             </p>
             <div className="rcp-modal-actions">
               <button

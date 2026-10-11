@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom'
 import {
   SquaresFour,
@@ -23,23 +23,36 @@ import FirstLoginPasswordModal from './merchant/FirstLoginPasswordModal'
 import MerchantBlockedNotice from './merchant/MerchantBlockedNotice'
 import './AdminLayout.css'
 
-const merchantNavItems = [
-  { to: '/merchant/dashboard', icon: <SquaresFour size={18} weight="duotone" />, label: 'Dashboard' },
-  { to: '/merchant/kiosks', icon: <Monitor size={18} weight="duotone" />, label: 'My Kiosk Status' },
-  { to: '/merchant/pages', icon: <Article size={18} weight="duotone" />, label: 'Printer Paper (Tray)' },
-  { to: '/merchant/pricing', icon: <Tag size={18} weight="duotone" />, label: 'Page Pricing' },
-  { to: '/merchant/orders', icon: <ClipboardText size={18} weight="duotone" />, label: 'Store Orders' },
-  { to: '/merchant/earnings', icon: <CurrencyInr size={18} weight="duotone" />, label: 'Earnings & Payouts' },
-  { to: '/merchant/supplies', icon: <Package size={18} weight="duotone" />, label: 'Supplies & Stock' },
-  { to: '/merchant/settings', icon: <Gear size={18} weight="duotone" />, label: 'Store Settings' },
-]
-
 export default function MerchantLayout() {
   const navigate = useNavigate()
   const { user, isAdmin, logout } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { activeKioskId, setActiveKioskId, activeMerchant, merchants, merchantKiosks } = useActiveMerchant()
+  const { activeKioskId, setActiveKioskId, activeMerchant, merchants, merchantKiosks, isHardwareOnline } = useActiveMerchant()
   const isBlocked = Boolean(activeMerchant?.isBlocked || activeMerchant?.status === 'BLOCKED')
+  const isPaperLow = activeMerchant?.paperLevel !== undefined && activeMerchant.paperLevel <= 20
+
+  const merchantNavItems = useMemo(() => [
+    { to: '/merchant/dashboard', icon: <SquaresFour size={18} weight="duotone" />, label: 'Dashboard' },
+    {
+      to: '/merchant/kiosks',
+      icon: <Monitor size={18} weight="duotone" />,
+      label: 'My Kiosk Status',
+      badge: !isHardwareOnline ? 'OFF' : undefined,
+      badgeType: 'error' as const,
+    },
+    {
+      to: '/merchant/pages',
+      icon: <Article size={18} weight="duotone" />,
+      label: 'Printer Paper (Tray)',
+      badge: isPaperLow ? 'LOW' : undefined,
+      badgeType: 'error' as const,
+    },
+    { to: '/merchant/pricing', icon: <Tag size={18} weight="duotone" />, label: 'Page Pricing' },
+    { to: '/merchant/orders', icon: <ClipboardText size={18} weight="duotone" />, label: 'Store Orders' },
+    { to: '/merchant/earnings', icon: <CurrencyInr size={18} weight="duotone" />, label: 'Earnings & Payouts' },
+    { to: '/merchant/supplies', icon: <Package size={18} weight="duotone" />, label: 'Supplies & Stock' },
+    { to: '/merchant/settings', icon: <Gear size={18} weight="duotone" />, label: 'Store Settings' },
+  ], [isHardwareOnline, isPaperLow])
 
   function handleLogout() {
     logout()
@@ -281,6 +294,11 @@ export default function MerchantLayout() {
             >
               {item.icon}
               <span>{item.label}</span>
+              {item.badge ? (
+                <span className={`sidebar__badge ${item.badgeType === 'error' ? 'badge-error' : 'badge-accent'}`}>
+                  {item.badge}
+                </span>
+              ) : null}
             </NavLink>
           ))}
         </nav>

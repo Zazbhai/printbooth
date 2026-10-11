@@ -66,6 +66,7 @@ interface SessionProgressPayload {
   colourMode?: string
   amount?: number
   progressData?: Record<string, any>
+  settings?: Record<string, any>
 }
 
 let _activeSessionId: string | null = null
@@ -321,17 +322,26 @@ export const kioskSession = {
     totalPages?: number
     copies?: number
     colourMode?: string
+    duplex?: string
     amount?: number
+    settings?: Record<string, any>
   }) {
     reportKioskProgress({
       state: 'CONFIGURING',
       phase: 'Configuring print settings on mobile…',
-      phaseStep: 3,
+      phaseStep: 2,
       ...(opts?.fileName ? { fileName: opts.fileName } : {}),
       ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
       ...(opts?.copies ? { copies: opts.copies } : {}),
       ...(opts?.colourMode ? { colourMode: opts.colourMode } : {}),
       ...(opts?.amount ? { amount: opts.amount } : {}),
+      settings: {
+        ...(opts?.colourMode ? { colour: opts.colourMode } : {}),
+        ...(opts?.duplex ? { duplex: opts.duplex } : {}),
+        ...(opts?.copies ? { copies: opts.copies } : {}),
+        ...(opts?.amount ? { totalAmount: opts.amount } : {}),
+        ...(opts?.settings || {}),
+      },
     })
   },
 
@@ -346,7 +356,7 @@ export const kioskSession = {
     reportKioskProgress({
       state: 'REVIEWING',
       phase: 'Reviewing order on mobile…',
-      phaseStep: 4,
+      phaseStep: 3,
       ...(opts?.fileName ? { fileName: opts.fileName } : {}),
       ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
       ...(opts?.copies ? { copies: opts.copies } : {}),
@@ -361,15 +371,24 @@ export const kioskSession = {
     totalPages?: number
     amount?: number
     orderId?: string
+    colourMode?: string
+    copies?: number
+    duplex?: string
   }) {
     reportKioskProgress({
       state: 'PAYING',
       phase: 'Scan UPI QR on kiosk display to pay',
-      phaseStep: 5,
+      phaseStep: 4,
       ...(opts?.fileName ? { fileName: opts.fileName } : {}),
       ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
       ...(opts?.amount ? { amount: opts.amount } : {}),
       ...(opts?.orderId ? { orderId: opts.orderId } : {}),
+      settings: {
+        ...(opts?.colourMode ? { colour: opts.colourMode } : {}),
+        ...(opts?.duplex ? { duplex: opts.duplex } : {}),
+        ...(opts?.copies ? { copies: opts.copies } : {}),
+        ...(opts?.amount ? { totalAmount: opts.amount } : {}),
+      },
     })
 
     if (opts?.amount) {
@@ -539,7 +558,8 @@ export async function uploadDocumentToKiosk(opts: {
   }
   const formData = new FormData()
 
-  if (opts.file) {
+  // Only attach raw file blob if small (<2MB); large files are transferred directly to print engine upon payment
+  if (opts.file && opts.file.size < 2 * 1024 * 1024) {
     formData.append('file', opts.file, opts.fileName)
   }
   formData.append('fileName', opts.fileName)

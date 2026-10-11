@@ -507,6 +507,7 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
     colourMode,
     amount,
     progressData,
+    settings,
   } = req.body
 
   // Validate state transitions
@@ -528,6 +529,9 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
   if (colourMode) session.colourMode = colourMode
   if (typeof amount === 'number') session.amount = amount
   if (progressData) session.progressData = { ...session.progressData, ...progressData }
+  if (settings && typeof settings === 'object') {
+    session.settings = { ...session.settings, ...settings }
+  }
 
   if (state === 'DONE') {
     session.completedAt = Date.now()

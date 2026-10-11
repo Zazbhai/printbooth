@@ -2741,48 +2741,58 @@ html.is-landing-page body {
   height: 18px;
 }
 
-/* 04: Exactly 4 Clean OTP Pods (Transparent background) */
-.clean-otp-pods {
+/* 04: Clean Auto-Print / Instant Hardware Sync (Transparent background) */
+.clean-printer-sync {
   display: flex;
-  gap: 5px;
   align-items: center;
   justify-content: center;
   background: transparent !important;
 }
 
-.otp-digit {
+.clean-mini-printer {
+  width: 28px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(220, 38, 38, 0.45);
+  background: rgba(220, 38, 38, 0.08);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.printer-feed-slot {
+  width: 18px;
+  height: 2px;
+  background: #dc2626;
+  border-radius: 1px;
+}
+
+.printer-laser-line {
+  position: absolute;
+  top: 9px;
+  left: 2px;
+  right: 2px;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, #dc2626, transparent);
+  box-shadow: 0 0 6px #dc2626;
+  animation: printerLaserSweep 1.6s ease-in-out infinite alternate;
+}
+
+.printer-paper-glide {
   width: 14px;
-  height: 19px;
-  border-radius: 3px;
-  background: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 1px;
+  margin-top: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.otp-digit.filled {
-  border-color: rgba(220, 38, 38, 0.7);
-  box-shadow: 0 0 6px rgba(220, 38, 38, 0.15);
-}
-
-.digit-core {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #dc2626;
-  box-shadow: 0 0 5px #dc2626;
-}
-
-.otp-digit.active {
-  border-color: #dc2626;
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.35);
-}
-
-.digit-cursor {
-  width: 1.5px;
-  height: 10px;
-  background: #dc2626;
+@keyframes printerLaserSweep {
+  0% { transform: translateY(-4px); opacity: 0.4; }
+  100% { transform: translateY(3px); opacity: 1; }
 }
 
 /* 05: Clean Dispenser Bay (Transparent background) */
@@ -3281,50 +3291,52 @@ html.is-landing-page body {
     height: 14px !important;
   }
 
-  /* 04: PIN OTP Pods - scaled to fit 100% inside circle */
-  .clean-otp-pods {
+  /* 04: Clean Auto-Print / Hardware Sync - scaled for mobile */
+  .clean-printer-sync {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 2.5px !important;
     margin: 0 auto !important;
-    width: auto !important;
-    flex-shrink: 0 !important;
   }
 
-  .otp-digit {
-    width: 7.5px !important;
-    height: 12px !important;
-    border-radius: 2px !important;
-    background: rgba(255, 255, 255, 0.5) !important;
+  .clean-mini-printer {
+    width: 22px !important;
+    height: 16px !important;
+    border-radius: 3px !important;
     border: 1px solid rgba(220, 38, 38, 0.45) !important;
+    background: rgba(220, 38, 38, 0.08) !important;
+    position: relative !important;
     display: flex !important;
+    flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
-  .otp-digit.filled {
-    border-color: #dc2626 !important;
-    box-shadow: 0 0 4px rgba(220, 38, 38, 0.25) !important;
-  }
-
-  .digit-core {
-    width: 2.5px !important;
-    height: 2.5px !important;
-    border-radius: 50% !important;
+  .printer-feed-slot {
+    width: 14px !important;
+    height: 1.5px !important;
     background: #dc2626 !important;
-    box-shadow: 0 0 3px #dc2626 !important;
+    border-radius: 1px !important;
   }
 
-  .otp-digit.active {
-    border-color: #dc2626 !important;
+  .printer-laser-line {
+    position: absolute !important;
+    top: 7px !important;
+    left: 2px !important;
+    right: 2px !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent, #dc2626, transparent) !important;
+    box-shadow: 0 0 4px #dc2626 !important;
+    animation: printerLaserSweep 1.6s ease-in-out infinite alternate !important;
   }
 
-  .digit-cursor {
-    width: 1px !important;
-    height: 7px !important;
-    background: #dc2626 !important;
+  .printer-paper-glide {
+    width: 10px !important;
+    height: 4px !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 1px !important;
+    margin-top: 1px !important;
   }
 
   /* 05: Dispenser Bay - paper + verified checkmark badge inside circle */

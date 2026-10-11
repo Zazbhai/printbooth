@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Outlet, NavLink, useNavigate, Link, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
@@ -19,25 +19,105 @@ import {
   Megaphone,
 } from '@phosphor-icons/react'
 import { useAuth } from '@/lib/authContext'
+import { getAdminAlerts } from '@/lib/api'
+import { getHelpDeskStats, fetchHelpDeskTickets } from '@/lib/helpdesk'
+import { getInstallationStats, fetchInstallationRequests } from '@/lib/installations'
 import './AdminLayout.css'
-
-const adminNavItems = [
-  { to: '/admin/dashboard', icon: <SquaresFour size={18} weight="duotone" />, label: 'Dashboard' },
-  { to: '/admin/kiosks', icon: <Monitor size={18} weight="duotone" />, label: 'Kiosks Fleet' },
-  { to: '/admin/orders', icon: <ClipboardText size={18} weight="duotone" />, label: 'All Orders' },
-  { to: '/admin/alerts', icon: <Bell size={18} weight="duotone" />, label: 'Alerts', badge: 3 },
-  { to: '/admin/helpdesk', icon: <Headset size={18} weight="duotone" />, label: 'Help Desk', badge: 5 },
-  { to: '/admin/installations', icon: <HardDrives size={18} weight="duotone" />, label: 'Installation Requests', badge: 2 },
-  { to: '/admin/merchants', icon: <Storefront size={18} weight="duotone" />, label: 'Merchant Partners', badge: 4 },
-  { to: '/admin/payments', icon: <CreditCard size={18} weight="duotone" />, label: 'Razorpay Payments' },
-  { to: '/admin/advertisements', icon: <Megaphone size={18} weight="duotone" />, label: 'Ad Campaigns' },
-  { to: '/admin/users', icon: <UsersThree size={18} weight="duotone" />, label: 'Admin Management' },
-]
 
 export default function AdminLayout() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const [badgeCounts, setBadgeCounts] = useState<{
+    alerts: number
+    helpdesk: number
+    installations: number
+  }>({
+    alerts: 0,
+    helpdesk: 0,
+    installations: 0,
+  })
+
+  const refreshBadgeCounts = useCallback(async () => {
+    try {
+      // 1. Hardware & Fleet Alerts (only unacknowledged alerts)
+      const alerts = await getAdminAlerts().catch(() => [])
+      const unackAlerts = Array.isArray(alerts)
+        ? alerts.filter((a: any) => !a.acknowledged).length
+        : 0
+
+      // 2. Real Help Desk tickets (only OPEN tickets)
+      const hdStats = getHelpDeskStats()
+      const openTickets = hdStats.open || 0
+
+      // 3. Real Installation requests (only NEW/unprocessed requests)
+      const instStats = getInstallationStats()
+      const newRequests = instStats.newRequests || 0
+
+      setBadgeCounts({
+        alerts: unackAlerts,
+        helpdesk: openTickets,
+        installations: newRequests,
+      })
+    } catch (err) {
+      console.warn('[AdminLayout] Failed to refresh sidebar badges:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Initial sync from backend
+    fetchHelpDeskTickets().then(() => refreshBadgeCounts()).catch(() => {})
+    fetchInstallationRequests().then(() => refreshBadgeCounts()).catch(() => {})
+    refreshBadgeCounts()
+
+    // Real-time custom event listeners
+    const onHelpdesk = () => refreshBadgeCounts()
+    const onInst = () => refreshBadgeCounts()
+    const onAlerts = () => refreshBadgeCounts()
+
+    window.addEventListener('pb_helpdesk_updated', onHelpdesk)
+    window.addEventListener('pb_installation_updated', onInst)
+    window.addEventListener('pb_alerts_updated', onAlerts)
+
+    // Periodic poll every 15s to keep in sync with fleet changes
+    const interval = setInterval(refreshBadgeCounts, 15000)
+
+    return () => {
+      window.removeEventListener('pb_helpdesk_updated', onHelpdesk)
+      window.removeEventListener('pb_installation_updated', onInst)
+      window.removeEventListener('pb_alerts_updated', onAlerts)
+      clearInterval(interval)
+    }
+  }, [refreshBadgeCounts])
+
+  const adminNavItems = useMemo(() => [
+    { to: '/admin/dashboard', icon: <SquaresFour size={18} weight="duotone" />, label: 'Dashboard' },
+    { to: '/admin/kiosks', icon: <Monitor size={18} weight="duotone" />, label: 'Kiosks Fleet' },
+    { to: '/admin/orders', icon: <ClipboardText size={18} weight="duotone" />, label: 'All Orders' },
+    {
+      to: '/admin/alerts',
+      icon: <Bell size={18} weight="duotone" />,
+      label: 'Alerts',
+      badge: badgeCounts.alerts > 0 ? badgeCounts.alerts : undefined,
+    },
+    {
+      to: '/admin/helpdesk',
+      icon: <Headset size={18} weight="duotone" />,
+      label: 'Help Desk',
+      badge: badgeCounts.helpdesk > 0 ? badgeCounts.helpdesk : undefined,
+    },
+    {
+      to: '/admin/installations',
+      icon: <HardDrives size={18} weight="duotone" />,
+      label: 'Installation Requests',
+      badge: badgeCounts.installations > 0 ? badgeCounts.installations : undefined,
+    },
+    { to: '/admin/merchants', icon: <Storefront size={18} weight="duotone" />, label: 'Merchant Partners' },
+    { to: '/admin/payments', icon: <CreditCard size={18} weight="duotone" />, label: 'Razorpay Payments' },
+    { to: '/admin/advertisements', icon: <Megaphone size={18} weight="duotone" />, label: 'Ad Campaigns' },
+    { to: '/admin/users', icon: <UsersThree size={18} weight="duotone" />, label: 'Admin Management' },
+  ], [badgeCounts])
 
   function handleLogout() {
     logout()
