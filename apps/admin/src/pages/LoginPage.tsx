@@ -878,10 +878,13 @@ export default function LoginPage() {
           <div className="signin-signup">
             {/* ── Form 1: Sign In ── */}
             <form className="sign-in-form" onSubmit={handleSignInSubmit} autoComplete="off">
-              <span className="brand-pill">
-                <ShieldCheck size={13} weight="bold" />
-                <span>Console Portal</span>
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <img src="/logo.png" alt="PrintBooth" style={{ width: 34, height: 34, objectFit: 'contain' }} />
+                <span className="brand-pill" style={{ margin: 0 }}>
+                  <ShieldCheck size={13} weight="bold" />
+                  <span>Console Portal</span>
+                </span>
+              </div>
               <h2 className="title">Sign In</h2>
               <p className="sub-text">
                 Enter your credentials to access your console dashboard. Role is auto-detected.
@@ -956,10 +959,13 @@ export default function LoginPage() {
 
             {/* ── Form 2: Request Password Change (Help Desk Ticket) ── */}
             <form className="sign-up-form" onSubmit={handleResetSubmit} autoComplete="off">
-              <span className="brand-pill merchant">
-                <Lifebuoy size={12} weight="bold" />
-                <span>Help Desk Support</span>
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <img src="/logo.png" alt="PrintBooth" style={{ width: 34, height: 34, objectFit: 'contain' }} />
+                <span className="brand-pill merchant" style={{ margin: 0 }}>
+                  <Lifebuoy size={12} weight="bold" />
+                  <span>Help Desk Support</span>
+                </span>
+              </div>
               <h2 className="title">Request Password Reset</h2>
               <p className="sub-text">
                 Submit an official credential change request to Fleet Support to verify

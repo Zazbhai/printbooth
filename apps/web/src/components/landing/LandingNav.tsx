@@ -51,34 +51,11 @@ export default function LandingNav({ onNavigate, activeSection = 0 }: LandingNav
           onClick={() => (onNavigate ? onNavigate(0) : undefined)}
           aria-label="PrintBooth Home"
         >
-          <svg
+          <img
+            src="/logo.png"
+            alt="PrintBooth"
             className="landing-nav__brand-glyph"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <ellipse
-              cx="12"
-              cy="12"
-              rx="10"
-              ry="4.2"
-              transform="rotate(-30 12 12)"
-              stroke="#dc2626"
-              strokeWidth="1.8"
-            />
-            <ellipse
-              cx="12"
-              cy="12"
-              rx="10"
-              ry="4.2"
-              transform="rotate(30 12 12)"
-              stroke="#09090b"
-              strokeWidth="1.8"
-            />
-            <circle cx="12" cy="12" r="2.2" fill="#dc2626" />
-          </svg>
+          />
           <span className="landing-nav__brand-title">PrintBooth</span>
         </button>
 

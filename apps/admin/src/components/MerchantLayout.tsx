@@ -10,7 +10,6 @@ import {
   SignOut,
   List,
   X,
-  Storefront,
   Tag,
   ArrowLeft,
   Circle,
@@ -85,7 +84,8 @@ export default function MerchantLayout() {
         {/* Mobile Top Header */}
         <header className="mobile-header" role="banner">
           <div className="mobile-header__brand">
-          <Link to={`/merchant/dashboard?kioskId=${activeKioskId}`} className="mobile-header__logo">
+          <Link to={`/merchant/dashboard?kioskId=${activeKioskId}`} className="mobile-header__logo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src="/logo.png" alt="PrintBooth" style={{ width: 22, height: 22, objectFit: 'contain' }} />
             <span>PrintBooth</span>
             <span className="sidebar__brand-tag merchant-tag">{activeKioskId}</span>
           </Link>
@@ -143,7 +143,7 @@ export default function MerchantLayout() {
       <aside className={`admin-sidebar ${mobileMenuOpen ? 'mobile-drawer-open' : ''}`}>
         <div className="sidebar__brand">
           <Link to={`/merchant/dashboard?kioskId=${activeKioskId}`} className="sidebar__brand-link" onClick={() => setMobileMenuOpen(false)}>
-            <div className="sidebar__brand-icon merchant-icon" style={{ overflow: 'hidden', padding: 0 }}>
+            <div className="sidebar__brand-icon merchant-icon" style={{ overflow: 'hidden', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {activeMerchant?.kioskPhotoUrl ? (
                 <img
                   src={activeMerchant.kioskPhotoUrl}
@@ -151,7 +151,11 @@ export default function MerchantLayout() {
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <Storefront size={19} weight="bold" />
+                <img
+                  src="/logo.png"
+                  alt="PrintBooth"
+                  style={{ width: 22, height: 22, objectFit: 'contain' }}
+                />
               )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>

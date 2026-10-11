@@ -49,7 +49,8 @@ export default function AdminLayout() {
       {/* Mobile Top Header (< 768px) */}
       <header className="mobile-header" role="banner">
         <div className="mobile-header__brand">
-          <Link to="/admin/dashboard" className="mobile-header__logo">
+          <Link to="/admin/dashboard" className="mobile-header__logo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src="/logo.png" alt="PrintBooth" style={{ width: 22, height: 22, objectFit: 'contain' }} />
             <span>PrintBooth</span>
             <span className="sidebar__brand-tag">Admin</span>
           </Link>
@@ -94,8 +95,8 @@ export default function AdminLayout() {
       <aside className={`admin-sidebar ${mobileMenuOpen ? 'mobile-drawer-open' : ''}`}>
         <div className="sidebar__brand">
           <Link to="/admin/dashboard" className="sidebar__brand-link" onClick={() => setMobileMenuOpen(false)}>
-            <div className="sidebar__brand-icon">
-              <SquaresFour size={19} weight="bold" />
+            <div className="sidebar__brand-icon" style={{ overflow: 'hidden', padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/logo.png" alt="PrintBooth" style={{ width: 22, height: 22, objectFit: 'contain' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
