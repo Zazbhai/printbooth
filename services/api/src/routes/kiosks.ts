@@ -158,10 +158,10 @@ kiosksRouter.get('/', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:list:'
         const isRelayConnected = isKioskRelayConnected(k.kioskId)
         const isPiHeartbeatFresh = Boolean(k.lastSeenAt && (Date.now() - new Date(k.lastSeenAt).getTime() < 60000))
         const reachability = await isKioskPiReachable(k.kioskId)
-        const isPiAlive = isTestMode ? (reachability.isReachable || isPiHeartbeatFresh) : (reachability.isReachable && isRelayConnected)
+        const isPiAlive = isTestMode ? true : (reachability.isReachable && isRelayConnected)
 
         const printerModel = isTestMode
-          ? (livePrinter.selectedPrinter || k.printerModel || 'Laser Print Engine')
+          ? (livePrinter.selectedPrinter || k.printerModel || 'Laser Print Engine (Simulator)')
           : (isPiAlive
               ? (k.printerModel || 'Laser Print Engine')
               : (k.printerModel || 'Laser Print Engine (Offline)'))
@@ -208,15 +208,15 @@ kiosksRouter.get('/', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:list:'
           isTestMode,
           qrCodeUrl: k.qrCodeUrl || getKioskPrintUrl(k.kioskId, req),
           kioskPhotoUrl: k.kioskPhotoUrl || 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
-          hardwareDetails: isPiAlive ? {
-            isAvailable: !isOffline,
-            isOnline: !isOffline,
-            isHardwareReady: !isOffline,
+          hardwareDetails: (isTestMode || isPiAlive) ? {
+            isAvailable: isTestMode ? true : !isOffline,
+            isOnline: isTestMode ? true : !isOffline,
+            isHardwareReady: isTestMode ? true : !isOffline,
             isTestMode,
-            port: 'USB (Raspberry Pi)',
-            driver: 'CUPS Linux Driver',
-            connectionType: 'USB_DIRECT',
-            statusLabels: [printerStatus],
+            port: isTestMode ? (livePrinter.port || 'VIRTUAL-SIM') : 'USB (Raspberry Pi)',
+            driver: isTestMode ? (livePrinter.driver || 'PrintBooth Virtual Driver (Simulator)') : 'CUPS Linux Driver',
+            connectionType: isTestMode ? 'TEST_SIMULATION' : 'USB_DIRECT',
+            statusLabels: isTestMode ? ['Ready (Test Mode)'] : [printerStatus],
             selectedPrinter: printerModel,
           } : {
             isAvailable: false,
@@ -380,10 +380,10 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
     const isRelayActive = isKioskRelayConnected(cleanId)
     const isPiHeartbeatFresh = Boolean(kDoc.lastSeenAt && (Date.now() - new Date(kDoc.lastSeenAt).getTime() < 60000))
     const reachability = await isKioskPiReachable(cleanId)
-    const isPiAlive = isTestMode ? (reachability.isReachable || isPiHeartbeatFresh) : (reachability.isReachable && isRelayActive)
+    const isPiAlive = isTestMode ? true : (reachability.isReachable && isRelayActive)
 
     const printerModel = isTestMode
-      ? (livePrinter.selectedPrinter || kDoc.printerModel || 'Laser Print Engine')
+      ? (livePrinter.selectedPrinter || kDoc.printerModel || 'Laser Print Engine (Simulator)')
       : (isPiAlive
           ? (kDoc.printerModel || 'Laser Print Engine')
           : (kDoc.printerModel || 'Laser Print Engine (Offline)'))
@@ -431,15 +431,15 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
         merchantBlocked: isMerchantBlocked,
         isTestMode,
         merchantContact: await resolveMerchantContactForKiosk(cleanId),
-        hardwareDetails: (isPiAlive && !isOffline) ? {
+        hardwareDetails: (isTestMode || (isPiAlive && !isOffline)) ? {
           isAvailable: true,
           isOnline: true,
           isHardwareReady: true,
           isTestMode,
-          port: 'USB (Raspberry Pi)',
-          driver: 'CUPS Linux Driver',
-          connectionType: 'USB_DIRECT',
-          statusLabels: [printerStatus],
+          port: isTestMode ? (livePrinter.port || 'VIRTUAL-SIM') : 'USB (Raspberry Pi)',
+          driver: isTestMode ? (livePrinter.driver || 'PrintBooth Virtual Driver (Simulator)') : 'CUPS Linux Driver',
+          connectionType: isTestMode ? 'TEST_SIMULATION' : 'USB_DIRECT',
+          statusLabels: isTestMode ? ['Ready (Test Mode)'] : [printerStatus],
           selectedPrinter: printerModel,
         } : {
           isAvailable: false,

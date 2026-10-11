@@ -242,7 +242,14 @@ export async function detectConnectedPrinter(preferred?: string, kioskId?: strin
 
 export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrinter?: string): Promise<PrinterAvailabilityCheck> {
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-  const urlTest = urlParams?.get('test') === '1' || urlParams?.get('mock') === '1' || urlParams?.get('online') === '1'
+  let hashSearch = ''
+  if (typeof window !== 'undefined' && window.location.hash.includes('?')) {
+    hashSearch = window.location.hash.split('?')[1] || ''
+  }
+  const hashParams = hashSearch ? new URLSearchParams(hashSearch) : null
+
+  const urlTest = urlParams?.get('test') === '1' || urlParams?.get('mock') === '1' || urlParams?.get('online') === '1' ||
+    hashParams?.get('test') === '1' || hashParams?.get('mock') === '1' || hashParams?.get('online') === '1'
   const envTest = (import.meta.env.VITE_PRINT_MODE || '').toLowerCase() === 'test'
   const sessionTest = typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('pb_print_mode') || '').toLowerCase() === 'test'
   const isClientTestMode = envTest || sessionTest || Boolean(urlTest)
@@ -263,6 +270,16 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
   try {
     const kiosk = await getKioskDetails(targetKioskId)
     if (kiosk) {
+      if (kiosk.isTestMode || (kiosk.hardwareDetails as any)?.isTestMode) {
+        return {
+          isAvailable: true,
+          reason: '',
+          detail: '',
+          kioskName: kiosk.name || 'PrintBooth Station (Virtual Test Mode)',
+          printerName: kiosk.printerModel || kiosk.printer || 'PrintBooth Virtual Printer (Simulator)',
+        }
+      }
+
       const isMaintenance = String(kiosk.status || '').toUpperCase() === 'MAINTENANCE'
       const isKioskOffline = String(kiosk.status || '').toUpperCase() === 'OFFLINE'
       const pStatus = String(kiosk.printerStatus || '').toUpperCase()

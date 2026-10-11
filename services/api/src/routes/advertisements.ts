@@ -22,7 +22,7 @@ advertisementsRouter.get('/kiosk/:kioskId', async (req: Request, res: Response) 
       return res.json({
         success: true,
         kioskId: rawKioskId,
-        data: activeFallback.length > 0 ? activeFallback : fallbackAdvertisements,
+        data: activeFallback,
       })
     }
 
@@ -55,11 +55,10 @@ advertisementsRouter.get('/kiosk/:kioskId', async (req: Request, res: Response) 
       .lean()
 
     if (!ads || ads.length === 0) {
-      // Graceful fallback to default campus sponsor presentation
       return res.json({
         success: true,
         kioskId: rawKioskId,
-        data: fallbackAdvertisements,
+        data: [],
       })
     }
 
@@ -70,7 +69,7 @@ advertisementsRouter.get('/kiosk/:kioskId', async (req: Request, res: Response) 
     })
   } catch (err: any) {
     console.error('[Ads API] Error fetching kiosk ads:', err)
-    res.status(500).json({ success: false, error: err.message, data: fallbackAdvertisements })
+    res.status(500).json({ success: false, error: err.message, data: [] })
   }
 })
 

@@ -263,6 +263,65 @@ export async function claimKioskSession(token: string): Promise<{
   }
 }
 
+let _lastPhoneActivityTimestamp = Date.now()
+let _lastActivityReportedAt = 0
+
+/**
+ * Returns epoch timestamp of user's latest touch/interaction on their phone
+ */
+export function getLastPhoneActivityTimestamp(): number {
+  return _lastPhoneActivityTimestamp
+}
+
+/**
+ * Record user touch/interaction strictly on their phone.
+ * Throttles network pings to POST /api/kiosk-sessions/:sessionId/phone-activity
+ * to at most once every 3.5 seconds.
+ */
+export function recordPhoneActivity(): void {
+  _lastPhoneActivityTimestamp = Date.now()
+  const { sessionId } = getActiveKioskSession()
+  if (!sessionId) return
+
+  const now = Date.now()
+  if (now - _lastActivityReportedAt < 3500) return
+  _lastActivityReportedAt = now
+
+  const clientClaimToken = getClientClaimSecret(sessionId)
+  const apiBase = getApiBase()
+  fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/phone-activity`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-client-claim-token': clientClaimToken,
+    },
+    body: JSON.stringify({ clientClaimToken }),
+  }).catch(() => {
+    // Non-blocking best effort
+  })
+}
+
+// Automatically register touch listeners on the user's phone
+if (typeof window !== 'undefined') {
+  const PHONE_TOUCH_EVENTS = [
+    'touchstart',
+    'touchend',
+    'touchmove',
+    'pointerdown',
+    'pointerup',
+    'click',
+    'mousedown',
+    'mouseup',
+    'keydown',
+    'scroll',
+    'input',
+    'change',
+  ]
+  PHONE_TOUCH_EVENTS.forEach(evt => {
+    window.addEventListener(evt, () => recordPhoneActivity(), { passive: true, capture: true })
+  })
+}
+
 /**
  * Get the currently active session (from state, session storage, or URL)
  */
@@ -281,6 +340,9 @@ export function getActiveKioskSession(): { sessionId: string | null; token: stri
  * Fire-and-forget — doesn't block the UI.
  */
 export function reportKioskProgress(payload: SessionProgressPayload): void {
+  _lastPhoneActivityTimestamp = Date.now()
+  _lastActivityReportedAt = Date.now()
+
   const { sessionId } = getActiveKioskSession()
   if (!sessionId) return
 

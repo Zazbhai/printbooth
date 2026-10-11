@@ -118,6 +118,7 @@ export interface KioskSession {
   document?: KioskDocumentData
   settings?: KioskPrintSettingsData
   claimSecret?: string   // Client claim secret ensuring only original scanner can resume
+  lastPhoneActivityAt?: number // Timestamp of last touch/interaction strictly on user's phone
   // Progress data relayed from web app
   progressData?: Record<string, any>
   upiQrValue?: string
@@ -138,6 +139,7 @@ export type KioskSessionState =
   | 'OTP_READY'
   | 'PRINTING'
   | 'DONE'
+  | 'CANCELLED'
 
 const SESSION_TTL_SECONDS = 5 * 60  // 5 minutes before auto-rotate
 const SESSION_DONE_TTL_SECONDS = 30  // Keep DONE state visible briefly
@@ -211,6 +213,7 @@ function generateSession(kioskId: string, webBaseUrl: string): KioskSession {
     state: 'QR_READY',
     createdAt: now,
     expiresAt: exp,
+    lastPhoneActivityAt: now,
     phase: 'Waiting for user to scan QR',
     phaseStep: 0,
     progressData: { qrUrl },
@@ -355,6 +358,46 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
     return res.json({ success: true, session: null, hasActiveSession: false })
   }
 
+  // Check 1-minute phone inactivity timeout:
+  // If user hasn't touched their phone for 1 minute (60s) in an active pre-print step,
+  // cancel the session, generate a fresh QR session, and return it immediately.
+  const PHONE_INACTIVITY_MS = 60 * 1000 // 1 minute (60 seconds)
+  const isPrePrintState = session.state !== 'QR_READY' &&
+                          session.state !== 'PRINTING' &&
+                          session.state !== 'DONE' &&
+                          session.state !== 'CANCELLED'
+  const lastPhone = session.lastPhoneActivityAt || session.claimedAt || session.createdAt
+  const isPhoneInactive = isPrePrintState && Boolean(lastPhone) && (Date.now() - lastPhone >= PHONE_INACTIVITY_MS)
+
+  if (isPhoneInactive) {
+    console.log(`[KioskSession] ⏱️ 1-minute phone inactivity timeout reached for ${session.sessionId} on ${kioskId}. Reverting to QR_READY upload page.`)
+    session.state = 'CANCELLED'
+    session.completedAt = Date.now()
+    saveSession(session)
+
+    const webBase = resolveWebBaseUrl(req)
+    const freshSession = generateSession(kioskId, webBase)
+    return res.json({
+      success: true,
+      hasActiveSession: true,
+      isExpired: false,
+      isPhoneInactive: true,
+      session: {
+        sessionId: freshSession.sessionId,
+        kioskId: freshSession.kioskId,
+        kioskVariant: freshSession.kioskVariant || getKioskVariantSync(freshSession.kioskId),
+        token: freshSession.token,
+        qrUrl: freshSession.progressData?.qrUrl,
+        state: freshSession.state,
+        phase: freshSession.phase,
+        phaseStep: freshSession.phaseStep,
+        createdAt: freshSession.createdAt,
+        expiresAt: freshSession.expiresAt,
+        lastPhoneActivityAt: freshSession.lastPhoneActivityAt,
+      },
+    })
+  }
+
   // Check for expiry (rotate automatically in status response)
   const isExpired = Date.now() > session.expiresAt && session.state !== 'DONE'
 
@@ -362,6 +405,7 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
     success: true,
     hasActiveSession: true,
     isExpired,
+    isPhoneInactive: false,
     session: {
       sessionId: session.sessionId,
       kioskId: session.kioskId,
@@ -381,6 +425,7 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
       claimedAt: session.claimedAt,
+      lastPhoneActivityAt: session.lastPhoneActivityAt,
       completedAt: session.completedAt,
       document: session.document,
       settings: session.settings,
@@ -448,6 +493,8 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
     )
 
     if (isOwner) {
+      session.lastPhoneActivityAt = Date.now()
+      saveSession(session)
       return res.json({
         success: true,
         isOwner: true,
@@ -476,6 +523,7 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
   session.claimSecret = assignedSecret
   session.state = 'CLAIMED'
   session.claimedAt = Date.now()
+  session.lastPhoneActivityAt = Date.now()
   session.claimedIp = clientIp
   session.phase = 'User scanning and opening upload page…'
   session.phaseStep = 1
@@ -490,6 +538,40 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
     kioskId,
     claimSecret: assignedSecret,
     message: 'Session claimed. You may now upload your document.',
+  })
+})
+
+/**
+ * POST /api/kiosk-sessions/:sessionId/phone-activity
+ * Called by the phone web app whenever the user touches, scrolls, or types on their phone.
+ * Updates lastPhoneActivityAt.
+ * CRITICAL: Tapping/touching the kiosk display must NOT call this endpoint!
+ */
+kioskSessionsRouter.post('/:sessionId/phone-activity', (req: Request, res: Response) => {
+  const { sessionId } = req.params
+  const session = getSession(sessionId)
+
+  if (!session) {
+    return res.status(404).json({ success: false, error: 'Session not found' })
+  }
+
+  const clientClaimToken = String(
+    req.body?.clientClaimToken || req.headers['x-client-claim-token'] || ''
+  ).trim()
+
+  if (session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken) {
+    return res.status(403).json({ success: false, error: 'Unauthorized device' })
+  }
+
+  const backdate = Number(req.body?.backdateMs) || 0
+  const now = Date.now() - backdate
+  session.lastPhoneActivityAt = now
+  saveSession(session)
+
+  res.json({
+    success: true,
+    sessionId,
+    lastPhoneActivityAt: now,
   })
 })
 
@@ -518,6 +600,9 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
       message: 'Machine is already in use by another customer.',
     })
   }
+
+  // Update last phone activity strictly for phone requests
+  session.lastPhoneActivityAt = Date.now()
 
   const {
     state,
@@ -649,6 +734,7 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   session.totalPages = pageCount
   session.copies = session.copies || 1
   session.colourMode = session.colourMode || 'BW'
+  session.lastPhoneActivityAt = Date.now()
   session.state = 'CONFIRMING'
   session.phase = 'Document uploaded. Review document on mobile.'
   session.phaseStep = 2
@@ -1074,7 +1160,7 @@ kioskSessionsRouter.post('/:sessionId/cancel', (req: Request, res: Response) => 
   const session = getSession(sessionId)
 
   if (session) {
-    session.state = 'DONE'
+    session.state = 'CANCELLED'
     session.completedAt = Date.now()
     session.document = undefined
     saveSession(session)

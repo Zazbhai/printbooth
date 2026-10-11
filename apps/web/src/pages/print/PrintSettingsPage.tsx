@@ -142,6 +142,24 @@ export default function PrintSettingsPage() {
   // Start with colour card active for pro, pages for lite
   const [activeCardId, setActiveCardId] = useState<string | null>(isLite ? 'gxuri' : 'spending')
 
+  const patchSettings = useCallback((patch: Partial<FileSettings>) => {
+    if (activeFile) {
+      updateFileSettings(activeFile.id, patch)
+      // Force local re-render
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === activeFile.id ? { ...f, settings: { ...f.settings, ...patch } } : f
+        )
+      )
+    } else {
+      setLocalSettings(prev => {
+        const next = { ...prev, ...patch }
+        sessionStorage.setItem('pb_settings', JSON.stringify(next))
+        return next
+      })
+    }
+  }, [activeFile?.id])
+
   // Enforce pure B&W if connected to PrintBooth Lite
   useEffect(() => {
     if (isLite && settings.colour !== 'BW') {
@@ -150,7 +168,6 @@ export default function PrintSettingsPage() {
   }, [isLite, settings.colour, patchSettings])
 
   const realPageCount = activeFile?.pageCount || Number(sessionStorage.getItem('pb_page_count')) || 1
-
 
   const selectedPagesList = useMemo(() => {
     return parsePageRange(settings.pages, realPageCount)
@@ -179,24 +196,6 @@ export default function PrintSettingsPage() {
       ),
     }))
   }, [files])
-
-  const patchSettings = useCallback((patch: Partial<FileSettings>) => {
-    if (activeFile) {
-      updateFileSettings(activeFile.id, patch)
-      // Force local re-render
-      setFiles(prev =>
-        prev.map(f =>
-          f.id === activeFile.id ? { ...f, settings: { ...f.settings, ...patch } } : f
-        )
-      )
-    } else {
-      setLocalSettings(prev => {
-        const next = { ...prev, ...patch }
-        sessionStorage.setItem('pb_settings', JSON.stringify(next))
-        return next
-      })
-    }
-  }, [activeFile?.id])
 
   const totalPagePrints = useMemo(() => {
     if (settings.pageCopies && Object.keys(settings.pageCopies).length > 0) {

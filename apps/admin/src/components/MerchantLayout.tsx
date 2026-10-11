@@ -4,8 +4,6 @@ import {
   SquaresFour,
   Monitor,
   ClipboardText,
-  CurrencyInr,
-  Package,
   Gear,
   SignOut,
   List,
@@ -49,8 +47,6 @@ export default function MerchantLayout() {
     },
     { to: '/merchant/pricing', icon: <Tag size={18} weight="duotone" />, label: 'Page Pricing' },
     { to: '/merchant/orders', icon: <ClipboardText size={18} weight="duotone" />, label: 'Store Orders' },
-    { to: '/merchant/earnings', icon: <CurrencyInr size={18} weight="duotone" />, label: 'Earnings & Payouts' },
-    { to: '/merchant/supplies', icon: <Package size={18} weight="duotone" />, label: 'Supplies & Stock' },
     { to: '/merchant/settings', icon: <Gear size={18} weight="duotone" />, label: 'Store Settings' },
   ], [isHardwareOnline, isPaperLow])
 
@@ -422,11 +418,11 @@ export default function MerchantLayout() {
           <span>Orders</span>
         </NavLink>
         <NavLink
-          to={`/merchant/earnings?kioskId=${activeKioskId}`}
+          to={`/merchant/settings?kioskId=${activeKioskId}`}
           className={({ isActive }) => `bottom-nav__item ${isActive ? 'active' : ''}`}
         >
-          <CurrencyInr size={20} weight="duotone" />
-          <span>Earnings</span>
+          <Gear size={20} weight="duotone" />
+          <span>Settings</span>
         </NavLink>
       </nav>
 

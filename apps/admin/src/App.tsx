@@ -19,8 +19,6 @@ import AdvertisementsPage from './pages/admin/AdvertisementsPage'
 import MerchantDashboardPage from './pages/merchant/MerchantDashboardPage'
 import MerchantKiosksPage from './pages/merchant/MerchantKiosksPage'
 import MerchantOrdersPage from './pages/merchant/MerchantOrdersPage'
-import MerchantEarningsPage from './pages/merchant/MerchantEarningsPage'
-import MerchantSuppliesPage from './pages/merchant/MerchantSuppliesPage'
 import MerchantSettingsPage from './pages/merchant/MerchantSettingsPage'
 import MerchantPricingPage from './pages/merchant/MerchantPricingPage'
 import MerchantPagesPage from './pages/merchant/MerchantPagesPage'
@@ -89,8 +87,10 @@ export default function App() {
             <Route path="paper" element={<Navigate to="/merchant/pages" replace />} />
             <Route path="pricing" element={<MerchantPricingPage />} />
             <Route path="orders" element={<MerchantOrdersPage />} />
-            <Route path="earnings" element={<MerchantEarningsPage />} />
-            <Route path="supplies" element={<MerchantSuppliesPage />} />
+            <Route path="earnings" element={<Navigate to="/merchant/dashboard" replace />} />
+            <Route path="payout" element={<Navigate to="/merchant/dashboard" replace />} />
+            <Route path="payouts" element={<Navigate to="/merchant/dashboard" replace />} />
+            <Route path="supplies" element={<Navigate to="/merchant/dashboard" replace />} />
             <Route path="settings" element={<MerchantSettingsPage />} />
           </Route>
 

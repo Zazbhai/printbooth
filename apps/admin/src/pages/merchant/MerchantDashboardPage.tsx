@@ -1011,10 +1011,10 @@ export default function MerchantDashboardPage() {
                   <span>Station Diagnostics</span>
                 </button>
               </a>
-              <a href="/merchant/earnings" style={{ flex: 1, textDecoration: 'none' }}>
+              <a href={`/merchant/orders?kioskId=${activeKioskId}`} style={{ flex: 1, textDecoration: 'none' }}>
                 <button type="button" className="hw-action-btn primary" style={{ width: '100%', justifyContent: 'center' }}>
-                  <CurrencyInr size={14} weight="bold" />
-                  <span>Payout Ledger</span>
+                  <FileText size={14} weight="bold" />
+                  <span>Store Orders</span>
                 </button>
               </a>
             </div>

@@ -36,7 +36,14 @@ import {
   type KioskValidationResult,
 } from '@/lib/kioskValidation'
 import SEO from '../../components/common/SEO'
-import { kioskSession, getSessionTokenFromUrl, claimKioskSession } from '@/lib/kioskSession'
+import {
+  kioskSession,
+  getSessionTokenFromUrl,
+  claimKioskSession,
+  getLastPhoneActivityTimestamp,
+  clearActiveKioskSession,
+  getApiBase,
+} from '@/lib/kioskSession'
 import './PrintNeomorphism.css'
 
 const STEP_ORDER: Record<string, number> = {
@@ -260,24 +267,41 @@ export default function UnifiedPrintPage() {
     }
   }, [paramStep, searchParams])
 
-  // ── Kiosk QR Session: claim on mount if ?session= param present ──
+  // ── Kiosk QR Session: claim on mount if ?session= or direct ?id= param present ──
   useEffect(() => {
     const token = getSessionTokenFromUrl() || (typeof window !== 'undefined' ? sessionStorage.getItem('pb_kiosk_session_token') : null)
-    if (!token) return
-    claimKioskSession(token).then(result => {
-      if (result.machineInUse) {
-        setMachineInUseState({
-          inUse: true,
-          kioskId: result.kioskId || printerId || 'PB-001',
-          token,
+    if (token) {
+      claimKioskSession(token).then(result => {
+        if (result.machineInUse) {
+          setMachineInUseState({
+            inUse: true,
+            kioskId: result.kioskId || printerId || 'PB-001',
+            token,
+          })
+        } else if (result.success) {
+          setMachineInUseState(null)
+          kioskSession.reportUploading()
+        } else {
+          console.warn('[KioskSession] Claim result:', result.error)
+        }
+      })
+    } else if (printerId) {
+      // Auto-connect to active kiosk session if user opened the direct link without session token in URL
+      const apiBase = getApiBase()
+      fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(printerId)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.success && data.session?.token && data.session.state === 'QR_READY') {
+            claimKioskSession(data.session.token).then(result => {
+              if (result.success) {
+                setMachineInUseState(null)
+                kioskSession.reportUploading()
+              }
+            })
+          }
         })
-      } else if (result.success) {
-        setMachineInUseState(null)
-        kioskSession.reportUploading()
-      } else {
-        console.warn('[KioskSession] Claim result:', result.error)
-      }
-    })
+        .catch(() => {})
+    }
   }, [printerId])
 
   // ── Step management (Preserves stage and files across page refresh) ──
@@ -376,6 +400,20 @@ export default function UnifiedPrintPage() {
       return next
     }, { replace: true })
   }, [setSearchParams])
+
+  // ── Phone Inactivity Timer: Reset after 1 minute of zero touches on phone ──
+  useEffect(() => {
+    if (!kioskSession.isKioskSession()) return
+    const interval = setInterval(() => {
+      const lastTouch = getLastPhoneActivityTimestamp()
+      if (lastTouch && (Date.now() - lastTouch >= 60000)) {
+        console.log('[UnifiedPrintPage] ⏱️ 1 minute without phone touch: resetting session.')
+        clearActiveKioskSession()
+        goToStep('upload')
+      }
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [goToStep])
 
   const handleRetrySession = useCallback(() => {
     const token =
@@ -598,8 +636,9 @@ export default function UnifiedPrintPage() {
       if (liveKiosks && Array.isArray(liveKiosks) && liveKiosks.length > 0) {
         const matching = liveKiosks.find((k: any) => (k.id || k.kioskId) === activeStationId)
         if (matching) {
-          const isKioskDown = matching.status === 'OFFLINE' || matching.printerStatus === 'OFFLINE'
-          const isHwDown = matching.hardwareDetails && (matching.hardwareDetails.isAvailable === false || matching.hardwareDetails.isOnline === false)
+          const isKioskTestMode = Boolean(matching.isTestMode || matching.hardwareDetails?.isTestMode)
+          const isKioskDown = !isKioskTestMode && (matching.status === 'OFFLINE' || matching.printerStatus === 'OFFLINE')
+          const isHwDown = !isKioskTestMode && Boolean(matching.hardwareDetails && (matching.hardwareDetails.isAvailable === false || matching.hardwareDetails.isOnline === false))
           if (isKioskDown || isHwDown) {
             if (mounted) {
               setIsStationOffline(true)

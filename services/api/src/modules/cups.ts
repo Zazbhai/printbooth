@@ -140,24 +140,29 @@ export class CupsAutomationService {
           }
         }
       } else {
-        const isOnline = isRelayConnected
-        if (!hw.allPrinters || hw.allPrinters.length === 0) {
+        const isTestMode = (process.env.PRINT_MODE || 'real').toLowerCase() === 'test'
+        const isOnline = isTestMode ? true : isRelayConnected
+        if (!hw.allPrinters || hw.allPrinters.length === 0 || isTestMode) {
           const stationDefault = {
-            name: 'Brother_DCP_T420W',
-            info: 'Brother DCP-T420W (Raspberry Pi USB / CUPS)',
+            name: isTestMode ? 'PrintBooth_Simulator' : 'Brother_DCP_T420W',
+            info: isTestMode ? 'PrintBooth Virtual Printer (Simulator)' : 'Brother DCP-T420W (Raspberry Pi USB / CUPS)',
             state: isOnline ? 'READY' : 'OFFLINE',
             is_default: true,
             is_online: isOnline,
-            device_uri: 'usb://Brother/DCP-T420W',
-            is_usb: true,
-            connection_type: 'USB',
-            is_virtual: false,
+            device_uri: isTestMode ? 'virtual://printbooth/simulator' : 'usb://Brother/DCP-T420W',
+            is_usb: !isTestMode,
+            connection_type: isTestMode ? 'TEST_SIMULATION' : 'USB',
+            is_virtual: isTestMode,
           }
           hw.allPrinters = isOnline ? [stationDefault] : []
         }
         if (hw?.printer) {
           hw.printer.isOnline = isOnline
           hw.printer.status = isOnline ? 'READY' : 'OFFLINE'
+          if (isTestMode) {
+            hw.printer.name = 'PrintBooth_Simulator'
+            hw.printer.model = 'PrintBooth Virtual Printer (Simulator)'
+          }
         }
       }
 
