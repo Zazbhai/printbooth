@@ -37,7 +37,13 @@ export const MachineInUseView: React.FC<MachineInUseViewProps> = ({
     try {
       const apiBase = getApiBase()
       const res = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
-      const data = await res.json()
+      const text = await res.text()
+      let data: any
+      try {
+        data = JSON.parse(text)
+      } catch {
+        return
+      }
 
       // If active session is QR_READY or there is no busy active session, machine became free!
       if (!data.hasActiveSession || data.session?.state === 'QR_READY' || data.isExpired) {

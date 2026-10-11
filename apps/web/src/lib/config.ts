@@ -48,6 +48,9 @@ export function getApiBaseUrl(): string {
         const clean = envUrl.trim().replace(/\/+$/, '')
         return clean.endsWith('/api') ? clean : `${clean}/api`
       }
+      if (window.location.hostname.includes('printbooth')) {
+        return 'https://api.printbooth.co.in/api'
+      }
       return `${window.location.origin}/api`
     }
   }
@@ -57,7 +60,7 @@ export function getApiBaseUrl(): string {
     const clean = envUrl.trim().replace(/\/+$/, '')
     return clean.endsWith('/api') ? clean : `${clean}/api`
   }
-  return 'http://localhost:5000/api'
+  return 'https://api.printbooth.co.in/api'
 }
 
 /**

@@ -11,7 +11,37 @@
  * 4. Sends the OTP to the kiosk session so it can be displayed on screen
  */
 
-import { getApiBase } from './api'
+import { getApiBase as getApiBaseFromApi } from './api'
+
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname.includes('printbooth')) {
+      return 'https://api.printbooth.co.in'
+    }
+  }
+  const base = getApiBaseFromApi()
+  if (base.includes('localhost:5200') || base.includes('printbooth.co.in')) {
+    return 'https://api.printbooth.co.in'
+  }
+  return base || 'https://api.printbooth.co.in'
+}
+
+async function parseJsonResponse(res: Response): Promise<any> {
+  const text = await res.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    console.warn('[kioskSession] Received non-JSON response from server:', text.slice(0, 150))
+    return {
+      success: false,
+      error: res.status >= 500
+        ? `Server error (${res.status}). Please try again shortly.`
+        : res.status === 404
+        ? 'Session endpoint not found. Please refresh or re-scan.'
+        : `Unexpected response from server (${res.status})`
+    }
+  }
+}
 
 export type KioskSessionPhase =
   | 'UPLOADING'
@@ -173,7 +203,7 @@ export async function claimKioskSession(token: string): Promise<{
       },
       body: JSON.stringify({ clientClaimToken }),
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
 
     // 409 Conflict: Machine is already claimed and in use by another person!
     if (res.status === 409 || data.code === 'MACHINE_ALREADY_IN_USE' || data.error === 'MACHINE_ALREADY_IN_USE') {
@@ -377,7 +407,7 @@ export async function uploadDocumentToKiosk(opts: {
 
     try {
       const activeRes = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
-      const activeData = await activeRes.json()
+      const activeData = await parseJsonResponse(activeRes)
       if (activeData.success && activeData.session?.sessionId) {
         sessionId = activeData.session.sessionId
         _activeSessionId = sessionId
@@ -420,7 +450,7 @@ export async function uploadDocumentToKiosk(opts: {
       },
       body: formData,
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
     if (res.status === 409 || data.code === 'MACHINE_ALREADY_IN_USE') {
       clearActiveKioskSession()
       return { success: false, machineInUse: true, error: 'Machine already in use' }
@@ -453,7 +483,7 @@ export async function fetchKioskSessionStatus(): Promise<{
   try {
     const res = await fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/status`)
     if (!res.ok) return { success: false }
-    return await res.json()
+    return await parseJsonResponse(res)
   } catch {
     return { success: false }
   }
@@ -475,7 +505,7 @@ export async function cancelKioskSession(): Promise<{ success: boolean; error?: 
 
     try {
       const activeRes = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
-      const activeData = await activeRes.json()
+      const activeData = await parseJsonResponse(activeRes)
       if (activeData.success && activeData.session?.sessionId) {
         sessionId = activeData.session.sessionId
       }
@@ -498,7 +528,7 @@ export async function cancelKioskSession(): Promise<{ success: boolean; error?: 
       },
       body: JSON.stringify({ clientClaimToken }),
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
     clearActiveKioskSession()
     return data
   } catch (err: any) {
