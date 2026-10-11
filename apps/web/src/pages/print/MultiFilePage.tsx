@@ -75,6 +75,13 @@ export default function MultiFilePage() {
   const [isTransferredToKiosk, setIsTransferredToKiosk] = useState(false)
   const [kioskLiveStatus, setKioskLiveStatus] = useState<any>(null)
 
+  // Report to kiosk display immediately that user's phone is connected and ready to upload
+  useEffect(() => {
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportUploading()
+    }
+  }, [])
+
   useEffect(() => {
     if (!isTransferredToKiosk) return
     let active = true

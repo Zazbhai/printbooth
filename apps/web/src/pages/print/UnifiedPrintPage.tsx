@@ -266,6 +266,7 @@ export default function UnifiedPrintPage() {
         })
       } else if (result.success) {
         setMachineInUseState(null)
+        kioskSession.reportUploading()
       } else {
         console.warn('[KioskSession] Claim result:', result.error)
       }
@@ -480,8 +481,7 @@ export default function UnifiedPrintPage() {
     'success',
     'history',
   ]
-  const isKioskSession = kioskSession.isKioskSession() || Boolean(getSessionTokenFromUrl())
-  const effectiveStep: PrintStep = isKioskSession ? 'upload' : (validSteps.includes(currentStep) ? currentStep : 'upload')
+  const effectiveStep: PrintStep = validSteps.includes(currentStep) ? currentStep : 'upload'
 
   const confirmMode = typeof window !== 'undefined' ? (sessionStorage.getItem('pb_confirm_mode') || 'doc') : 'doc'
   const pageKey = effectiveStep === 'confirm' ? `confirm_${confirmMode}` : effectiveStep

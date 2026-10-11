@@ -125,7 +125,9 @@ export function getSessionTokenFromUrl(): string | null {
 export function decodeTokenPayload(token: string): any | null {
   try {
     const b64 = token.replace(/-/g, '+').replace(/_/g, '/')
-    const raw = atob(b64)
+    const pad = (4 - (b64.length % 4)) % 4
+    const padded = pad === 4 ? b64 : b64 + '='.repeat(pad)
+    const raw = atob(padded)
     return JSON.parse(raw)
   } catch {
     return null
@@ -155,6 +157,10 @@ export function initSessionFromEnvironment(): void {
       _activeToken = token
       sessionStorage.setItem('pb_kiosk_session_token', token)
       const payload = decodeTokenPayload(token)
+      if (payload?.sessionId) {
+        _activeSessionId = payload.sessionId
+        sessionStorage.setItem('pb_kiosk_session_id', payload.sessionId)
+      }
       if (payload?.kioskId) {
         sessionStorage.setItem('pb_kiosk_id', payload.kioskId)
         sessionStorage.setItem('pb_kiosk_id_from_session', payload.kioskId)
