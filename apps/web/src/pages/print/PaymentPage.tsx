@@ -13,6 +13,7 @@ import {
   CaretRight,
   Lightning,
   CaretDown,
+  Printer,
 } from '@phosphor-icons/react'
 import { createPrintOrder, sendPrintJob } from '@/lib/api'
 import { getAllFiles, hasAnyReadyFile, parsePageRange, type FileSettings, type ManagedFile } from '@/lib/multiFileStore'
@@ -24,6 +25,7 @@ import { wsRelay } from '@/lib/wsRelayClient'
 import { saveRecentPrint } from '@/lib/recentPrintsStore'
 import { getApiHostUrl } from '@/lib/config'
 import { PaymentStatusModal } from '@/components/ui/PaymentStatusModal'
+import { kioskSession } from '@/lib/kioskSession'
 import './PaymentPage.css'
 
 const API = getApiHostUrl()
@@ -176,9 +178,11 @@ export default function PaymentPage() {
   const [upieOrder,       setUpieOrder]       = useState<UpiExpressOrder | null>(null)
   const [upiePolling,     setUpiePolling]      = useState(false)
 
-  // ── Reactive Device Type Detection ──
+  // ── Reactive Device Type Detection & Kiosk Mode ──
   const [isMobile,        setIsMobile]        = useState<boolean>(isMobileDevice)
   const [showMoreMethods, setShowMoreMethods] = useState<boolean>(false)
+  const isKioskMode = kioskSession.isKioskSession()
+  const [showDirectPayOnPhone, setShowDirectPayOnPhone] = useState<boolean>(false)
 
   useEffect(() => {
     const handleDeviceCheck = () => {
@@ -357,6 +361,38 @@ export default function PaymentPage() {
       unsubscribe()
     }
   }, [orderId, kioskId])
+
+  // ── In Kiosk Companion Mode: Notify Kiosk & Listen for Hardware Printing ──
+  useEffect(() => {
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportPaying({
+        fileName: isMultiFile ? `${multiFiles.length} files` : fileName,
+        totalPages: isMultiFile
+          ? multiFiles.reduce((s, f) => s + f.pageCount * (f.settings?.copies || 1), 0)
+          : pageCount * settings.copies,
+        amount: totalPrice,
+        orderId,
+      })
+    }
+  }, [fileName, pageCount, settings.copies, totalPrice, orderId, isMultiFile, multiFiles])
+
+  useEffect(() => {
+    if (!kioskSession.isKioskSession() || status === 'SUCCESS') return
+
+    const sessionStatusInterval = setInterval(async () => {
+      try {
+        const s = await kioskSession.getStatus()
+        if (s.success && (s.state === 'PRINTING' || s.state === 'DONE')) {
+          clearInterval(sessionStatusInterval)
+          setStatus('SUCCESS')
+          if (timerRef.current) clearInterval(timerRef.current)
+          await recordOrder(s.orderId || orderId)
+        }
+      } catch {}
+    }, 1500)
+
+    return () => clearInterval(sessionStatusInterval)
+  }, [status, orderId])
 
   // Auto redirect to upload only if truly no document exists anywhere in store or session
   useEffect(() => {
@@ -1124,8 +1160,108 @@ export default function PaymentPage() {
             animate="shimmer"
             fallback={<PaymentBoneyardFallback />}
           >
-            {/* ── RAZORPAY GATEWAY: DEDICATED DYNAMIC METHODS SCREEN ── */}
-            {selectedGateway === 'razorpay' ? (
+            {/* ── KIOSK SESSION MODE: ZERO-TOUCH COMPANION CARD ── */}
+            {isKioskMode ? (
+              <div className="kiosk-companion-view" id="kiosk-companion-view">
+                {/* Hero Header with exact required prompt text */}
+                <div className="kiosk-companion-header">
+                  <div className="kiosk-companion-icon-wrap">
+                    <Printer size={32} weight="bold" color="#dc2626" />
+                  </div>
+                  <h1 className="kiosk-companion-headline">Please pay and collect the print</h1>
+                  <p className="kiosk-companion-sub">
+                    A payment QR code is displayed on the kiosk screen in front of you (Station {kioskId}). Scan with any UPI app to pay ₹{totalPrice.toFixed(2)}.
+                  </p>
+                </div>
+
+                {/* Details Card */}
+                <div className="kiosk-companion-summary-card">
+                  <div className="kiosk-companion-summary-row">
+                    <span className="kiosk-companion-row-label">Amount Payable</span>
+                    <span className="kiosk-companion-price">₹{totalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="kiosk-companion-divider" />
+                  <div className="kiosk-companion-summary-row">
+                    <span className="kiosk-companion-row-label">Document</span>
+                    <span className="kiosk-companion-row-val truncate">{isMultiFile ? `${multiFiles.length} files` : fileName}</span>
+                  </div>
+                  <div className="kiosk-companion-summary-row">
+                    <span className="kiosk-companion-row-label">Configuration</span>
+                    <span className="kiosk-companion-row-val">
+                      {settings.colour === 'COLOUR' ? 'Full Colour' : 'Black & White'} · {settings.copies} {settings.copies === 1 ? 'copy' : 'copies'} · {isMultiFile ? multiFiles.reduce((s, f) => s + f.pageCount * (f.settings?.copies || 1), 0) : pageCount * settings.copies} sheets
+                    </span>
+                  </div>
+                  <div className="kiosk-companion-summary-row">
+                    <span className="kiosk-companion-row-label">Station ID</span>
+                    <span className="kiosk-companion-row-val" style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 700 }}>
+                      {kioskId}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Live Waiting Pulse Banner */}
+                <div className="kiosk-companion-pulse-box">
+                  <span className="kiosk-companion-pulse-dot" />
+                  <div className="kiosk-companion-pulse-content">
+                    <strong>Payment QR is active on kiosk display</strong>
+                    <span>Awaiting UPI scan & payment confirmation…</span>
+                  </div>
+                </div>
+
+                {/* Quick 3-Step Guide */}
+                <div className="kiosk-companion-steps">
+                  <div className="kiosk-companion-step-item">
+                    <div className="kiosk-step-number">1</div>
+                    <div className="kiosk-step-text">
+                      <strong>Scan QR on kiosk display</strong>
+                      <span>Point your UPI app scanner at the kiosk screen</span>
+                    </div>
+                  </div>
+                  <div className="kiosk-companion-step-item">
+                    <div className="kiosk-step-number">2</div>
+                    <div className="kiosk-step-text">
+                      <strong>Complete payment</strong>
+                      <span>Pay ₹{totalPrice.toFixed(2)} with your UPI PIN</span>
+                    </div>
+                  </div>
+                  <div className="kiosk-companion-step-item">
+                    <div className="kiosk-step-number">3</div>
+                    <div className="kiosk-step-text">
+                      <strong>Collect from tray</strong>
+                      <span>Printer dispenses pages automatically</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Direct Pay Option Toggle */}
+                <div className="kiosk-companion-direct-fallback">
+                  <button
+                    type="button"
+                    className="kiosk-companion-toggle-direct"
+                    onClick={() => setShowDirectPayOnPhone(v => !v)}
+                  >
+                    <span>{showDirectPayOnPhone ? '▲ Hide Direct Phone Pay' : '▼ Or Pay Directly on this Phone'}</span>
+                  </button>
+
+                  {showDirectPayOnPhone && (
+                    <div className="kiosk-companion-direct-apps animate-fadeIn">
+                      <MobileUpiDirects gateway={selectedGateway} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Timer & Privacy footer */}
+                <div className="kiosk-footer-status" style={{ marginTop: 16 }}>
+                  <div className={`kiosk-timer-pill${isUrgent ? ' urgent' : ''}`}>
+                    <Clock size={13} weight="bold" />
+                    <span>Session: {minutes}:{seconds}</span>
+                  </div>
+                  <span className="kiosk-no-info-text">
+                    Zero-Touch Kiosk · Auto Hardware Dispense
+                  </span>
+                </div>
+              </div>
+            ) : selectedGateway === 'razorpay' ? (
               <div className="rzp-dynamic-screen" id="rzp-dynamic-screen">
                 <div className="rzp-summary-box">
                   <div className="rzp-summary-left">

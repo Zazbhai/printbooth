@@ -130,6 +130,7 @@ export type KioskSessionState =
   | 'UPLOADING'
   | 'CONFIRMING'
   | 'CONFIGURING'
+  | 'REVIEWING'
   | 'PAYING'
   | 'OTP_READY'
   | 'PRINTING'
@@ -510,7 +511,7 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
 
   // Validate state transitions
   const VALID_STATES: KioskSessionState[] = [
-    'UPLOADING', 'CONFIRMING', 'CONFIGURING', 'PAYING', 'OTP_READY', 'PRINTING', 'DONE'
+    'UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING', 'PAYING', 'OTP_READY', 'PRINTING', 'DONE'
   ]
 
   if (state && VALID_STATES.includes(state as KioskSessionState)) {
@@ -614,7 +615,7 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   session.copies = session.copies || 1
   session.colourMode = session.colourMode || 'BW'
   session.state = 'CONFIRMING'
-  session.phase = 'Document uploaded. Review document on kiosk touchscreen.'
+  session.phase = 'Document uploaded. Review document on mobile.'
   session.phaseStep = 2
 
   saveSession(session)
@@ -700,13 +701,19 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
   session.colourMode = session.settings.colour
   session.amount = session.settings.totalAmount
 
-  if (nextState && ['CONFIRMING', 'CONFIGURING', 'PAYING'].includes(nextState)) {
+  if (nextState && ['CONFIRMING', 'CONFIGURING', 'REVIEWING', 'PAYING'].includes(nextState)) {
     session.state = nextState as KioskSessionState
-    session.phase = nextState === 'PAYING' ? 'Payment in progress on kiosk' : 'Configuring print settings on kiosk'
-    session.phaseStep = nextState === 'PAYING' ? 4 : 3
+    session.phase = nextState === 'PAYING'
+      ? 'Scan QR on kiosk display to pay'
+      : nextState === 'REVIEWING'
+      ? 'Reviewing order on mobile'
+      : nextState === 'CONFIGURING'
+      ? 'Configuring print settings on mobile'
+      : 'Reviewing document on mobile'
+    session.phaseStep = nextState === 'PAYING' ? 4 : nextState === 'REVIEWING' ? 3.5 : 3
   } else {
     session.state = 'CONFIGURING'
-    session.phase = 'Configuring print settings on kiosk'
+    session.phase = 'Configuring print settings on mobile'
     session.phaseStep = 3
   }
 
@@ -716,7 +723,7 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
 
 /**
  * POST /api/kiosk-sessions/:sessionId/state
- * Explicitly updates the state of a session (e.g., navigating back to CONFIRMING or forward to CONFIGURING).
+ * Explicitly updates the state of a session.
  */
 kioskSessionsRouter.post('/:sessionId/state', (req: Request, res: Response) => {
   const { sessionId } = req.params
@@ -732,6 +739,7 @@ kioskSessionsRouter.post('/:sessionId/state', (req: Request, res: Response) => {
     'UPLOADING',
     'CONFIRMING',
     'CONFIGURING',
+    'REVIEWING',
     'PAYING',
     'PRINTING',
     'DONE',
@@ -740,10 +748,13 @@ kioskSessionsRouter.post('/:sessionId/state', (req: Request, res: Response) => {
   if (state && validStates.includes(state)) {
     session.state = state as KioskSessionState
     if (state === 'CONFIRMING') {
-      session.phase = 'Review Document'
-      session.phaseStep = 3
+      session.phase = 'Reviewing Document on Mobile'
+      session.phaseStep = 2
     } else if (state === 'CONFIGURING') {
-      session.phase = 'Print Settings'
+      session.phase = 'Print Settings on Mobile'
+      session.phaseStep = 3
+    } else if (state === 'REVIEWING') {
+      session.phase = 'Reviewing Order on Mobile'
       session.phaseStep = 4
     } else if (state === 'PAYING') {
       session.phase = 'Pay & Print'
@@ -843,7 +854,7 @@ kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) 
   session.otp = otp
   if (typeof amount === 'number' && amount > 0) session.amount = amount
   session.state = 'PAYING'
-  session.phase = 'Scan UPI QR code on touchscreen to pay'
+  session.phase = 'Scan UPI QR code on kiosk display to pay'
   session.phaseStep = 4
 
   // Dynamically resolve merchant UPI Express API key and generate real order & dynamic QR
@@ -1102,3 +1113,99 @@ export function completeKioskSession(kioskId: string, orderId?: string): void {
   saveSession(session)
   console.log(`[KioskSession] ✓ Session ${session.sessionId} completed on kiosk ${normKiosk}`)
 }
+
+/**
+ * Automatically triggers hardware printing for an active kiosk session
+ * when payment confirmation is received via UPI Express / Razorpay webhook or status check.
+ */
+export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, paymentDetails?: any): boolean {
+  if (!orderId && !kioskId) return false
+
+  console.log(`[KioskSession] ⚡ triggerSessionPrintOnPayment invoked: orderId=${orderId}, kioskId=${kioskId || 'N/A'}`)
+
+  // 1. Locate session: try exact orderId, partial match, or kioskId
+  let targetSession: KioskSession | null = null
+
+  if (orderId) {
+    for (const s of sessions.values()) {
+      if (s.orderId === orderId || (s.sessionId && orderId.includes(s.sessionId.slice(-6)))) {
+        targetSession = s
+        break
+      }
+    }
+  }
+
+  if (!targetSession && kioskId) {
+    const active = getActiveSession(kioskId.trim().toUpperCase())
+    if (active && ['PAYING', 'REVIEWING', 'CONFIGURING', 'CONFIRMING', 'CLAIMED', 'UPLOADING'].includes(active.state)) {
+      targetSession = active
+    }
+  }
+
+  // Fallback: check most recently active session in PAYING or REVIEWING state
+  if (!targetSession) {
+    for (const s of sessions.values()) {
+      if (s.state === 'PAYING' || s.state === 'REVIEWING') {
+        targetSession = s
+        break
+      }
+    }
+  }
+
+  if (!targetSession) {
+    console.warn(`[KioskSession] No active session found to auto-print for order ${orderId} (kiosk ${kioskId})`)
+    return false
+  }
+
+  // Idempotency: if already printing or done, don't re-dispatch
+  if (targetSession.state === 'PRINTING' || targetSession.state === 'DONE') {
+    console.log(`[KioskSession] Session ${targetSession.sessionId} already in state ${targetSession.state}, skipping duplicate print dispatch`)
+    return true
+  }
+
+  const effectiveOrderId = orderId || targetSession.orderId || `ORD-${Date.now().toString().slice(-6)}`
+  targetSession.orderId = effectiveOrderId
+  targetSession.state = 'PRINTING'
+  targetSession.phase = 'Payment confirmed! Printing document on Brother hardware…'
+  targetSession.phaseStep = 5
+
+  const fileName = targetSession.document?.fileName || targetSession.fileName || 'PrintBooth_Document.pdf'
+  const filePath = targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
+  const copies = targetSession.settings?.copies || targetSession.copies || 1
+  const colourMode = targetSession.settings?.colour || targetSession.colourMode || 'BW'
+  const duplex = targetSession.settings?.duplex || 'SINGLE'
+  const pageRange = targetSession.settings?.pageRange || 'ALL'
+  const totalPages = targetSession.document?.pageCount || targetSession.totalPages || 1
+
+  const jobState: PrintJobState = {
+    orderId: effectiveOrderId,
+    fileName,
+    filePath,
+    copies,
+    colourMode,
+    pageRange,
+    duplex,
+    paperSize: targetSession.settings?.paperSize || 'A4',
+    status: 'PRINTING',
+    printedPages: 0,
+    totalPages,
+    percent: 0,
+    startedAt: Date.now(),
+    kioskId: targetSession.kioskId,
+  }
+
+  syncJobState(jobState)
+  saveSession(targetSession)
+  syncSessionToOrder(targetSession)
+
+  console.log(`[KioskSession] 🖨️ AUTO-DISPATCHING PRINT on payment confirmed: session ${targetSession.sessionId} on kiosk ${targetSession.kioskId} (order ${effectiveOrderId})`)
+
+  try {
+    dispatchPrintJob(jobState)
+  } catch (err: any) {
+    console.error(`[KioskSession] Error in dispatchPrintJob for session ${targetSession.sessionId}:`, err)
+  }
+
+  return true
+}
+

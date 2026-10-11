@@ -18,6 +18,7 @@ import { getUploadedDoc, hasRealUploadedDoc } from '../../lib/documentStore'
 import { getAllFiles, hasAnyReadyFile, computeTotalPrice, parsePageRange, calcFileTotalSheets, type FileSettings, type ManagedFile } from '../../lib/multiFileStore'
 import { isCanonicalKioskFormat, VERIFIED_KIOSKS } from '@/lib/kioskValidation'
 import { Skeleton, ConfirmDocPagesBoneyardFallback } from '../../components/ui/PrintBoneyardSkeleton'
+import { kioskSession } from '../../lib/kioskSession'
 import './ReviewPage.css'
 
 export default function ReviewPage() {
@@ -111,7 +112,29 @@ export default function ReviewPage() {
     return []
   }, [activePreviewIdx, isMultiFile, multiFiles, settings.colour])
 
-  function handlePay() { navigate('/print/payment') }
+  // Report REVIEWING state to kiosk display companion
+  useEffect(() => {
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportReviewing({
+        fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
+        totalPages: pageCount,
+        copies: settings.copies,
+        colourMode: settings.colour,
+        amount: totalPrice,
+      })
+    }
+  }, [fileName, pageCount, settings.copies, settings.colour, totalPrice, multiFiles])
+
+  function handlePay() {
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportPaying({
+        fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
+        totalPages: pageCount,
+        amount: totalPrice,
+      })
+    }
+    navigate('/print/payment')
+  }
 
   // For multi-file: show active file's settings in summary
   const activeMultiFile = isMultiFile ? multiFiles[activePreviewIdx] : null

@@ -45,7 +45,9 @@ async function parseJsonResponse(res: Response): Promise<any> {
 
 export type KioskSessionPhase =
   | 'UPLOADING'
+  | 'CONFIRMING'
   | 'CONFIGURING'
+  | 'REVIEWING'
   | 'PAYING'
   | 'OTP_READY'
   | 'PRINTING'
@@ -294,6 +296,19 @@ export const kioskSession = {
     })
   },
 
+  reportConfirming(opts?: {
+    fileName?: string
+    totalPages?: number
+  }) {
+    reportKioskProgress({
+      state: 'CONFIRMING',
+      phase: 'Reviewing document on mobile…',
+      phaseStep: 2,
+      ...(opts?.fileName ? { fileName: opts.fileName } : {}),
+      ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
+    })
+  },
+
   reportConfiguring(opts?: {
     fileName?: string
     totalPages?: number
@@ -303,8 +318,8 @@ export const kioskSession = {
   }) {
     reportKioskProgress({
       state: 'CONFIGURING',
-      phase: 'Configuring print settings…',
-      phaseStep: 2,
+      phase: 'Configuring print settings on mobile…',
+      phaseStep: 3,
       ...(opts?.fileName ? { fileName: opts.fileName } : {}),
       ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
       ...(opts?.copies ? { copies: opts.copies } : {}),
@@ -313,26 +328,53 @@ export const kioskSession = {
     })
   },
 
+  reportReviewing(opts?: {
+    fileName?: string
+    totalPages?: number
+    copies?: number
+    colourMode?: string
+    amount?: number
+    orderId?: string
+  }) {
+    reportKioskProgress({
+      state: 'REVIEWING',
+      phase: 'Reviewing order on mobile…',
+      phaseStep: 4,
+      ...(opts?.fileName ? { fileName: opts.fileName } : {}),
+      ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
+      ...(opts?.copies ? { copies: opts.copies } : {}),
+      ...(opts?.colourMode ? { colourMode: opts.colourMode } : {}),
+      ...(opts?.amount ? { amount: opts.amount } : {}),
+      ...(opts?.orderId ? { orderId: opts.orderId } : {}),
+    })
+  },
+
   reportPaying(opts?: {
     fileName?: string
     totalPages?: number
     amount?: number
+    orderId?: string
   }) {
     reportKioskProgress({
       state: 'PAYING',
-      phase: 'Processing payment…',
-      phaseStep: 3,
+      phase: 'Scan UPI QR on kiosk display to pay',
+      phaseStep: 5,
       ...(opts?.fileName ? { fileName: opts.fileName } : {}),
       ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
       ...(opts?.amount ? { amount: opts.amount } : {}),
+      ...(opts?.orderId ? { orderId: opts.orderId } : {}),
     })
+
+    if (opts?.amount) {
+      initiateKioskPayment(opts.amount, opts.orderId).catch(() => {})
+    }
   },
 
   reportOtpReady(otp: string, orderId?: string, totalPages?: number) {
     reportKioskProgress({
       state: 'OTP_READY',
       phase: 'Your OTP is ready — check kiosk screen',
-      phaseStep: 4,
+      phaseStep: 5,
       otp,
       ...(orderId ? { orderId } : {}),
       ...(totalPages ? { totalPages } : {}),
@@ -343,7 +385,7 @@ export const kioskSession = {
     reportKioskProgress({
       state: 'PRINTING',
       phase: 'Printing your document…',
-      phaseStep: 5,
+      phaseStep: 6,
       ...(orderId ? { orderId } : {}),
     })
   },
@@ -352,7 +394,7 @@ export const kioskSession = {
     reportKioskProgress({
       state: 'DONE',
       phase: 'Print completed!',
-      phaseStep: 6,
+      phaseStep: 7,
     })
     // Clear session from storage
     sessionStorage.removeItem('pb_kiosk_session_id')
@@ -381,6 +423,68 @@ export const kioskSession = {
 
   /** Fetch status of the connected kiosk session */
   getStatus: fetchKioskSessionStatus,
+
+  /** Initiate payment on connected kiosk session (displays UPI QR code on screen) */
+  initiatePayment: initiateKioskPayment,
+}
+
+/**
+ * Initiate payment on the connected kiosk session, generating merchant UPI Express QR on the screen
+ */
+export async function initiateKioskPayment(amount: number, orderId?: string): Promise<{
+  success: boolean
+  sessionId?: string
+  orderId?: string
+  otp?: string
+  amount?: number
+  upiQrValue?: string
+  paymentUrl?: string
+  upiIntentUrl?: string
+  merchantUpiId?: string
+  gateway?: string
+  error?: string
+}> {
+  let { sessionId } = getActiveKioskSession()
+  const apiBase = getApiBase()
+
+  if (!sessionId) {
+    const kioskId =
+      kioskSession.getKioskId() ||
+      (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null) ||
+      (typeof window !== 'undefined' ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id')) : null) ||
+      'PB-001'
+
+    try {
+      const activeRes = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
+      const activeData = await parseJsonResponse(activeRes)
+      if (activeData.success && activeData.session?.sessionId) {
+        sessionId = activeData.session.sessionId
+        _activeSessionId = sessionId
+        sessionStorage.setItem('pb_kiosk_session_id', sessionId)
+        sessionStorage.setItem('pb_kiosk_id_from_session', kioskId)
+      }
+    } catch {}
+  }
+
+  if (!sessionId) {
+    return { success: false, error: 'No active kiosk session' }
+  }
+
+  const clientClaimToken = getClientClaimSecret(sessionId)
+  try {
+    const res = await fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/pay`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-client-claim-token': clientClaimToken,
+      },
+      body: JSON.stringify({ amount, orderId, clientClaimToken }),
+    })
+    const data = await parseJsonResponse(res)
+    return data
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
 }
 
 /**

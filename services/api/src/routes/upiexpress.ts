@@ -17,6 +17,7 @@ import { paymentLimiter } from '../middleware/rateLimiter.js'
 import { relayPaymentCaptured } from '../modules/wsRelay.js'
 import { getPublicWebUrl } from '../config.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
+import { triggerSessionPrintOnPayment } from './kioskSessions.js'
 
 export const upiExpressRouter = Router()
 upiExpressRouter.use(paymentLimiter)
@@ -401,6 +402,12 @@ upiExpressRouter.post('/check-status', async (req: Request, res: Response) => {
         clientTxnId,
         amount: txn.amount,
       })
+      triggerSessionPrintOnPayment(clientTxnId, cleanKioskId, {
+        gateway: 'upiexpress',
+        upiTxnId: txn.upi_transaction_id || txn.upi_txn_id,
+        clientTxnId,
+        amount: txn.amount,
+      })
     }
 
     res.json({
@@ -452,6 +459,12 @@ upiExpressRouter.post('/webhook', async (req: Request, res: Response) => {
         } catch {}
       }
       relayPaymentCaptured(client_txn_id, targetKioskId, {
+        gateway: 'upiexpress',
+        upiTxnId: upi_txn_id,
+        clientTxnId: client_txn_id,
+        webhook: true,
+      })
+      triggerSessionPrintOnPayment(client_txn_id, targetKioskId, {
         gateway: 'upiexpress',
         upiTxnId: upi_txn_id,
         clientTxnId: client_txn_id,

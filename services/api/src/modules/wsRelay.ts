@@ -865,6 +865,13 @@ export function relayPaymentCaptured(orderId: string, kioskId?: string, paymentD
       })
     }
   }
+
+  // Trigger hardware print automatically on kiosk session if active
+  try {
+    import('../routes/kioskSessions.js').then(({ triggerSessionPrintOnPayment }) => {
+      triggerSessionPrintOnPayment(orderId, kioskId, paymentData)
+    }).catch(() => {})
+  } catch {}
 }
 
 /**
