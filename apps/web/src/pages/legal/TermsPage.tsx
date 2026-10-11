@@ -7,7 +7,7 @@ export default function TermsPage() {
       <SEO
         title="Terms & Conditions — Kiosk Usage & Service Agreement | PrintBooth"
         description="PrintBooth terms of service and conditions for self-service walk-up printing kiosks, payment handling, and hardware usage rules."
-        canonicalUrl="https://printbooth.in/terms"
+        canonicalUrl="https://printbooth.co.in/terms"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Terms & Conditions', url: '/terms' },
@@ -39,7 +39,7 @@ export default function TermsPage() {
 
           <div className="neo-legal-section">
             <h2>1. Introduction</h2>
-            <p>PrintBooth ("we", "us", "our") provides self-service document printing services through our website (printbooth.in), kiosk devices, and related software. By using any part of our service, you agree to these Terms & Conditions.</p>
+            <p>PrintBooth ("we", "us", "our") provides self-service document printing services through our website (printbooth.co.in), kiosk devices, and related software. By using any part of our service, you agree to these Terms & Conditions.</p>
           </div>
 
           <div className="neo-legal-section">

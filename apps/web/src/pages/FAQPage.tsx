@@ -127,7 +127,7 @@ export default function FAQPage() {
       <SEO
         title="Frequently Asked Questions — Payments, Formats & Privacy | PrintBooth"
         description="Got questions about PrintBooth? Learn about UPI payments, zero-cloud file security, supported document formats, refund policies, and kiosk hardware."
-        canonicalUrl="https://printbooth.in/faq"
+        canonicalUrl="https://printbooth.co.in/faq"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'FAQ', url: '/faq' },

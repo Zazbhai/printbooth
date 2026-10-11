@@ -156,7 +156,7 @@ export default function RequestInstallationPage() {
       <SEO
         title="Request Kiosk Installation & Machine Sales | PrintBooth"
         description="Deploy autonomous PrintBooth kiosks at your university, college, library, or retail venue. Turnkey hardware setup, 100% merchant profit retention, and full warranty."
-        canonicalUrl="https://printbooth.in/request-installation"
+        canonicalUrl="https://printbooth.co.in/request-installation"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Request Installation', url: '/request-installation' },

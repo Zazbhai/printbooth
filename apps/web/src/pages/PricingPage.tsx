@@ -37,7 +37,7 @@ export default function PricingPage() {
       <SEO
         title="Transparent Per-Page Printing Rates — Starting at ₹2 | PrintBooth"
         description="Affordable, transparent per-page printing pricing at PrintBooth kiosks. A4 Black & White starting at ₹2/page, Color at ₹8/page. No subscriptions or hidden fees."
-        canonicalUrl="https://printbooth.in/pricing"
+        canonicalUrl="https://printbooth.co.in/pricing"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Pricing', url: '/pricing' },

@@ -41,7 +41,7 @@ export default function RefundsPage() {
       <SEO
         title="Refund Policy & Dispute Resolution | PrintBooth"
         description="PrintBooth's policy for print failure refunds, duplicate debits, and hardware stoppage. Instant on-site merchant resolutions and direct ledger refunds."
-        canonicalUrl="https://printbooth.in/refunds"
+        canonicalUrl="https://printbooth.co.in/refunds"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Refund Policy', url: '/refunds' },

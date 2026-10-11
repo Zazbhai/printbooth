@@ -62,7 +62,7 @@ export default function HowItWorksPage() {
       <SEO
         title="How It Works — Fast, Autonomous Self-Service Printing | PrintBooth"
         description="Learn how to print documents at a PrintBooth kiosk in 5 simple steps. Upload your file, configure settings, scan UPI QR, and collect your prints in under 2 minutes."
-        canonicalUrl="https://printbooth.in/how-it-works"
+        canonicalUrl="https://printbooth.co.in/how-it-works"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'How It Works', url: '/how-it-works' },

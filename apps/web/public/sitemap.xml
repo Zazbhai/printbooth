@@ -6,7 +6,7 @@
 
   <!-- 1. Homepage: Autonomous Kiosks & Direct Browser Printing -->
   <url>
-    <loc>https://printbooth.in/</loc>
+    <loc>https://printbooth.co.in/</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -14,7 +14,7 @@
 
   <!-- 2. Self-Service Web Print Terminal -->
   <url>
-    <loc>https://printbooth.in/print</loc>
+    <loc>https://printbooth.co.in/print</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
@@ -22,7 +22,7 @@
 
   <!-- 3. How It Works (Step-by-Step Guide) -->
   <url>
-    <loc>https://printbooth.in/how-it-works</loc>
+    <loc>https://printbooth.co.in/how-it-works</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -30,7 +30,7 @@
 
   <!-- 4. Kiosk Locations & Campus Hubs -->
   <url>
-    <loc>https://printbooth.in/locations</loc>
+    <loc>https://printbooth.co.in/locations</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -38,7 +38,7 @@
 
   <!-- 5. Transparent Per-Page Pricing -->
   <url>
-    <loc>https://printbooth.in/pricing</loc>
+    <loc>https://printbooth.co.in/pricing</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -46,7 +46,7 @@
 
   <!-- 6. Features & Hardware Architecture -->
   <url>
-    <loc>https://printbooth.in/features</loc>
+    <loc>https://printbooth.co.in/features</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -54,7 +54,7 @@
 
   <!-- 7. Frequently Asked Questions (AEO & Featured Snippets) -->
   <url>
-    <loc>https://printbooth.in/faq</loc>
+    <loc>https://printbooth.co.in/faq</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -62,7 +62,7 @@
 
   <!-- 8. Request Kiosk Installation & Machine Sales -->
   <url>
-    <loc>https://printbooth.in/request-installation</loc>
+    <loc>https://printbooth.co.in/request-installation</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -70,7 +70,7 @@
 
   <!-- 9. Customer Support Desk -->
   <url>
-    <loc>https://printbooth.in/support</loc>
+    <loc>https://printbooth.co.in/support</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -78,7 +78,7 @@
 
   <!-- 10. Contact & Registered Office -->
   <url>
-    <loc>https://printbooth.in/contact</loc>
+    <loc>https://printbooth.co.in/contact</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -86,7 +86,7 @@
 
   <!-- 11. Privacy Policy & Zero Cloud Retention -->
   <url>
-    <loc>https://printbooth.in/privacy</loc>
+    <loc>https://printbooth.co.in/privacy</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
@@ -94,7 +94,7 @@
 
   <!-- 12. Terms & Conditions -->
   <url>
-    <loc>https://printbooth.in/terms</loc>
+    <loc>https://printbooth.co.in/terms</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
@@ -102,7 +102,7 @@
 
   <!-- 13. Refund Policy -->
   <url>
-    <loc>https://printbooth.in/refunds</loc>
+    <loc>https://printbooth.co.in/refunds</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
@@ -110,7 +110,7 @@
 
   <!-- 14. Cookie Policy -->
   <url>
-    <loc>https://printbooth.in/cookies</loc>
+    <loc>https://printbooth.co.in/cookies</loc>
     <lastmod>2026-10-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>

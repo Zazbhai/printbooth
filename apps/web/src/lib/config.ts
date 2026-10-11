@@ -12,7 +12,7 @@ export function getSiteUrl(): string {
   if (typeof window !== 'undefined' && window.location.origin) {
     return window.location.origin.replace(/\/+$/, '')
   }
-  return 'https://printbooth.in'
+  return 'https://printbooth.co.in'
 }
 
 export function getKioskPrintUrl(kioskId: string): string {

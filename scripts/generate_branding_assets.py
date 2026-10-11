@@ -140,7 +140,7 @@ def main():
         pill_x += pw + 12
 
     # Domain Footer
-    draw.text((text_x, 460), "printbooth.in", fill=(220, 38, 38, 255), font=font_domain)
+    draw.text((text_x, 460), "printbooth.co.in", fill=(220, 38, 38, 255), font=font_domain)
 
     og_png_path = os.path.join(ROOT_DIR, 'og-image.png')
     og_img.convert('RGB').save(og_png_path, quality=95)

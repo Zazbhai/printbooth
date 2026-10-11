@@ -20,8 +20,8 @@ export interface SEOProps {
 const DEFAULT_TITLE = 'PrintBooth — Autonomous Self-Service Printing Kiosks'
 const DEFAULT_DESCRIPTION =
   "PrintBooth is India's autonomous self-service printing kiosk network. Direct browser upload, instant UPI scan-to-pay, zero-cloud retention, and automatic hardware release in under 90s."
-const DEFAULT_OG_IMAGE = 'https://printbooth.in/og-image.png'
-const BASE_URL = 'https://printbooth.in'
+const DEFAULT_OG_IMAGE = 'https://printbooth.co.in/og-image.png'
+const BASE_URL = 'https://printbooth.co.in'
 
 function updateMetaTag(attributeName: 'name' | 'property', attributeValue: string, content: string) {
   let element = document.querySelector(`meta[${attributeName}="${attributeValue}"]`) as HTMLMetaElement | null

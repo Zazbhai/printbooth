@@ -51,4 +51,4 @@ User-agent: CCBot
 Allow: /
 
 # Sitemap Index Pointer
-Sitemap: https://printbooth.in/sitemap.xml
+Sitemap: https://printbooth.co.in/sitemap.xml

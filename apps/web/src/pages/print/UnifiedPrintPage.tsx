@@ -645,7 +645,7 @@ export default function UnifiedPrintPage() {
       <SEO
         title={`${pageTitle} | PrintBooth`}
         description="Print files instantly at your nearest PrintBooth self-service kiosk. Upload directly in browser, pay via UPI, and collect within 90 seconds."
-        canonicalUrl="https://printbooth.in/print"
+        canonicalUrl="https://printbooth.co.in/print"
         noIndex={isPrivateStep}
         breadcrumbs={[
           { name: 'Home', url: '/' },

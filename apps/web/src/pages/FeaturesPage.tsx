@@ -83,7 +83,7 @@ export default function FeaturesPage() {
       <SEO
         title="Features & Architecture — Fast, Private Autonomous Printing | PrintBooth"
         description="Discover PrintBooth's autonomous printing hardware features. Zero cloud file retention, virus-scanning, instant UPI payments, and sub-90-second automated hardware dispensing."
-        canonicalUrl="https://printbooth.in/features"
+        canonicalUrl="https://printbooth.co.in/features"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Features', url: '/features' },

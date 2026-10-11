@@ -7,7 +7,7 @@ export default function PrivacyPage() {
       <SEO
         title="Privacy Policy — Zero Cloud Data Retention | PrintBooth"
         description="PrintBooth's privacy policy. We enforce a zero-cloud data retention architecture. Your documents are decrypted locally and purged automatically after printing."
-        canonicalUrl="https://printbooth.in/privacy"
+        canonicalUrl="https://printbooth.co.in/privacy"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Privacy Policy', url: '/privacy' },

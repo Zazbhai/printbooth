@@ -82,7 +82,7 @@ export default function SupportPage() {
       <SEO
         title="Customer Support & Helpdesk — Fast Order Assistance | PrintBooth"
         description="Need help with a print order or kiosk payment? Contact the PrintBooth help desk. Fast response within 24 hours with dedicated refund and ticket resolution."
-        canonicalUrl="https://printbooth.in/support"
+        canonicalUrl="https://printbooth.co.in/support"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Support', url: '/support' },

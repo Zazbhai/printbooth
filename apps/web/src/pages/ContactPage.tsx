@@ -111,7 +111,7 @@ export default function ContactPage() {
       <SEO
         title="Contact Us — Pune Office & Business Inquiries | PrintBooth"
         description="Contact PrintBooth for hardware deployment, partnership inquiries, or customer support. Located in Kothrud, Pune. Phone: +91 9090636363."
-        canonicalUrl="https://printbooth.in/contact"
+        canonicalUrl="https://printbooth.co.in/contact"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Contact', url: '/contact' },
@@ -122,7 +122,7 @@ export default function ContactPage() {
             '@type': 'LocalBusiness',
             name: 'PrintBooth Technologies',
             telephone: '+91-9090636363',
-            email: 'support@printbooth.in',
+            email: 'support@printbooth.co.in',
             address: {
               '@type': 'PostalAddress',
               streetAddress: 'Homeseva Jijai Nagar, Kothrud',

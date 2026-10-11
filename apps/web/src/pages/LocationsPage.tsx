@@ -66,7 +66,7 @@ export default function LocationsPage() {
       <SEO
         title="Find a Print Station — Active Campus & Retail Locations | PrintBooth"
         description="Find active walk-up PrintBooth kiosk stations near you. Live hardware status, walking distance, directions, and operating hours across campuses and tech hubs."
-        canonicalUrl="https://printbooth.in/locations"
+        canonicalUrl="https://printbooth.co.in/locations"
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: 'Locations', url: '/locations' },
