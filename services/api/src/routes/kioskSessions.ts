@@ -700,6 +700,50 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
 })
 
 /**
+ * POST /api/kiosk-sessions/:sessionId/state
+ * Explicitly updates the state of a session (e.g., navigating back to CONFIRMING or forward to CONFIGURING).
+ */
+kioskSessionsRouter.post('/:sessionId/state', (req: Request, res: Response) => {
+  const { sessionId } = req.params
+  const session = getSession(sessionId)
+  if (!session) {
+    return res.status(404).json({ success: false, error: 'Session not found' })
+  }
+
+  const { state } = req.body
+  const validStates: KioskSessionState[] = [
+    'QR_READY',
+    'CLAIMED',
+    'UPLOADING',
+    'CONFIRMING',
+    'CONFIGURING',
+    'PAYING',
+    'PRINTING',
+    'DONE',
+  ]
+
+  if (state && validStates.includes(state)) {
+    session.state = state as KioskSessionState
+    if (state === 'CONFIRMING') {
+      session.phase = 'Review Document'
+      session.phaseStep = 3
+    } else if (state === 'CONFIGURING') {
+      session.phase = 'Print Settings'
+      session.phaseStep = 4
+    } else if (state === 'PAYING') {
+      session.phase = 'Pay & Print'
+      session.phaseStep = 5
+    } else if (state === 'QR_READY') {
+      session.phase = 'Scan QR to start uploading'
+      session.phaseStep = 0
+    }
+    saveSession(session)
+  }
+
+  res.json({ success: true, session })
+})
+
+/**
  * Persists/syncs kiosk session state into the main Order database so
  * it immediately appears on Merchant Store Orders and Admin Dashboard.
  */
