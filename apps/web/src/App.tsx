@@ -111,6 +111,9 @@ function AnimatedRoutes() {
           <Route path="/merchant" element={<Navigate to="/" replace />} />
           <Route path="/merchant/*" element={<Navigate to="/" replace />} />
 
+          {/* Sitemap route redirect */}
+          <Route path="/sitemap" element={<Navigate to="/sitemap.xml" replace />} />
+
           {/* Public website with nav + footer */}
           <Route element={<Layout />}>
             <Route path="/how-it-works" element={<HowItWorksPage />} />
