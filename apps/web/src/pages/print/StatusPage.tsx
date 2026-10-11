@@ -15,8 +15,7 @@ import {
   FileText,
   Check,
 } from '@phosphor-icons/react'
-import CustomerPrintOtpScreen from '@/components/print/CustomerPrintOtpScreen'
-import { markPrintCompleted, updatePrintStatus, saveRecentPrint } from '@/lib/recentPrintsStore'
+import { markPrintCompleted, updatePrintStatus } from '@/lib/recentPrintsStore'
 import { kioskSession } from '@/lib/kioskSession'
 import './StatusPage.css'
 
@@ -102,7 +101,6 @@ export default function StatusPage() {
 
   // Document and order data
   const orderId = sessionStorage.getItem('pb_order_id') || 'PB-000001'
-  const [releasePin, setReleasePin] = useState(() => sessionStorage.getItem('pb_release_pin') || '')
   const kioskId = sessionStorage.getItem('pb_kiosk_id') || 'PB-001'
   const rawSettings = sessionStorage.getItem('pb_settings')
   const globalSettings = rawSettings
@@ -121,8 +119,8 @@ export default function StatusPage() {
     sessionStorage.getItem('pb_kiosk_name') ||
     'PrintBooth — MIT ADT'
 
-  // Verification state: if a releasePin exists, wait for kiosk verification
-  const [isPinVerified, setIsPinVerified] = useState<boolean>(!releasePin)
+  // Verification state: physical printer starts immediately on confirmed payment
+  const [isPinVerified, setIsPinVerified] = useState<boolean>(true)
 
   // Construct print sheets queue based on user's exact selections
   const [sheetsQueue] = useState<PrintSheet[]>(() => {
@@ -204,7 +202,7 @@ export default function StatusPage() {
 
   // State
   const [showThanks, setShowThanks] = useState(false)
-  const [lcdText, setLcdText] = useState(isPinVerified ? 'PRINTING' : 'ENTER PIN')
+  const [lcdText, setLcdText] = useState('PRINTING')
   const [lcdNumber, setLcdNumber] = useState('001')
 
 
@@ -230,19 +228,7 @@ export default function StatusPage() {
     }
   }, [isPinVerified, kioskId, orderId])
 
-  // ── Kiosk QR Session: report OTP to kiosk display when pin is ready ──
-  useEffect(() => {
-    if (!kioskSession.isKioskSession()) return
-    if (releasePin) {
-      kioskSession.reportOtpReady(
-        releasePin,
-        orderId,
-        sheetsQueue.length || undefined,
-      )
-    }
-  }, [releasePin, orderId, sheetsQueue.length])
-
-  // ── Kiosk QR Session: mark PRINTING when pin verified ──
+  // ── Kiosk QR Session: mark PRINTING when printing starts ──
   useEffect(() => {
     if (!kioskSession.isKioskSession()) return
     if (isPinVerified) {
@@ -581,22 +567,6 @@ export default function StatusPage() {
       </div>
 
 
-
-      {/* ── Release PIN / OTP Kiosk Verification Screen ── */}
-      {!isPinVerified && Boolean(releasePin) && (
-        <CustomerPrintOtpScreen
-          code={releasePin}
-          kioskId={kioskId}
-          kioskName={kioskName}
-          orderId={orderId}
-          onCodeChange={(newPin) => {
-            setReleasePin(newPin)
-            sessionStorage.setItem('pb_release_pin', newPin)
-            if (orderId) saveRecentPrint({ orderId, otp: newPin })
-          }}
-          onReprint={handlePrintAgain}
-        />
-      )}
 
       {/* ── GSAP Full-Screen "Thanks for Using" Celebration Overlay ── */}
       {showThanks && (

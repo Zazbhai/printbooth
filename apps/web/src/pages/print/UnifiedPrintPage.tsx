@@ -10,7 +10,7 @@ import ReviewPage from './ReviewPage'
 import PaymentPage from './PaymentPage'
 import StatusPage from './StatusPage'
 import SuccessPage from './SuccessPage'
-import RecentPrintsPage from './RecentPrintsPage'
+import KioskDisplayQrScanner from '../../components/print/KioskDisplayQrScanner'
 import ErrorBoundary from '../../components/ui/ErrorBoundary'
 import PageTransition3D from '../../components/ui/PageTransition3D'
 import { InvalidKioskView } from '../../components/ui/InvalidKioskView'
@@ -59,7 +59,10 @@ const getStepRank = (step: PrintStep): number => {
 export default function UnifiedPrintPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
-  const urlId = searchParams.get('id') || searchParams.get('printer_id')
+  const rawSearch = typeof window !== 'undefined' ? window.location.search : ''
+  const directQueryMatch = rawSearch.match(/[?&](PB-\d{3,4})/i)
+  const directParamId = directQueryMatch ? directQueryMatch[1].toUpperCase() : null
+  const urlId = searchParams.get('id') || searchParams.get('printer_id') || directParamId
   const paramStep = searchParams.get('step') as PrintStep | null
   const savedKioskId = typeof window !== 'undefined'
     ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id'))
@@ -102,6 +105,13 @@ export default function UnifiedPrintPage() {
     }
     return ''
   })
+
+  // When visiting /print?PB-00X or /print?id=PB-00X without a session token,
+  // show a QR scanner to scan the QR code displayed on the kiosk screen
+  const urlSessionToken = searchParams.get('session') || (typeof window !== 'undefined' ? getSessionTokenFromUrl() : null)
+  const hasActiveSession = Boolean(urlSessionToken || kioskSession.isKioskSession())
+  const isTargetingKiosk = Boolean(printerId && isCanonicalKioskFormat(printerId))
+  const shouldShowScanner = isTargetingKiosk && !hasActiveSession && paramStep !== 'kiosk'
 
   // Machine Already In Use state (when another user claimed the kiosk session)
   const [machineInUseState, setMachineInUseState] = useState<{
@@ -274,7 +284,7 @@ export default function UnifiedPrintPage() {
     const savedStep = typeof window !== 'undefined' ? (sessionStorage.getItem('pb_print_step') as PrintStep | null) : null
 
     // 1. Explicit requested step in query parameter (e.g. /print?step=kiosk)
-    if (paramStep && ['status', 'success', 'payment', 'review', 'settings', 'confirm', 'upload', 'kiosk', 'history'].includes(paramStep)) {
+    if (paramStep && ['status', 'success', 'payment', 'review', 'settings', 'confirm', 'upload', 'kiosk'].includes(paramStep)) {
       if (paramStep === 'kiosk') {
         return 'kiosk'
       }
@@ -296,7 +306,7 @@ export default function UnifiedPrintPage() {
     if (hasActiveJob && savedStep && ['payment', 'review', 'settings', 'confirm', 'upload'].includes(savedStep)) {
       return savedStep
     }
-    if (savedStep && ['status', 'success', 'history'].includes(savedStep)) {
+    if (savedStep && ['status', 'success'].includes(savedStep)) {
       return savedStep
     }
 
@@ -693,6 +703,28 @@ export default function UnifiedPrintPage() {
             }}
             onGoHome={() => navigate('/')}
           />
+        ) : shouldShowScanner ? (
+          <KioskDisplayQrScanner
+            kioskId={printerId || 'PB-001'}
+            kioskName={kioskName}
+            onSessionClaimed={(token, verifiedId) => {
+              setPrinterIdState(verifiedId)
+              sessionStorage.setItem('pb_kiosk_id', verifiedId)
+              sessionStorage.setItem('pb_kiosk_session_token', token)
+              setSearchParams({ id: verifiedId, session: token }, { replace: true })
+              goToStep('upload')
+            }}
+            onCancel={() => {
+              goToStep('kiosk')
+              setSearchParams(prev => {
+                const next = new URLSearchParams(prev)
+                next.delete('id')
+                next.delete('printer_id')
+                next.set('step', 'kiosk')
+                return next
+              }, { replace: true })
+            }}
+          />
         ) : (
           <PageTransition3D pageKey={pageKey}>
             <ErrorBoundary key={pageKey}>
@@ -704,7 +736,6 @@ export default function UnifiedPrintPage() {
               {effectiveStep === 'payment'  && <PaymentPage />}
               {effectiveStep === 'status'   && <StatusPage />}
               {effectiveStep === 'success'  && <SuccessPage />}
-              {effectiveStep === 'history'  && <RecentPrintsPage />}
             </ErrorBoundary>
           </PageTransition3D>
         )}

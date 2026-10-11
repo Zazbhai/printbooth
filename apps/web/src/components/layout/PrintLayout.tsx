@@ -13,9 +13,6 @@ import { ClearDocumentModal } from '../ui/ClearDocumentModal'
 import { clearUploadedDoc } from '../../lib/documentStore'
 import { clearAllFiles, hasAnyReadyFile } from '../../lib/multiFileStore'
 import { PrintFlowContext, type PrintStep } from '../../pages/print/PrintFlowContext'
-import { ClockCounterClockwise } from '@phosphor-icons/react'
-import { getActivePrintsCount, subscribeRecentPrints } from '../../lib/recentPrintsStore'
-import RecentPrintsPage from '../../pages/print/RecentPrintsPage'
 import { MerchantHelpMascot } from '../ui/MerchantHelpMascot'
 import './PrintLayout.css'
 import '../../pages/print/PrintNeomorphism.css'
@@ -37,15 +34,6 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
   const printFlow = React.useContext(PrintFlowContext)
   const navigate = useNavigate()
   const [showClearModal, setShowClearModal] = useState(false)
-  const [showRecentPrints, setShowRecentPrints] = useState(false)
-  const [activePrintsCount, setActivePrintsCount] = useState(() => getActivePrintsCount())
-
-  React.useEffect(() => {
-    const unsub = subscribeRecentPrints(() => {
-      setActivePrintsCount(getActivePrintsCount())
-    })
-    return () => unsub()
-  }, [])
 
   const activeStep = printFlow?.currentStep || 'upload'
   const isTerminal = ['status', 'success'].includes(activeStep)
@@ -196,26 +184,6 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
         </button>
       )}
 
-      {/* Floating Top-Right Recent Prints Button (Outside Breadcrumbs Background) */}
-      {!isTerminal && (
-        <button
-          type="button"
-          onClick={() => setShowRecentPrints(true)}
-          className="print-top-recent-btn"
-          id="header-recent-prints-btn"
-          title="Recent Prints & OTP Codes"
-          aria-label="Recent Prints & OTP Codes"
-        >
-          <ClockCounterClockwise size={16} weight="bold" className="print-top-recent-icon" />
-          <span className="print-top-recent-text">Recent Prints</span>
-          {activePrintsCount > 0 && (
-            <span className="print-top-recent-badge" title={`${activePrintsCount} active print jobs`}>
-              {activePrintsCount}
-            </span>
-          )}
-        </button>
-      )}
-
       {/* Floating Header with Breadcrumbs & Companion Help Mascot */}
       {!isTerminal && (
         <header className="print-header">
@@ -279,25 +247,6 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
             />
           </div>
         </header>
-      )}
-
-      {/* ── Slide-Over Modal / Drawer for Recent Prints ── */}
-      {showRecentPrints && (
-        <div
-          className="print-recent-drawer-backdrop animate-fadeIn"
-          onClick={() => setShowRecentPrints(false)}
-          id="recent-prints-overlay"
-        >
-          <div
-            className="print-recent-drawer-card animate-slideLeft"
-            onClick={e => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Recent Prints"
-          >
-            <RecentPrintsPage isModal onClose={() => setShowRecentPrints(false)} />
-          </div>
-        </div>
       )}
 
       {/* Clear Document Confirmation Modal */}
