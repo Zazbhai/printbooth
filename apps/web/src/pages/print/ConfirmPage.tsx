@@ -38,6 +38,7 @@ import {
 } from '../../lib/multiFileStore'
 import { getUploadedDoc, clearUploadedDoc } from '../../lib/documentStore'
 import { generateDocumentPages } from '../../lib/documentPreview'
+import { kioskSession } from '../../lib/kioskSession'
 import './ConfirmPage.css'
 
 function FileTypeIcon({ type, size = 18 }: { type: string; size?: number }) {
@@ -279,6 +280,25 @@ export default function ConfirmPage() {
     return totalSheets * pricePerSheet
   }, [isMulti, activeFile, totalSheets, pricePerSheet])
 
+  useEffect(() => {
+    if (kioskSession.isKioskSession()) {
+      if (confirmMode === 'final') {
+        kioskSession.reportReviewing({
+          fileName: activeFile?.fileName || 'Document.pdf',
+          totalPages: activePageCount,
+          copies: activeSettings.copies,
+          colourMode: activeSettings.colour,
+          amount: grandTotal,
+        })
+      } else {
+        kioskSession.reportConfirming({
+          fileName: activeFile?.fileName || 'Document.pdf',
+          totalPages: activePageCount,
+        })
+      }
+    }
+  }, [confirmMode, activeFile?.fileName, activePageCount, activeSettings.copies, activeSettings.colour, grandTotal])
+
   const printFlow = usePrintFlow()
   // Kiosk Location Info
   const kioskId = printFlow?.printerId || sessionStorage.getItem('pb_kiosk_id') || ''
@@ -360,6 +380,14 @@ export default function ConfirmPage() {
   function handleConfirmDocuments() {
     persistAllFilesToSession()
     persistActiveFileToSession()
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportConfiguring({
+        fileName: activeFile?.fileName || 'Document.pdf',
+        totalPages: activePageCount,
+        copies: activeSettings.copies,
+        colourMode: activeSettings.colour,
+      })
+    }
     sessionStorage.setItem('pb_print_step', 'settings')
     if (flow?.goToStep) {
       flow.goToStep('settings')
@@ -381,6 +409,13 @@ export default function ConfirmPage() {
     persistActiveFileToSession()
     sessionStorage.setItem('pb_total_price', String(grandTotal))
     sessionStorage.setItem('pb_print_step', 'payment')
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportPaying({
+        fileName: activeFile?.fileName || 'Document.pdf',
+        totalPages: activePageCount,
+        amount: grandTotal,
+      })
+    }
     if (flow?.goToStep) {
       flow.goToStep('payment')
     } else {

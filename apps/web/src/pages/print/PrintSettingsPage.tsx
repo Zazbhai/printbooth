@@ -40,6 +40,7 @@ import {
   type FileSettings,
 } from '../../lib/multiFileStore'
 import { clearUploadedDoc, hasRealUploadedDoc } from '../../lib/documentStore'
+import { kioskSession } from '../../lib/kioskSession'
 import './PrintSettingsPage.css'
 
 type ColourMode = 'BW' | 'COLOUR'
@@ -226,6 +227,19 @@ export default function PrintSettingsPage() {
   // Grand total across all ready files
   const grandTotal = files.length > 1 ? computeTotalPrice() : fileTotalPrice
 
+  // Report configuring settings to kiosk screen companion in real-time
+  useEffect(() => {
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportConfiguring({
+        fileName: displayFileName,
+        totalPages: pageCount,
+        copies: settings.copies,
+        colourMode: settings.colour,
+        amount: grandTotal,
+      })
+    }
+  }, [displayFileName, pageCount, settings.copies, settings.colour, grandTotal])
+
   // Carousel Cards with interactive in-card editing
   const CARDS: CarouselCard[] = [
     {
@@ -329,6 +343,17 @@ export default function PrintSettingsPage() {
     sessionStorage.setItem('pb_total_price', String(grandTotal))
     sessionStorage.setItem('pb_confirm_mode', 'final')
     sessionStorage.setItem('pb_print_step', 'confirm')
+
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportReviewing({
+        fileName: displayFileName,
+        totalPages: pageCount,
+        copies: settings.copies,
+        colourMode: settings.colour,
+        amount: grandTotal,
+      })
+    }
+
     if (flow?.goToStep) {
       flow.goToStep('confirm')
     } else {

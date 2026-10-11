@@ -18,6 +18,7 @@ import { checkPrinterHardwareStatus } from '../../lib/api'
 import type { DocumentPagePreview } from '../../lib/documentPreview'
 import PrinterErrorOverlay from '../../components/ui/PrinterErrorOverlay'
 import { Skeleton, UploadDropzoneBoneyardFallback } from '../../components/ui/PrintBoneyardSkeleton'
+import { kioskSession } from '../../lib/kioskSession'
 import './UploadPage.css'
 
 const MAX_SIZE_MB = 50
@@ -207,6 +208,22 @@ export default function UploadPage() {
         realPages: extractedPages,
       })
 
+      // Sync real document and rendered preview pages to connected kiosk session
+      if (kioskSession.isKioskSession()) {
+        kioskSession.uploadDocument({
+          file,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type || fileType,
+          pageCount,
+          previews: extractedPages.map((p, idx) => ({
+            pageNumber: p.pageNumber || idx + 1,
+            url: p.url,
+            title: p.title || `Page ${idx + 1}`,
+          })),
+        }).catch(err => console.warn('[UploadPage] Kiosk upload sync failed:', err))
+      }
+
       setUploadState({
         file,
         progress: 100,
@@ -268,6 +285,14 @@ export default function UploadPage() {
   }
 
   function handleProceedToKiosk() {
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportConfiguring({
+        fileName: uploadState.fileName,
+        totalPages: uploadState.pageCount,
+      })
+      navigate('/print/settings')
+      return
+    }
     navigate('/print/kiosk')
   }
 

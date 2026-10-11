@@ -540,19 +540,7 @@ export async function uploadDocumentToKiosk(opts: {
   formData.append('fileType', opts.fileType)
   formData.append('pageCount', String(opts.pageCount))
   if (opts.previews && opts.previews.length > 0) {
-    // Keep previews lightweight to avoid exceeding multipart field limits (1MB) on backend servers
-    const rawJson = JSON.stringify(opts.previews)
-    if (rawJson.length < 500 * 1024) {
-      formData.append('previews', rawJson)
-    } else {
-      // Omit bulky multi-megabyte data URLs and send clean page metadata
-      const safePreviews = opts.previews.map((p, idx) => ({
-        pageNumber: p.pageNumber || idx + 1,
-        title: p.title || `Page ${idx + 1}`,
-        url: p.url && p.url.length < 50 * 1024 ? p.url : '',
-      }))
-      formData.append('previews', JSON.stringify(safePreviews))
-    }
+    formData.append('previews', JSON.stringify(opts.previews))
   }
 
   const clientClaimToken = getClientClaimSecret(sessionId)

@@ -316,7 +316,21 @@ export default function MultiFilePage() {
 
     setIsSendingToKiosk(false)
     if (result.success) {
-      setIsTransferredToKiosk(true)
+      const readyFiles = getAllFiles().filter(f => f.status === 'ready')
+      if (readyFiles.length > 0) {
+        const first = readyFiles[0]
+        sessionStorage.setItem('pb_file_name', first.fileName)
+        sessionStorage.setItem('pb_file_size', String(first.fileSize))
+        sessionStorage.setItem('pb_page_count', String(first.pageCount))
+        sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
+      }
+      sessionStorage.setItem('pb_confirm_mode', 'doc')
+      sessionStorage.setItem('pb_print_step', 'confirm')
+      if (flow?.goToStep) {
+        flow.goToStep('confirm')
+      } else {
+        navigate('/print/confirm')
+      }
     } else if ((result as any).machineInUse) {
       window.dispatchEvent(new CustomEvent('kiosk:machine_in_use', {
         detail: { kioskId: kioskSession.getKioskId() || 'PB-001' }
@@ -324,7 +338,7 @@ export default function MultiFilePage() {
     } else {
       setDropError(result.error || 'Failed to transfer document to kiosk screen. Please retry.')
     }
-  }, [])
+  }, [flow, navigate])
 
   const transitionToConfirm = useCallback(() => {
     if (safetyTimeoutRef.current) {
@@ -336,7 +350,7 @@ export default function MultiFilePage() {
     persistAllFilesToSession()
     persistActiveFileToSession()
 
-    // In Kiosk QR Mode: User only uploads from mobile! Send directly to kiosk screen.
+    // In Kiosk QR Mode: Upload document & page previews to kiosk session, then continue on mobile
     if (isKioskMode) {
       handleUploadToKiosk()
       return
@@ -849,7 +863,7 @@ export default function MultiFilePage() {
             disabled={isSendingToKiosk}
             id="mfp-continue-btn"
           >
-            <span>{isKioskMode ? (isSendingToKiosk ? 'Transferring to Kiosk…' : 'Transfer to Kiosk Screen') : 'Continue'}</span>
+            <span>{isSendingToKiosk ? 'Transferring to Kiosk…' : 'Continue'}</span>
             <span className="mfp-btn-icon-circle">
               <ArrowRight size={13} weight="bold" />
             </span>
