@@ -44,7 +44,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB
+    fieldSize: 50 * 1024 * 1024, // 50MB
+  },
 })
 
 export interface KioskDocumentPreview {
@@ -526,7 +529,22 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
  * Called by the mobile web app when user selects and uploads their file from phone.
  * Passes the document and pre-rendered preview pages to the kiosk display.
  */
-kioskSessionsRouter.post('/:sessionId/upload', upload.single('file'), (req: Request, res: Response) => {
+kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, next) => {
+  upload.single('file')(req, res, (err: any) => {
+    if (err) {
+      console.error('[KioskSession] Multer upload error:', err)
+      return res.status(400).json({
+        success: false,
+        error: err.code === 'LIMIT_FILE_SIZE'
+          ? 'File too large (max 100MB)'
+          : err.code === 'LIMIT_FIELD_VALUE'
+          ? 'Form field value too large'
+          : err.message || 'File upload failed',
+      })
+    }
+    next()
+  })
+}, (req: Request, res: Response) => {
   const { sessionId } = req.params
   const session = getSession(sessionId)
 
