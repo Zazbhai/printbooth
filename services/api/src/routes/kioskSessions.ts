@@ -20,6 +20,11 @@ import { cacheGet, cacheSet } from '../redis.js'
 import { dispatchPrintJob, syncJobState, type PrintJobState } from './print.js'
 import { Order } from '../models/Order.js'
 import { isDbConnected } from '../db.js'
+import {
+  createUpiExpressOrder,
+  resolveUpiKeyForKiosk,
+  resolveMerchantUpiIdForKiosk,
+} from './upiexpress.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -112,6 +117,11 @@ export interface KioskSession {
   claimSecret?: string   // Client claim secret ensuring only original scanner can resume
   // Progress data relayed from web app
   progressData?: Record<string, any>
+  upiQrValue?: string
+  paymentUrl?: string
+  upiIntentUrl?: string
+  merchantUpiId?: string
+  gateway?: string
 }
 
 export type KioskSessionState =
@@ -350,6 +360,11 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       document: session.document,
       settings: session.settings,
       progressData: session.progressData,
+      upiQrValue: session.upiQrValue,
+      paymentUrl: session.paymentUrl,
+      upiIntentUrl: session.upiIntentUrl,
+      merchantUpiId: session.merchantUpiId,
+      gateway: session.gateway,
     },
   })
 })
@@ -813,7 +828,7 @@ export async function syncSessionToOrder(session: KioskSession) {
  * POST /api/kiosk-sessions/:sessionId/pay
  * Called by kiosk touchscreen when moving to or completing payment.
  */
-kioskSessionsRouter.post('/:sessionId/pay', (req: Request, res: Response) => {
+kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) => {
   const { sessionId } = req.params
   const session = getSession(sessionId)
   if (!session) {
@@ -826,14 +841,56 @@ kioskSessionsRouter.post('/:sessionId/pay', (req: Request, res: Response) => {
 
   session.orderId = orderId
   session.otp = otp
-  if (typeof amount === 'number') session.amount = amount
+  if (typeof amount === 'number' && amount > 0) session.amount = amount
   session.state = 'PAYING'
   session.phase = 'Scan UPI QR code on touchscreen to pay'
   session.phaseStep = 4
 
+  // Dynamically resolve merchant UPI Express API key and generate real order & dynamic QR
+  try {
+    const effectiveAmount = typeof session.amount === 'number' && session.amount > 0 ? session.amount : 2
+    const upiResult = await createUpiExpressOrder(
+      {
+        kioskId: session.kioskId,
+        clientTxnId: orderId,
+        amount: effectiveAmount,
+        customerName: 'Kiosk Customer',
+        customerEmail: 'kiosk@printbooth.co.in',
+        customerMobile: '9999999999',
+        note: `PrintBooth Station ${session.kioskId} - ${orderId}`,
+        skipReachabilityCheck: true,
+      },
+      req
+    )
+
+    if (upiResult.success && upiResult.data) {
+      session.upiQrValue = upiResult.data.upiIntentUrl || upiResult.data.paymentUrl
+      session.paymentUrl = upiResult.data.paymentUrl
+      session.upiIntentUrl = upiResult.data.upiIntentUrl
+      session.merchantUpiId = upiResult.data.merchantUpiId
+      session.gateway = 'upiexpress'
+    } else {
+      const fallbackVpa = await resolveMerchantUpiIdForKiosk(session.kioskId)
+      session.merchantUpiId = fallbackVpa
+      session.upiQrValue = `upi://pay?pa=${encodeURIComponent(fallbackVpa)}&pn=${encodeURIComponent('PrintBooth ' + session.kioskId)}&am=${effectiveAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(orderId)}`
+      session.gateway = 'upiexpress'
+    }
+  } catch (err) {
+    console.warn('[KioskSession] Error generating UPI Express QR:', err)
+  }
+
   saveSession(session)
   syncSessionToOrder(session)
-  res.json({ success: true, orderId, otp, session })
+  res.json({
+    success: true,
+    orderId,
+    otp,
+    upiQrValue: session.upiQrValue,
+    paymentUrl: session.paymentUrl,
+    upiIntentUrl: session.upiIntentUrl,
+    merchantUpiId: session.merchantUpiId,
+    session,
+  })
 })
 
 /**
@@ -954,6 +1011,11 @@ kioskSessionsRouter.get('/:sessionId/status', (req: Request, res: Response) => {
     settings: session.settings,
     otp: session.otp,
     orderId: session.orderId,
+    upiQrValue: session.upiQrValue,
+    paymentUrl: session.paymentUrl,
+    upiIntentUrl: session.upiIntentUrl,
+    merchantUpiId: session.merchantUpiId,
+    gateway: session.gateway,
   })
 })
 
