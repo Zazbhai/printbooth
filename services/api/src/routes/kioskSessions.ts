@@ -590,7 +590,14 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   let previews: KioskDocumentPreview[] = []
   if (req.body.previews) {
     try {
-      previews = typeof req.body.previews === 'string' ? JSON.parse(req.body.previews) : req.body.previews
+      const raw = typeof req.body.previews === 'string' ? JSON.parse(req.body.previews) : req.body.previews
+      if (Array.isArray(raw)) {
+        previews = raw.slice(0, 6).map((p: any, idx: number) => ({
+          pageNumber: Number(p.pageNumber) || idx + 1,
+          url: typeof p.url === 'string' ? (p.url.length > 250000 ? p.url.slice(0, 250000) : p.url) : '',
+          title: String(p.title || `Page ${idx + 1}`),
+        }))
+      }
     } catch {}
   }
 

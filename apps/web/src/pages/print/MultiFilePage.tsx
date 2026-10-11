@@ -73,7 +73,6 @@ export default function MultiFilePage() {
   // Kiosk Remote Upload state: when user opened via kiosk QR
   const isKioskMode = kioskSession.isKioskSession()
   const [isTransferredToKiosk, setIsTransferredToKiosk] = useState(false)
-  const [isSendingToKiosk, setIsSendingToKiosk] = useState(false)
   const [kioskLiveStatus, setKioskLiveStatus] = useState<any>(null)
 
   useEffect(() => {
@@ -295,7 +294,6 @@ export default function MultiFilePage() {
     const ready = getAllFiles().filter(f => f.status === 'ready')
     if (ready.length === 0) return
 
-    setIsSendingToKiosk(true)
     const primary = ready[0]
     const file = primary.file || (await getUploadedFileAsync())
 
@@ -305,40 +303,24 @@ export default function MultiFilePage() {
       title: p.title || `Page ${idx + 1}`,
     })) || []
 
-    const result = await kioskSession.uploadDocument({
+    // Fire non-blocking background upload to kiosk display
+    kioskSession.uploadDocument({
       file,
       fileName: primary.fileName,
       fileSize: primary.fileSize,
       fileType: primary.fileType,
       pageCount: primary.pageCount || 1,
       previews,
+    }).then(result => {
+      if ((result as any)?.machineInUse) {
+        window.dispatchEvent(new CustomEvent('kiosk:machine_in_use', {
+          detail: { kioskId: kioskSession.getKioskId() || 'PB-001' }
+        }))
+      }
+    }).catch(err => {
+      console.warn('[MultiFilePage] Background kiosk transfer error:', err)
     })
-
-    setIsSendingToKiosk(false)
-    if (result.success) {
-      const readyFiles = getAllFiles().filter(f => f.status === 'ready')
-      if (readyFiles.length > 0) {
-        const first = readyFiles[0]
-        sessionStorage.setItem('pb_file_name', first.fileName)
-        sessionStorage.setItem('pb_file_size', String(first.fileSize))
-        sessionStorage.setItem('pb_page_count', String(first.pageCount))
-        sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
-      }
-      sessionStorage.setItem('pb_confirm_mode', 'doc')
-      sessionStorage.setItem('pb_print_step', 'confirm')
-      if (flow?.goToStep) {
-        flow.goToStep('confirm')
-      } else {
-        navigate('/print/confirm')
-      }
-    } else if ((result as any).machineInUse) {
-      window.dispatchEvent(new CustomEvent('kiosk:machine_in_use', {
-        detail: { kioskId: kioskSession.getKioskId() || 'PB-001' }
-      }))
-    } else {
-      setDropError(result.error || 'Failed to transfer document to kiosk screen. Please retry.')
-    }
-  }, [flow, navigate])
+  }, [])
 
   const transitionToConfirm = useCallback(() => {
     if (safetyTimeoutRef.current) {
@@ -350,12 +332,6 @@ export default function MultiFilePage() {
     persistAllFilesToSession()
     persistActiveFileToSession()
 
-    // In Kiosk QR Mode: Upload document & page previews to kiosk session, then continue on mobile
-    if (isKioskMode) {
-      handleUploadToKiosk()
-      return
-    }
-
     const ready = getAllFiles().filter(f => f.status === 'ready')
     if (ready.length > 0) {
       const first = ready[0]
@@ -366,6 +342,12 @@ export default function MultiFilePage() {
     }
     sessionStorage.setItem('pb_confirm_mode', 'doc')
     sessionStorage.setItem('pb_print_step', 'confirm')
+
+    // In Kiosk QR Mode: initiate fast transfer to kiosk in background
+    if (isKioskMode) {
+      handleUploadToKiosk()
+    }
+
     if (flow?.goToStep) {
       flow.goToStep('confirm')
     } else {
@@ -859,11 +841,10 @@ export default function MultiFilePage() {
             type="button"
             onClick={transitionToConfirm}
             className="mfp-view-confirm-link"
-            style={{ border: 'none', cursor: isSendingToKiosk ? 'wait' : 'pointer' }}
-            disabled={isSendingToKiosk}
+            style={{ border: 'none', cursor: 'pointer' }}
             id="mfp-continue-btn"
           >
-            <span>{isSendingToKiosk ? 'Transferring to Kiosk…' : 'Continue'}</span>
+            <span>Continue</span>
             <span className="mfp-btn-icon-circle">
               <ArrowRight size={13} weight="bold" />
             </span>

@@ -12,6 +12,7 @@
  */
 
 import { getApiBase as getApiBaseFromApi } from './api'
+import { prepareKioskPreviews } from './kioskThumbnail'
 
 export function getApiBase(): string {
   if (typeof window !== 'undefined') {
@@ -540,7 +541,8 @@ export async function uploadDocumentToKiosk(opts: {
   formData.append('fileType', opts.fileType)
   formData.append('pageCount', String(opts.pageCount))
   if (opts.previews && opts.previews.length > 0) {
-    formData.append('previews', JSON.stringify(opts.previews))
+    const compactPreviews = await prepareKioskPreviews(opts.previews, 5)
+    formData.append('previews', JSON.stringify(compactPreviews))
   }
 
   const clientClaimToken = getClientClaimSecret(sessionId)
