@@ -10,6 +10,7 @@ export interface IMerchant extends Document {
   supportHours?: string
   supportNote?: string
   kioskId: string
+  kioskVariant?: 'pro' | 'lite'
   address?: string
   lat?: number
   lng?: number
@@ -55,6 +56,7 @@ const MerchantSchema = new Schema<IMerchant>(
     supportHours: { type: String, default: '8:30 AM - 9:30 PM' },
     supportNote: { type: String, default: '' },
     kioskId: { type: String, required: true, index: true },
+    kioskVariant: { type: String, enum: ['pro', 'lite'], default: 'pro' },
     address: { type: String, default: '' },
     lat: { type: Number, default: 18.5204 },
     kioskPhotoUrl: { type: String, default: 'https://images.unsplash.com/photo-1588702547919-26089e690ecc' },

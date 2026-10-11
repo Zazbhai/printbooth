@@ -815,6 +815,7 @@ adminRouter.get('/merchants', async (req: Request, res: Response) => {
         isBlocked: m.isBlocked === true || m.status === 'BLOCKED',
         requirePasswordChange: m.requirePasswordChange !== false,
         status: m.status === 'BLOCKED' || m.isBlocked ? 'BLOCKED' : (m.status || 'ACTIVE'),
+        kioskVariant: m.kioskVariant || pairedKiosk?.kioskVariant || 'pro',
         kioskLocation: pairedKiosk?.location || pairedKiosk?.address || m.address || 'MIT ADT Campus, Pune',
         kioskAddress: pairedKiosk?.address || m.address || '',
         kioskStatus: isOnline ? 'ONLINE' : 'OFFLINE',
@@ -851,6 +852,7 @@ adminRouter.post('/merchants', async (req: Request, res: Response) => {
       kioskPhotoUrl,
       commission,
       kioskId: customKioskId,
+      kioskVariant: rawVariant = 'pro',
       paymentGateway = 'upiexpress',
       upiExpressApiKey = '',
       upiExpressUpiId = '',
@@ -859,6 +861,7 @@ adminRouter.post('/merchants', async (req: Request, res: Response) => {
     } = req.body
 
     const cleanGateway = paymentGateway === 'razorpay' ? 'razorpay' : 'upiexpress'
+    const kioskVariant: 'pro' | 'lite' = String(rawVariant || '').toLowerCase().includes('lite') ? 'lite' : 'pro'
 
     // 1. Strict required validations
     if (!storeName || !storeName.trim()) {
@@ -926,6 +929,7 @@ adminRouter.post('/merchants', async (req: Request, res: Response) => {
       phone: phone.trim(),
       address: address ? address.trim() : '',
       kioskId: assignedKioskId,
+      kioskVariant,
       kioskPhotoUrl: kioskPhotoUrl.trim(),
       qrCodeUrl,
       commissionRate,
@@ -954,6 +958,7 @@ adminRouter.post('/merchants', async (req: Request, res: Response) => {
         { kioskId: assignedKioskId },
         {
           kioskId: assignedKioskId,
+          kioskVariant,
           name: `PrintBooth — ${storeName.trim()}`,
           location: address ? address.trim() : `${storeName.trim()}, Pune`,
           address: address ? address.trim() : '',
@@ -961,7 +966,7 @@ adminRouter.post('/merchants', async (req: Request, res: Response) => {
           lng: req.body.lng ? Number(req.body.lng) : 73.8567,
           status: 'ONLINE',
           printerStatus: 'READY',
-          printerModel: 'Brother DCP-T420W Printer USB',
+          printerModel: kioskVariant === 'lite' ? 'Monochrome Laser Print Engine' : 'Brother DCP-T420W Printer USB',
           paperLevel: 100,
           tonerLevel: 100,
           merchantId,
@@ -984,13 +989,14 @@ adminRouter.post('/merchants', async (req: Request, res: Response) => {
       fallbackKiosks.unshift({
         id: assignedKioskId,
         kioskId: assignedKioskId,
+        kioskVariant,
         name: `PrintBooth — ${storeName.trim()}`,
         location: address ? address.trim() : `${storeName.trim()}, Pune`,
         address: address ? address.trim() : '',
         lat: req.body.lat ? Number(req.body.lat) : 18.5204,
         lng: req.body.lng ? Number(req.body.lng) : 73.8567,
-        printer: 'Brother DCP-T420W Printer USB',
-        printerModel: 'Brother DCP-T420W Printer USB',
+        printer: kioskVariant === 'lite' ? 'Monochrome Laser Print Engine' : 'Brother DCP-T420W Printer USB',
+        printerModel: kioskVariant === 'lite' ? 'Monochrome Laser Print Engine' : 'Brother DCP-T420W Printer USB',
         printerStatus: 'READY',
         paper: 100,
         paperLevel: 100,
@@ -1008,10 +1014,13 @@ adminRouter.post('/merchants', async (req: Request, res: Response) => {
         merchantId,
         kioskPhotoUrl: kioskPhotoUrl.trim(),
         qrCodeUrl,
-        pricing: { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
+        pricing: kioskVariant === 'lite'
+          ? { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 0, colorDouble: 0 }
+          : { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
         deviceSecret: generateKioskSecret(),
       })
     } else {
+      existingKiosk.kioskVariant = kioskVariant
       existingKiosk.kioskPhotoUrl = kioskPhotoUrl.trim()
       existingKiosk.merchantId = merchantId
       existingKiosk.qrCodeUrl = qrCodeUrl
@@ -1084,6 +1093,10 @@ adminRouter.put('/merchants/:id', async (req: Request, res: Response) => {
     if (upiExpressUpiId !== undefined) updates.upiExpressUpiId = String(upiExpressUpiId).trim()
     if (razorpayKeyId !== undefined) updates.razorpayKeyId = String(razorpayKeyId).trim()
     if (razorpayKeySecret !== undefined) updates.razorpayKeySecret = String(razorpayKeySecret).trim()
+    if (req.body.kioskVariant !== undefined || req.body.variant !== undefined) {
+      const v = req.body.kioskVariant !== undefined ? req.body.kioskVariant : req.body.variant
+      updates.kioskVariant = String(v).toLowerCase().includes('lite') ? 'lite' : 'pro'
+    }
 
     // Status & Block updates
     if (isBlocked !== undefined) {
@@ -1134,6 +1147,20 @@ adminRouter.put('/merchants/:id', async (req: Request, res: Response) => {
       const fbKiosk = fallbackKiosks.find((k) => (k.kioskId || k.id) === targetKioskId)
       if (fbKiosk) {
         fbKiosk.kioskPhotoUrl = updates.kioskPhotoUrl
+      }
+    }
+
+    if (updates.kioskVariant) {
+      const targetKioskId = updatedDoc.kioskId || id
+      if (isDbConnected()) {
+        await Kiosk.findOneAndUpdate(
+          { kioskId: targetKioskId },
+          { $set: { kioskVariant: updates.kioskVariant } }
+        )
+      }
+      const fbKiosk = fallbackKiosks.find((k) => (k.kioskId || k.id) === targetKioskId)
+      if (fbKiosk) {
+        fbKiosk.kioskVariant = updates.kioskVariant
       }
     }
 

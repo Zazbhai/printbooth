@@ -8,6 +8,7 @@ export const fallbackKiosks: any[] = [
   {
     id: 'PB-001',
     kioskId: 'PB-001',
+    kioskVariant: 'pro',
     name: 'PrintBooth — MIT ADT University',
     location: 'Loni Kalbhor, Pune',
     address: 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
@@ -60,6 +61,7 @@ export const fallbackMerchants: any[] = [
     supportHours: '8:30 AM - 9:30 PM (Mon-Sat)',
     supportNote: 'Ground Floor, Central Reading Hall (Counter #1, next to turnstiles)',
     kioskId: 'PB-001',
+    kioskVariant: 'pro',
     address: 'Ground Floor, Central Reading Hall, MIT ADT Campus, Pune',
     lat: 18.4912,
     lng: 74.0253,

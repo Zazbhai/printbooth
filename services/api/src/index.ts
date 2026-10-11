@@ -150,6 +150,23 @@ app.get(['/api/config', '/api/system/config'], (req, res) => {
 app.get(['/api/printer/status', '/printer/status'], async (req, res) => {
   try {
     const rawKioskId = ((req.query.kioskId as string) || (req.headers['x-kiosk-id'] as string) || 'PB-001').toUpperCase()
+    const isTestMode =
+      (process.env.PRINT_MODE || '').toLowerCase() === 'test' ||
+      process.env.MOCK_PRINTER === 'true' ||
+      req.query.mock === '1' ||
+      req.query.online === '1'
+
+    if (isTestMode) {
+      return res.json({
+        success: true,
+        isOnline: true,
+        printerStatus: 'READY',
+        activePrinter: 'PrintBooth Virtual Printer (Simulator)',
+        kioskId: rawKioskId,
+        isTestMode: true,
+      })
+    }
+
     const livePrinter = await getRealPrinterHardwareStatus()
     const piPrinters = getKioskPiPrinters(rawKioskId)
     const isUsbDisconnected = piPrinters ? piPrinters.usbConnected === false : false

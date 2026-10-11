@@ -24,9 +24,9 @@ export default defineConfig(({ mode }) => {
       allowedHosts: true, // Allow ngrok and external LAN host headers
       proxy: {
         '/api': {
-          target: 'https://api.printbooth.co.in',
+          target: 'http://localhost:5000',
           changeOrigin: true,
-          secure: true,
+          secure: false,
           configure: (proxy) => {
             const originalEmit = proxy.emit
             proxy.emit = function (event: string, ...args: any[]) {

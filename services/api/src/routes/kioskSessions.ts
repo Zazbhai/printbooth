@@ -19,6 +19,8 @@ import { fileURLToPath } from 'url'
 import { cacheGet, cacheSet } from '../redis.js'
 import { dispatchPrintJob, syncJobState, type PrintJobState } from './print.js'
 import { Order } from '../models/Order.js'
+import { Kiosk } from '../models/Kiosk.js'
+import { fallbackKiosks } from '../fallbackData.js'
 import { isDbConnected } from '../db.js'
 import {
   createUpiExpressOrder,
@@ -96,6 +98,7 @@ export interface KioskPrintSettingsData {
 export interface KioskSession {
   sessionId: string
   kioskId: string
+  kioskVariant?: 'pro' | 'lite'
   token: string          // base64url-encoded signed payload
   state: KioskSessionState
   createdAt: number
@@ -174,6 +177,12 @@ function verifyToken(token: string): { valid: boolean; payload?: Record<string, 
   }
 }
 
+function getKioskVariantSync(kioskId: string): 'pro' | 'lite' {
+  const fb = fallbackKiosks.find((k: any) => (k.kioskId || k.id) === kioskId)
+  if (fb && fb.kioskVariant) return fb.kioskVariant === 'lite' ? 'lite' : 'pro'
+  return 'pro'
+}
+
 function generateSession(kioskId: string, webBaseUrl: string): KioskSession {
   const sessionId = `sess_${kioskId}_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
   const now = Date.now()
@@ -192,10 +201,12 @@ function generateSession(kioskId: string, webBaseUrl: string): KioskSession {
   // The QR encodes the full web URL with the session embedded
   const cleanBase = webBaseUrl.replace(/\/+$/, '')
   const qrUrl = `${cleanBase}/print?id=${encodeURIComponent(kioskId)}&session=${encodeURIComponent(token)}`
+  const kioskVariant = getKioskVariantSync(kioskId)
 
   const session: KioskSession = {
     sessionId,
     kioskId,
+    kioskVariant,
     token,
     state: 'QR_READY',
     createdAt: now,
@@ -203,6 +214,16 @@ function generateSession(kioskId: string, webBaseUrl: string): KioskSession {
     phase: 'Waiting for user to scan QR',
     phaseStep: 0,
     progressData: { qrUrl },
+  }
+
+  // Asynchronously refresh variant from DB if available
+  if (isDbConnected()) {
+    Kiosk.findOne({ kioskId }).select('kioskVariant').lean().then((doc: any) => {
+      if (doc && doc.kioskVariant) {
+        session.kioskVariant = doc.kioskVariant === 'lite' ? 'lite' : 'pro'
+        saveSession(session)
+      }
+    }).catch(() => {})
   }
 
   sessions.set(sessionId, session)
@@ -296,10 +317,12 @@ kioskSessionsRouter.post('/create', (req: Request, res: Response) => {
   res.json({
     success: true,
     sessionId: session.sessionId,
+    kioskVariant: session.kioskVariant,
     token: session.token,
     qrUrl: session.progressData?.qrUrl,
     expiresAt: session.expiresAt,
     state: session.state,
+    session,
   })
 })
 
@@ -342,6 +365,7 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
     session: {
       sessionId: session.sessionId,
       kioskId: session.kioskId,
+      kioskVariant: session.kioskVariant || getKioskVariantSync(session.kioskId),
       token: session.token,
       qrUrl: session.progressData?.qrUrl,
       state: session.state,

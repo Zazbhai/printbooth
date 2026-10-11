@@ -431,6 +431,36 @@ export function setKioskPricing(pricing?: Partial<KioskPricing> | null) {
   notifyChange()
 }
 
+let activeKioskVariant: 'pro' | 'lite' = 'pro'
+
+export function setKioskVariant(variant?: 'pro' | 'lite' | string | null) {
+  if (!variant) return
+  const normalized: 'pro' | 'lite' = String(variant).toLowerCase().includes('lite') ? 'lite' : 'pro'
+  activeKioskVariant = normalized
+  try {
+    sessionStorage.setItem('pb_kiosk_variant', normalized)
+    localStorage.setItem('pb_kiosk_variant', normalized)
+  } catch {}
+  // If variant is lite, enforce pure B&W across all loaded documents
+  if (normalized === 'lite') {
+    managedFiles.forEach(f => {
+      f.settings.colour = 'BW'
+      f.settings.pageColours = undefined
+    })
+  }
+  notifyChange()
+}
+
+export function getKioskVariant(): 'pro' | 'lite' {
+  try {
+    const saved = sessionStorage.getItem('pb_kiosk_variant') || localStorage.getItem('pb_kiosk_variant')
+    if (saved) {
+      return String(saved).toLowerCase().includes('lite') ? 'lite' : 'pro'
+    }
+  } catch {}
+  return activeKioskVariant
+}
+
 export function getKioskPricing(): KioskPricing {
   try {
     const saved = sessionStorage.getItem('pb_kiosk_pricing')

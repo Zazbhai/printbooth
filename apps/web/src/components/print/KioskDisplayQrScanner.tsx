@@ -9,8 +9,11 @@ import {
   ShieldCheck,
   Desktop,
   ArrowLeft,
+  Printer,
+  Clock,
+  User,
 } from '@phosphor-icons/react'
-import { claimKioskSession } from '@/lib/kioskSession'
+import { claimKioskSession, getApiBase } from '@/lib/kioskSession'
 import './KioskDisplayQrScanner.css'
 
 interface KioskDisplayQrScannerProps {
@@ -18,6 +21,68 @@ interface KioskDisplayQrScannerProps {
   kioskName?: string
   onSessionClaimed: (token: string, verifiedKioskId: string) => void
   onCancel?: () => void
+}
+
+type PrinterBusyState = 'loading' | 'free' | 'busy' | 'printing' | 'paying' | 'error'
+
+interface PrinterStatus {
+  state: PrinterBusyState
+  sessionState?: string
+  occupiedSince?: number
+  estimatedWait?: number
+}
+
+function getPrinterStatusDisplay(status: PrinterStatus): {
+  label: string
+  sublabel: string
+  color: string
+  dot: string
+  animate: boolean
+} {
+  switch (status.state) {
+    case 'loading':
+      return {
+        label: 'Checking station…',
+        sublabel: 'Fetching live printer status',
+        color: '#64748b',
+        dot: '#64748b',
+        animate: false,
+      }
+    case 'free':
+      return {
+        label: 'Printer Available',
+        sublabel: 'Station is ready — scan the kiosk QR to start printing',
+        color: '#16a34a',
+        dot: '#16a34a',
+        animate: true,
+      }
+    case 'busy':
+    case 'paying':
+      return {
+        label: 'Station Currently Busy',
+        sublabel: 'Someone is using this kiosk right now. Estimated wait: 2–3 min',
+        color: '#f59e0b',
+        dot: '#f59e0b',
+        animate: true,
+      }
+    case 'printing':
+      return {
+        label: 'Printing in Progress',
+        sublabel: 'Pages are being printed. Station frees up in ~1 min',
+        color: '#dc2626',
+        dot: '#dc2626',
+        animate: true,
+      }
+    case 'error':
+    default:
+      return {
+        label: 'Status Unknown',
+        sublabel: 'Cannot connect to station — try scanning anyway',
+        color: '#94a3b8',
+        dot: '#94a3b8',
+        animate: false,
+      }
+  }
 }
 
 export default function KioskDisplayQrScanner({
@@ -40,6 +105,63 @@ export default function KioskDisplayQrScanner({
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
   const [scannedSuccess, setScannedSuccess] = useState<boolean>(false)
   const [statusMessage, setStatusMessage] = useState<string>('Point camera at the kiosk screen QR code')
+
+  // ── Printer busy state ──
+  const [printerStatus, setPrinterStatus] = useState<PrinterStatus>({ state: 'loading' })
+  const busyPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const fetchPrinterStatus = useCallback(async () => {
+    if (!kioskId) return
+    try {
+      const apiBase = getApiBase()
+      const res = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
+      if (!res.ok) {
+        setPrinterStatus({ state: 'error' })
+        return
+      }
+      const data = await res.json()
+      if (!data.success || !data.session) {
+        // No active session = printer is free
+        setPrinterStatus({ state: 'free' })
+        return
+      }
+      const sessionState = (data.session.state || '').toUpperCase()
+      if (sessionState === 'QR_READY' || sessionState === 'EXPIRED') {
+        setPrinterStatus({ state: 'free' })
+      } else if (sessionState === 'PRINTING') {
+        setPrinterStatus({
+          state: 'printing',
+          sessionState,
+          occupiedSince: data.session.createdAt,
+        })
+      } else if (sessionState === 'PAYING') {
+        setPrinterStatus({
+          state: 'paying',
+          sessionState,
+          occupiedSince: data.session.createdAt,
+        })
+      } else if (sessionState === 'DONE' || sessionState === 'CANCELLED') {
+        setPrinterStatus({ state: 'free' })
+      } else {
+        // CLAIMED, UPLOADING, CONFIRMING, CONFIGURING, REVIEWING = busy
+        setPrinterStatus({
+          state: 'busy',
+          sessionState,
+          occupiedSince: data.session.createdAt,
+        })
+      }
+    } catch {
+      setPrinterStatus({ state: 'error' })
+    }
+  }, [kioskId])
+
+  useEffect(() => {
+    fetchPrinterStatus()
+    busyPollRef.current = setInterval(fetchPrinterStatus, 3000)
+    return () => {
+      if (busyPollRef.current) clearInterval(busyPollRef.current)
+    }
+  }, [fetchPrinterStatus])
 
   // Parse scanned text into a session token and kioskId
   const processQrContent = useCallback((content: string): boolean => {
@@ -86,6 +208,9 @@ export default function KioskDisplayQrScanner({
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current)
       }
+
+      // Stop busy polling
+      if (busyPollRef.current) clearInterval(busyPollRef.current)
 
       // Claim session and trigger callback
       sessionStorage.setItem('pb_kiosk_session_token', extractedToken)
@@ -264,6 +389,9 @@ export default function KioskDisplayQrScanner({
     }
   }, [facingMode, startCamera])
 
+  const statusDisplay = getPrinterStatusDisplay(printerStatus)
+  const isBusy = printerStatus.state === 'busy' || printerStatus.state === 'printing' || printerStatus.state === 'paying'
+
   return (
     <div className="pb-qr-scanner-root">
       {/* Hidden processing canvas */}
@@ -289,6 +417,58 @@ export default function KioskDisplayQrScanner({
           <span>{kioskId} • {kioskName}</span>
         </div>
       </div>
+
+      {/* ── Live Printer Status Banner ── */}
+      <div className={`pb-printer-status-banner ${printerStatus.state}`}>
+        <div className="pb-printer-status-left">
+          <div
+            className="pb-printer-status-icon"
+            style={{ background: `${statusDisplay.color}18`, border: `1.5px solid ${statusDisplay.color}30` }}
+          >
+            {printerStatus.state === 'loading'
+              ? <div className="pb-printer-status-spinner" />
+              : printerStatus.state === 'free'
+              ? <Printer size={18} weight="fill" color={statusDisplay.color} />
+              : printerStatus.state === 'printing'
+              ? <Printer size={18} weight="fill" color={statusDisplay.color} />
+              : <User size={18} weight="fill" color={statusDisplay.color} />
+            }
+          </div>
+          <div>
+            <div
+              className="pb-printer-status-label"
+              style={{ color: statusDisplay.color }}
+            >
+              {statusDisplay.label}
+            </div>
+            <div className="pb-printer-status-sub">{statusDisplay.sublabel}</div>
+          </div>
+        </div>
+
+        <div
+          className={`pb-printer-status-dot-outer ${statusDisplay.animate ? 'animate' : ''}`}
+          style={{
+            background: `${statusDisplay.color}20`,
+          }}
+        >
+          <div
+            className="pb-printer-status-dot-inner"
+            style={{ background: statusDisplay.color }}
+          />
+        </div>
+      </div>
+
+      {/* ── Busy Warning Card — only shown when station is occupied ── */}
+      {isBusy && (
+        <div className="pb-busy-warning-card">
+          <Clock size={15} weight="fill" color="#f59e0b" style={{ flexShrink: 0 }} />
+          <span>
+            {printerStatus.state === 'printing'
+              ? 'Pages currently printing — station frees up in about 1 minute. You can scan now to queue next.'
+              : "Another customer is at this station. Scan now and you'll start automatically when it's free."}
+          </span>
+        </div>
+      )}
 
       {/* Main Scanner Shell */}
       <div className="pb-qr-scanner-card">

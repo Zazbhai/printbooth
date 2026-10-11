@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose'
 
 export interface IKiosk extends Document {
   kioskId: string
+  kioskVariant?: 'pro' | 'lite'
   name: string
   location: string
   address: string
@@ -53,6 +54,7 @@ export interface IKiosk extends Document {
 const KioskSchema = new Schema<IKiosk>(
   {
     kioskId: { type: String, required: true, unique: true, index: true },
+    kioskVariant: { type: String, enum: ['pro', 'lite'], default: 'pro' },
     name: { type: String, required: true },
     location: { type: String, required: true },
     address: { type: String, default: '' },

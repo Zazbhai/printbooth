@@ -241,9 +241,21 @@ export async function detectConnectedPrinter(preferred?: string, kioskId?: strin
 }
 
 export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrinter?: string): Promise<PrinterAvailabilityCheck> {
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const urlTest = urlParams?.get('test') === '1' || urlParams?.get('mock') === '1' || urlParams?.get('online') === '1'
   const envTest = (import.meta.env.VITE_PRINT_MODE || '').toLowerCase() === 'test'
-  const sessionTest = (sessionStorage.getItem('pb_print_mode') || '').toLowerCase() === 'test'
-  const isClientTestMode = envTest || sessionTest
+  const sessionTest = typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('pb_print_mode') || '').toLowerCase() === 'test'
+  const isClientTestMode = envTest || sessionTest || Boolean(urlTest)
+
+  if (isClientTestMode) {
+    return {
+      isAvailable: true,
+      reason: '',
+      detail: '',
+      kioskName: 'PrintBooth Station (Virtual Test Mode)',
+      printerName: 'PrintBooth Virtual Printer (Simulator)',
+    }
+  }
 
   const targetKioskId = ((kioskId || (typeof window !== 'undefined' ? sessionStorage.getItem('pb_kiosk_id') : null) || 'PB-001') as string).trim().toUpperCase()
 

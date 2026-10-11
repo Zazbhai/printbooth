@@ -290,6 +290,8 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
             : fb.printerStatus)
       const enriched = {
         ...fb,
+        kioskVariant: fb.kioskVariant || 'pro',
+        variant: fb.kioskVariant || 'pro',
         lat: fb.lat ?? 18.5204,
         lng: fb.lng ?? 73.8567,
         printer: printerModel,
@@ -343,6 +345,8 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
           success: true,
           data: {
             ...fb,
+            kioskVariant: fb.kioskVariant || 'pro',
+            variant: fb.kioskVariant || 'pro',
             lat: fb.lat ?? 18.5204,
             lng: fb.lng ?? 73.8567,
             printer: printerModel,
@@ -411,6 +415,8 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
       success: true,
       data: {
         ...kDoc,
+        kioskVariant: kDoc.kioskVariant || 'pro',
+        variant: kDoc.kioskVariant || 'pro',
         qrCodeUrl: kDoc.qrCodeUrl || getKioskPrintUrl(cleanId, req),
         lat: kDoc.lat ?? 18.5204,
         lng: kDoc.lng ?? 73.8567,
@@ -669,9 +675,19 @@ kiosksRouter.get('/:id/config', async (req: Request, res: Response) => {
     const kioskId = (req.params.id || 'PB-001').toUpperCase()
     const webUrl = getPublicWebUrl(req)
     const qrUrl = getKioskPrintUrl(kioskId, req)
+    let kioskVariant = 'pro'
+    if (isDbConnected()) {
+      const k = await Kiosk.findOne({ kioskId }).select('kioskVariant').lean()
+      if (k && (k as any).kioskVariant) kioskVariant = (k as any).kioskVariant
+    } else {
+      const fb = fallbackKiosks.find((k: any) => (k.kioskId || k.id) === kioskId)
+      if (fb && fb.kioskVariant) kioskVariant = fb.kioskVariant
+    }
     res.json({
       success: true,
       kioskId,
+      kioskVariant,
+      variant: kioskVariant,
       siteUrl: webUrl,
       webUrl,
       clientWebUrl: webUrl,

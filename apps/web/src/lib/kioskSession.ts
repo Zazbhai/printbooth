@@ -16,15 +16,22 @@ import { prepareKioskPreviews } from './kioskThumbnail'
 
 export function getApiBase(): string {
   if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      const base = getApiBaseFromApi()
+      if (base && !base.includes('printbooth.co.in')) {
+        return base
+      }
+      return 'http://localhost:5000'
+    }
     if (window.location.hostname.includes('printbooth')) {
       return 'https://api.printbooth.co.in'
     }
   }
   const base = getApiBaseFromApi()
-  if (base.includes('localhost:5200') || base.includes('printbooth.co.in')) {
-    return 'https://api.printbooth.co.in'
+  if (base.includes('localhost:5200')) {
+    return 'http://localhost:5000'
   }
-  return base || 'https://api.printbooth.co.in'
+  return base || 'http://localhost:5000'
 }
 
 async function parseJsonResponse(res: Response): Promise<any> {

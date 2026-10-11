@@ -27,6 +27,25 @@ export interface RealPrinterStatus {
  * Never executes host OS / Windows Spooler detection to prevent developer PC printer leakage.
  */
 export async function getRealPrinterHardwareStatus(forceFresh = false): Promise<RealPrinterStatus> {
+  const isTestMode = (process.env.PRINT_MODE || '').toLowerCase() === 'test' || process.env.MOCK_PRINTER === 'true'
+  if (isTestMode) {
+    return {
+      isAvailable: true,
+      isHardwareReady: true,
+      hasPhysicalPrinter: true,
+      selectedPrinter: 'PrintBooth Virtual Printer (Simulator)',
+      statusCode: 0,
+      statusLabels: ['READY', 'SIMULATED'],
+      isOnline: true,
+      port: 'VIRTUAL-SIM',
+      driver: 'PrintBooth Virtual Driver (Test Mode)',
+      connectionType: 'TEST_SIMULATION',
+      jobsCount: 0,
+      allPrinters: [{ name: 'PrintBooth Virtual Printer (Simulator)', status: 'idle' }],
+      lastChecked: Date.now(),
+    }
+  }
+
   const kioskId = 'PB-001'
   const isRelayConnected = isKioskRelayConnected(kioskId)
   const piData = getKioskPiPrinters(kioskId)

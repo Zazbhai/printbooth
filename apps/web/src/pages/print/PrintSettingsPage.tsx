@@ -35,6 +35,7 @@ import {
   calcFileTotalSheets,
   calcFileTotalPrice,
   getKioskPricing,
+  getKioskVariant,
   hasAnyReadyFile,
   type ManagedFile,
   type FileSettings,
@@ -135,8 +136,18 @@ export default function PrintSettingsPage() {
   const legacyFileName = sessionStorage.getItem('pb_file_name') || ''
   const displayFileName = activeFile?.fileName || legacyFileName
 
-  // Start with colour card active
-  const [activeCardId, setActiveCardId] = useState<string | null>('spending')
+  const kioskVariant = getKioskVariant()
+  const isLite = kioskVariant === 'lite'
+
+  // Start with colour card active for pro, pages for lite
+  const [activeCardId, setActiveCardId] = useState<string | null>(isLite ? 'gxuri' : 'spending')
+
+  // Enforce pure B&W if connected to PrintBooth Lite
+  useEffect(() => {
+    if (isLite && settings.colour !== 'BW') {
+      patchSettings({ colour: 'BW', pageColours: undefined })
+    }
+  }, [isLite, settings.colour, patchSettings])
 
   const realPageCount = activeFile?.pageCount || Number(sessionStorage.getItem('pb_page_count')) || 1
 
@@ -242,7 +253,7 @@ export default function PrintSettingsPage() {
   }, [displayFileName, pageCount, settings.copies, settings.colour, settings.duplex, grandTotal])
 
   // Carousel Cards with interactive in-card editing
-  const CARDS: CarouselCard[] = [
+  const ALL_CARDS: CarouselCard[] = [
     {
       id: 'gxuri',
       title: 'Pages',
@@ -329,6 +340,11 @@ export default function PrintSettingsPage() {
       ),
     },
   ]
+
+  // For Lite kiosks, remove colour setting options completely
+  const CARDS: CarouselCard[] = isLite
+    ? ALL_CARDS.filter(c => c.id !== 'spending')
+    : ALL_CARDS
 
   function handleContinue() {
     // Persist all per-file settings + grand total
@@ -452,6 +468,21 @@ export default function PrintSettingsPage() {
             <MapPin size={13} className="subtitle-icon" />
             <span>{kioskName}</span>
           </span>
+          {isLite && (
+            <>
+              <span className="subtitle-separator">·</span>
+              <span className="subtitle-item pb-lite-tag" style={{
+                background: 'rgba(100, 116, 139, 0.1)',
+                color: '#475569',
+                padding: '2px 8px',
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 700,
+              }}>
+                PrintBooth Lite · B&amp;W Only
+              </span>
+            </>
+          )}
         </div>
       </div>
 

@@ -176,6 +176,7 @@ export default function MerchantsPage() {
     phone: '',
     address: '',
     kioskId: '',
+    kioskVariant: 'pro' as 'pro' | 'lite',
     commission: '0%',
     kioskPhotoUrl: '',
     paymentGateway: 'upiexpress' as 'upiexpress' | 'razorpay',
@@ -234,6 +235,7 @@ export default function MerchantsPage() {
       phone: '',
       address: '',
       kioskId: suggestNextKioskId(),
+      kioskVariant: 'pro',
       commission: '0%',
       kioskPhotoUrl: '',
       paymentGateway: 'upiexpress',
@@ -378,6 +380,7 @@ export default function MerchantsPage() {
         phone: newMerchant.phone.trim(),
         address: newMerchant.address.trim(),
         kioskId: newMerchant.kioskId.trim().toUpperCase(),
+        kioskVariant: newMerchant.kioskVariant,
         commission: newMerchant.commission,
         kioskPhotoUrl: newMerchant.kioskPhotoUrl,
         paymentGateway: newMerchant.paymentGateway,
@@ -427,6 +430,7 @@ export default function MerchantsPage() {
       address: m.address || '',
       commission: m.commission || (m.commissionRate !== undefined ? `${Math.round(m.commissionRate * 100)}%` : '0%'),
       kioskId: m.kioskId || '',
+      kioskVariant: (m.kioskVariant || 'pro') as 'pro' | 'lite',
       kioskPhotoUrl: m.kioskPhotoUrl || '',
       isBlocked: Boolean(m.isBlocked === true || m.status === 'BLOCKED'),
       status: m.status || (m.isBlocked ? 'BLOCKED' : 'ACTIVE'),
@@ -473,6 +477,7 @@ export default function MerchantsPage() {
         address: editingMerchant.address.trim(),
         commission: editingMerchant.commission,
         kioskId: editingMerchant.kioskId.trim().toUpperCase(),
+        kioskVariant: editingMerchant.kioskVariant,
         isBlocked: editingMerchant.isBlocked,
         status: editingMerchant.isBlocked ? 'BLOCKED' : 'ACTIVE',
         requirePasswordChange: Boolean(editingMerchant.requirePasswordChange),
@@ -886,6 +891,9 @@ export default function MerchantsPage() {
                             </span>
                             <span className={`badge ${isOnline ? 'badge-online' : 'badge-danger'}`} style={{ fontSize: 10 }}>
                               {m.printerStatus || (isOnline ? 'ONLINE' : 'OFFLINE')}
+                            </span>
+                            <span className={`badge ${m.kioskVariant === 'lite' ? 'badge-variant-lite' : 'badge-variant-pro'}`} style={{ fontSize: 9.5 }}>
+                              {m.kioskVariant === 'lite' ? 'Lite · B&W Only' : 'Pro · Touch & Color'}
                             </span>
                           </div>
 
@@ -1303,6 +1311,64 @@ export default function MerchantsPage() {
                   </div>
                 </div>
 
+                {/* Kiosk Hardware Variant Selection (PrintBooth Pro vs PrintBooth Lite) */}
+                <div className="merchant-form-group">
+                  <label className="merchant-form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Kiosk Hardware Variant <span className="req-star">*</span></span>
+                    <span className="label-sub">Controls touch screen display &amp; color print capabilities</span>
+                  </label>
+
+                  <div className="variant-select-grid">
+                    <button
+                      type="button"
+                      className={`variant-card ${newMerchant.kioskVariant === 'pro' ? 'selected pro' : ''}`}
+                      onClick={() => setNewMerchant({ ...newMerchant, kioskVariant: 'pro' })}
+                    >
+                      <div className="variant-card__header">
+                        <div className="variant-card__title">
+                          <Lightning size={18} weight="fill" color="#dc2626" />
+                          <span>PrintBooth Pro</span>
+                        </div>
+                        <span className="variant-badge variant-badge--pro">
+                          Touch &amp; Color
+                        </span>
+                      </div>
+                      <div className="variant-card__desc">
+                        Full-featured flagship model with touch display, color + B&amp;W printing, and on-screen touch buttons.
+                      </div>
+                      <div className="variant-card__spec-tags">
+                        <span className="spec-tag spec-tag--positive">✓ Touchscreen active</span>
+                        <span className="spec-tag spec-tag--positive">✓ Full Color &amp; B&amp;W</span>
+                        <span className="spec-tag spec-tag--positive">✓ Buttons in pages</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`variant-card ${newMerchant.kioskVariant === 'lite' ? 'selected lite' : ''}`}
+                      onClick={() => setNewMerchant({ ...newMerchant, kioskVariant: 'lite' })}
+                    >
+                      <div className="variant-card__header">
+                        <div className="variant-card__title">
+                          <Printer size={18} weight="bold" color="#64748b" />
+                          <span>PrintBooth Lite</span>
+                        </div>
+                        <span className="variant-badge variant-badge--lite">
+                          B&amp;W Only · Zero-Touch
+                        </span>
+                      </div>
+                      <div className="variant-card__desc">
+                        Cost-effective kiosk with non-touch companion screen. Black &amp; White prints only, phone-controlled (all screen buttons removed).
+                      </div>
+                      <div className="variant-card__spec-tags">
+                        <span className="spec-tag spec-tag--neutral">✕ No touch display (buttons removed)</span>
+                        <span className="spec-tag spec-tag--neutral">✕ B&amp;W only (color removed)</span>
+                        <span className="spec-tag spec-tag--neutral">✓ Phone-driven</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Row 4: Store Installation Address */}
                 <div className="merchant-form-group">
                   <label className="merchant-form-label">Store / Installation Address</label>
@@ -1579,7 +1645,16 @@ export default function MerchantsPage() {
                   }}>
                     {standeeMerchant.paymentGateway === 'razorpay' ? '💳 Razorpay Gateway' : '⚡ UPI Express Gateway'}
                   </span>
-                  <span style={{ fontSize: 12, color: '#64748b' }}>• Self-Service Document Station</span>
+                  <span style={{
+                    background: standeeMerchant.kioskVariant === 'lite' ? 'rgba(100, 116, 139, 0.12)' : 'rgba(220, 38, 38, 0.1)',
+                    color: standeeMerchant.kioskVariant === 'lite' ? '#475569' : '#dc2626',
+                    fontWeight: 700,
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                  }}>
+                    {standeeMerchant.kioskVariant === 'lite' ? '🖨️ PrintBooth Lite (B&W)' : '⚡ PrintBooth Pro (Touch & Color)'}
+                  </span>
                 </div>
 
                 {/* QR Code SVG */}
@@ -1603,7 +1678,7 @@ export default function MerchantsPage() {
                   </div>
                   <div className="standee-step">
                     <span className="standee-step-num">2</span>
-                    <span>Upload PDF, doc, or photo &amp; choose B&amp;W or Color</span>
+                    <span>Upload document {standeeMerchant.kioskVariant === 'lite' ? '(Black & White prints)' : '& customize B&W or Color prints'}</span>
                   </div>
                   <div className="standee-step">
                     <span className="standee-step-num">3</span>
@@ -2034,6 +2109,64 @@ export default function MerchantsPage() {
                       value={editingMerchant.commission}
                       onChange={e => setEditingMerchant({ ...editingMerchant, commission: e.target.value })}
                     />
+                  </div>
+                </div>
+
+                {/* Kiosk Hardware Variant Selection */}
+                <div className="merchant-form-group">
+                  <label className="merchant-form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Kiosk Hardware Variant <span className="req-star">*</span></span>
+                    <span className="label-sub">Configures touch screen display &amp; color print capabilities</span>
+                  </label>
+
+                  <div className="variant-select-grid">
+                    <button
+                      type="button"
+                      className={`variant-card ${editingMerchant.kioskVariant === 'pro' ? 'selected pro' : ''}`}
+                      onClick={() => setEditingMerchant({ ...editingMerchant, kioskVariant: 'pro' })}
+                    >
+                      <div className="variant-card__header">
+                        <div className="variant-card__title">
+                          <Lightning size={18} weight="fill" color="#dc2626" />
+                          <span>PrintBooth Pro</span>
+                        </div>
+                        <span className="variant-badge variant-badge--pro">
+                          Touch &amp; Color
+                        </span>
+                      </div>
+                      <div className="variant-card__desc">
+                        Touchscreen enabled with buttons on pages, full color + B&amp;W printing.
+                      </div>
+                      <div className="variant-card__spec-tags">
+                        <span className="spec-tag spec-tag--positive">✓ Touch active</span>
+                        <span className="spec-tag spec-tag--positive">✓ Color + B&amp;W</span>
+                        <span className="spec-tag spec-tag--positive">✓ On-screen buttons</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`variant-card ${editingMerchant.kioskVariant === 'lite' ? 'selected lite' : ''}`}
+                      onClick={() => setEditingMerchant({ ...editingMerchant, kioskVariant: 'lite' })}
+                    >
+                      <div className="variant-card__header">
+                        <div className="variant-card__title">
+                          <Printer size={18} weight="bold" color="#64748b" />
+                          <span>PrintBooth Lite</span>
+                        </div>
+                        <span className="variant-badge variant-badge--lite">
+                          B&amp;W Only · Zero-Touch
+                        </span>
+                      </div>
+                      <div className="variant-card__desc">
+                        Non-touch companion display. B&amp;W only, phone-controlled (on-screen buttons removed).
+                      </div>
+                      <div className="variant-card__spec-tags">
+                        <span className="spec-tag spec-tag--neutral">✕ No touch (buttons off)</span>
+                        <span className="spec-tag spec-tag--neutral">✕ B&amp;W only (color off)</span>
+                        <span className="spec-tag spec-tag--neutral">✓ Phone-driven</span>
+                      </div>
+                    </button>
                   </div>
                 </div>
 

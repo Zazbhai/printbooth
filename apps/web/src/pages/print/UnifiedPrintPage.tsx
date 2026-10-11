@@ -23,6 +23,7 @@ import { hasRealUploadedDoc } from '@/lib/documentStore'
 import {
   hasAnyReadyFile,
   setKioskPricing,
+  setKioskVariant,
   getAllFiles,
   calcFileTotalSheets,
   computeTotalPrice,
@@ -193,6 +194,9 @@ export default function UnifiedPrintPage() {
           if (details.pricing) {
             setKioskPricing(details.pricing)
           }
+          if (details.kioskVariant || details.variant) {
+            setKioskVariant(details.kioskVariant || details.variant)
+          }
           sessionStorage.setItem('pb_kiosk_id', details.kioskId || printerId)
           return
         }
@@ -205,6 +209,9 @@ export default function UnifiedPrintPage() {
             sessionStorage.setItem('pb_kiosk_name', match.name)
             if (match.pricing) {
               setKioskPricing(match.pricing)
+            }
+            if (match.kioskVariant || match.variant) {
+              setKioskVariant(match.kioskVariant || match.variant)
             }
             return
           }
