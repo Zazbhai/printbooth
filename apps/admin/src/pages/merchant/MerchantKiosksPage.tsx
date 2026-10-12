@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+import { Link } from 'react-router-dom'
 import {
   Monitor,
   Package,
@@ -17,6 +18,10 @@ import {
   Image as ImageIcon,
   MapPin,
   Camera,
+  WarningOctagon,
+  Play,
+  Gear,
+  X,
 } from '@phosphor-icons/react'
 import {
   getMerchantHardware,
@@ -27,6 +32,7 @@ import {
   scanMerchantWifi,
   connectMerchantWifi,
   updateMerchantKioskPhoto,
+  resumeMerchantPrinter,
   type IKioskNetworkTelemetry,
 } from '@/lib/api'
 import { getKioskPrintUrl } from '@/lib/config'
@@ -77,6 +83,27 @@ export default function MerchantKiosksPage() {
   const [scannedNetworks, setScannedNetworks] = useState<any[]>([])
   const [copiedIp, setCopiedIp] = useState(false)
   const [networkNotice, setNetworkNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Printer Resume & Payment Error States
+  const [resumingPrinter, setResumingPrinter] = useState(false)
+  const [resumeSuccess, setResumeSuccess] = useState(false)
+  const [errorModalOpen, setErrorModalOpen] = useState(false)
+
+  const handleResumePrinter = async () => {
+    setResumingPrinter(true)
+    try {
+      await resumeMerchantPrinter(activeKioskId)
+      setResumeSuccess(true)
+      setTimeout(() => setResumeSuccess(false), 4500)
+      await loadHardware(true)
+      if (refreshMerchants) await refreshMerchants()
+      setErrorModalOpen(false)
+    } catch (err: any) {
+      console.error('Failed to resume printer:', err)
+    } finally {
+      setResumingPrinter(false)
+    }
+  }
 
   const loadHardware = async (rescan = false) => {
     setLoadingPrinters(true)
@@ -206,7 +233,26 @@ export default function MerchantKiosksPage() {
     isOnline: false,
   }
 
+  const activeMerchantError =
+    hardware?.merchantError ||
+    hardware?.errorInfo?.merchantError ||
+    activeMerchant?.merchantError ||
+    null
+
+  const activeMerchantRecommendation =
+    hardware?.merchantRecommendation ||
+    hardware?.errorInfo?.merchantRecommendation ||
+    activeMerchant?.merchantRecommendation ||
+    null
+
+  useEffect(() => {
+    if (activeMerchantError) {
+      setErrorModalOpen(true)
+    }
+  }, [activeMerchantError])
+
   const isPrinterOnline = Boolean(
+    !activeMerchantError &&
     (printer.isOnline ?? (printer.status === 'READY' || printer.status === 'IDLE' || printer.status === 'ONLINE')) &&
     printer.status !== 'OFFLINE' &&
     printer.status !== 'WORK_OFFLINE'
@@ -332,62 +378,183 @@ export default function MerchantKiosksPage() {
       {!isPrinterOnline && (
         <div
           style={{
-            background: 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderLeft: '5px solid #dc2626',
+            background: activeMerchantError
+              ? 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)'
+              : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+            border: activeMerchantError ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+            borderLeft: activeMerchantError ? '5px solid #dc2626' : '5px solid #d97706',
             borderRadius: 14,
-            padding: '16px 20px',
+            padding: '18px 22px',
             marginBottom: 20,
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'space-between',
             gap: 16,
-            boxShadow: '0 4px 20px rgba(220, 38, 38, 0.08)',
+            boxShadow: activeMerchantError
+              ? '0 6px 24px rgba(220, 38, 38, 0.12)'
+              : '0 4px 20px rgba(217, 119, 6, 0.08)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: 1 }}>
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: 'rgba(239, 68, 68, 0.12)',
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: activeMerchantError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#dc2626',
+                color: activeMerchantError ? '#dc2626' : '#d97706',
                 flexShrink: 0,
               }}
             >
-              <LightbulbFilament size={22} weight="fill" />
+              {activeMerchantError ? <WarningOctagon size={24} weight="fill" /> : <LightbulbFilament size={24} weight="fill" />}
             </div>
             <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#991b1b', margin: '0 0 4px 0' }}>
-                ⚠️ Machine {activeKioskId} Printer is Offline ({printer.name || printer.model})
-              </h3>
-              <p style={{ fontSize: 13, color: '#7f1d1d', margin: '0 0 8px 0', lineHeight: 1.5 }}>
-                Your PrintBooth station printer is not reachable or is in offline pause mode. Customers cannot submit print jobs until an active printer is selected and online.
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#b91c1c', background: 'rgba(254, 226, 226, 0.8)', padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                  ⚡ 1. Check printer USB cable or Wi-Fi LED
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    background: activeMerchantError ? 'rgba(220, 38, 38, 0.12)' : 'rgba(217, 119, 6, 0.12)',
+                    color: activeMerchantError ? '#991b1b' : '#92400e',
+                    border: activeMerchantError ? '1px solid rgba(220, 38, 38, 0.25)' : '1px solid rgba(217, 119, 6, 0.25)',
+                  }}
+                >
+                  {activeMerchantError ? '🚨 Payment Gateway Offline Protection' : 'Hardware Pause'}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#b91c1c', background: 'rgba(254, 226, 226, 0.8)', padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                  🔌 2. If printer rebooted after power outage, select it below
+                <span style={{ fontSize: 13, fontWeight: 700, color: activeMerchantError ? '#991b1b' : '#92400e' }}>
+                  Machine {activeKioskId} Printer is OFFLINE
                 </span>
               </div>
+
+              <p style={{ fontSize: 13, color: activeMerchantError ? '#7f1d1d' : '#78350f', margin: '0 0 10px 0', lineHeight: 1.5 }}>
+                {activeMerchantError
+                  ? `During payment API calls from merchant API, the gateway returned an error. PrintBooth attempted 3 automatic retries, then made printer ${activeKioskId} offline to protect students and customers from failed deductions.`
+                  : `Your PrintBooth station printer is not reachable or is paused. Customers cannot print until the printer is online.`}
+              </p>
+
+              {activeMerchantError && (
+                <div
+                  style={{
+                    background: 'rgba(254, 226, 226, 0.85)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    marginBottom: 10,
+                    fontSize: 12,
+                    color: '#991b1b',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  <strong>Gateway Error:</strong> {activeMerchantError}
+                </div>
+              )}
+
+              {activeMerchantRecommendation ? (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', marginBottom: 4 }}>
+                    Recommended Action:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {activeMerchantRecommendation.split('\n').filter(Boolean).map((step, idx) => (
+                      <span key={idx} style={{ fontSize: 12, color: '#7f1d1d', fontWeight: 500 }}>
+                        {step}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#92400e', background: 'rgba(254, 243, 199, 0.8)', padding: '4px 8px', borderRadius: 6 }}>
+                    ⚡ 1. Check printer USB cable or Wi-Fi LED
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#92400e', background: 'rgba(254, 243, 199, 0.8)', padding: '4px 8px', borderRadius: 6 }}>
+                    🔌 2. Verify power switch and paper tray
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => loadHardware()}
-            disabled={loadingPrinters}
-            style={{ flexShrink: 0, gap: 6 }}
-          >
-            <ArrowsClockwise size={14} className={loadingPrinters ? 'animate-spin' : ''} />
-            <span>Re-check Now</span>
-          </button>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, minWidth: 160 }}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={handleResumePrinter}
+              disabled={resumingPrinter}
+              style={{
+                background: '#10b981',
+                borderColor: '#10b981',
+                color: '#ffffff',
+                fontWeight: 700,
+                justifyContent: 'center',
+                gap: 6,
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+              }}
+            >
+              {resumingPrinter ? (
+                <>
+                  <ArrowsClockwise size={15} className="animate-spin" />
+                  <span>Starting...</span>
+                </>
+              ) : (
+                <>
+                  <Play size={15} weight="fill" />
+                  <span>Start Printer Again</span>
+                </>
+              )}
+            </button>
+
+            {activeMerchantError && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setErrorModalOpen(true)}
+                style={{ justifyContent: 'center', gap: 6, fontSize: 12 }}
+              >
+                <WarningOctagon size={14} />
+                <span>View Error Popup</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => loadHardware()}
+              disabled={loadingPrinters}
+              style={{ justifyContent: 'center', gap: 6, fontSize: 12 }}
+            >
+              <ArrowsClockwise size={14} className={loadingPrinters ? 'animate-spin' : ''} />
+              <span>Re-check Now</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success banner after resuming */}
+      {resumeSuccess && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            borderLeft: '5px solid #10b981',
+            borderRadius: 14,
+            padding: '14px 20px',
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            boxShadow: '0 4px 20px rgba(16, 185, 129, 0.1)',
+          }}
+        >
+          <CheckCircle size={22} weight="fill" color="#10b981" />
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>
+            Station {activeKioskId} printer resumed and brought back ONLINE! Student and customer orders are now active.
+          </span>
         </div>
       )}
 
@@ -1284,6 +1451,173 @@ export default function MerchantKiosksPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Gateway Error & Recommendation Modal */}
+      {errorModalOpen && activeMerchantError && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setErrorModalOpen(false)
+          }}
+        >
+          <div
+            style={{
+              background: '#0f172a',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              borderRadius: 16,
+              width: '100%',
+              maxWidth: 580,
+              padding: 24,
+              boxShadow: '0 25px 50px -12px rgba(220, 38, 38, 0.25)',
+              position: 'relative',
+              animation: 'fadeInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ef4444',
+                    flexShrink: 0,
+                  }}
+                >
+                  <WarningOctagon size={24} weight="fill" />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                      3 Attempts Failed
+                    </span>
+                    <span style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.5)' }}>Station {activeKioskId}</span>
+                  </div>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', margin: '4px 0 0 0' }}>
+                    Payment Gateway Error
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setErrorModalOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  cursor: 'pointer',
+                  padding: 4,
+                  borderRadius: 6,
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Explanation */}
+            <p style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.75)', lineHeight: 1.5, marginBottom: 14 }}>
+              During payment order creation from your merchant API credentials, the payment gateway rejected the request. PrintBooth automatically tried <strong>3 times</strong> with exponential backoff before safely putting station <strong>{activeKioskId}</strong> printer offline to prevent student/customer payment loss.
+            </p>
+
+            {/* Error Details Box */}
+            <div
+              style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                Merchant API Error Response
+              </div>
+              <div style={{ fontSize: 13, color: '#fca5a5', fontFamily: 'monospace', wordBreak: 'break-word', lineHeight: 1.4 }}>
+                {activeMerchantError}
+              </div>
+            </div>
+
+            {/* Recommendations */}
+            {activeMerchantRecommendation && (
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  marginBottom: 20,
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--clr-accent, #c8ff00)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                  Recommended Action Steps
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {activeMerchantRecommendation.split('\n').filter(Boolean).map((step, idx) => (
+                    <div key={idx} style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.85)', display: 'flex', alignItems: 'flex-start', gap: 8, lineHeight: 1.4 }}>
+                      <span style={{ color: 'var(--clr-accent, #c8ff00)', fontWeight: 700 }}>•</span>
+                      <span>{step.replace(/^\d+\.\s*/, '')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+              <Link
+                to="/merchant/settings"
+                onClick={() => setErrorModalOpen(false)}
+                className="btn btn-secondary btn-sm"
+                style={{ gap: 6, textDecoration: 'none' }}
+              >
+                <Gear size={15} />
+                <span>Merchant Settings</span>
+              </Link>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleResumePrinter}
+                disabled={resumingPrinter}
+                style={{
+                  gap: 6,
+                  background: '#10b981',
+                  borderColor: '#10b981',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                }}
+              >
+                {resumingPrinter ? (
+                  <>
+                    <ArrowsClockwise size={15} className="animate-spin" />
+                    <span>Starting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={15} weight="fill" />
+                    <span>Start Printer Again</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

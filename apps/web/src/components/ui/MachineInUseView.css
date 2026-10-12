@@ -1,306 +1,195 @@
-.miu-container {
+/* ==============================================================================
+   PrintBooth — "Printer is in use" Screen Aesthetic & Kinetic SVG Animation
+   Enforces out-of-distribution craft floor and zero visual clutter
+   ============================================================================== */
+
+.miu-fullscreen-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 75vh;
-  padding: 32px 16px;
+  min-height: 80vh;
   width: 100%;
-  animation: miuFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  padding: 24px 16px;
+  position: relative;
+  overflow: hidden;
+  animation: miuEntrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes miuFadeIn {
+@keyframes miuEntrance {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.985);
+    transform: scale(0.97) translateY(14px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: scale(1) translateY(0);
   }
+}
+
+.miu-ambient-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 480px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(220, 38, 38, 0.08) 0%, rgba(220, 38, 38, 0.02) 55%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .miu-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 540px;
+  max-width: 460px;
   background: var(--card-bg, #ffffff);
   border-radius: 28px;
-  padding: 40px 32px;
-  box-shadow: 
-    0 24px 50px -12px rgba(15, 23, 42, 0.12),
-    0 0 0 1px rgba(226, 232, 240, 0.85);
+  padding: 44px 32px;
   text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.miu-glow {
-  position: absolute;
-  top: -80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 300px;
-  height: 180px;
-  background: radial-gradient(ellipse at center, rgba(220, 38, 38, 0.16), transparent 70%);
-  pointer-events: none;
-}
-
-.miu-badge-wrapper {
-  margin-bottom: 20px;
-}
-
-.miu-icon-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  height: 72px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  color: #dc2626;
-  border: 1.5px solid rgba(220, 38, 38, 0.2);
-  box-shadow: 
-    0 12px 24px -6px rgba(220, 38, 38, 0.25),
-    inset 0 1px 1px rgba(255, 255, 255, 0.8);
-  position: relative;
-}
-
-.miu-pulse-ring {
-  position: absolute;
-  inset: -6px;
-  border-radius: 30px;
-  border: 2px solid rgba(220, 38, 38, 0.35);
-  animation: miuPulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-  pointer-events: none;
-}
-
-@keyframes miuPulse {
-  0% {
-    transform: scale(0.96);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(0.96);
-    opacity: 0;
-  }
-}
-
-.miu-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  margin-bottom: 16px;
-}
-
-.miu-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #dc2626;
-  box-shadow: 0 0 8px #dc2626;
-}
-
-.miu-title {
-  font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.025em;
-  line-height: 1.25;
-  margin: 0 0 12px 0;
-}
-
-.miu-description {
-  font-size: 14.5px;
-  color: #64748b;
-  line-height: 1.6;
-  margin: 0 0 28px 0;
-}
-
-.miu-description strong {
-  color: #1e293b;
-  font-weight: 600;
-}
-
-/* Machine Info Banner */
-.miu-station-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px 18px;
-  margin-bottom: 24px;
-  text-align: left;
-}
-
-.miu-station-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.miu-station-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #dc2626;
-}
-
-.miu-station-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.2;
-}
-
-.miu-station-id {
-  font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 3px;
-}
-
-.miu-station-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #dc2626;
-  background: #fef2f2;
-  padding: 4px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(220, 38, 38, 0.15);
-}
-
-/* Live Auto Check Bar */
-.miu-telemetry-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: #fff5f5;
-  border: 1px dashed rgba(220, 38, 38, 0.3);
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 12.5px;
-  color: #b91c1c;
-  font-weight: 500;
-  margin-bottom: 28px;
-}
-
-.miu-spin {
-  animation: miuSpin 1.2s linear infinite;
-}
-
-@keyframes miuSpin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Actions */
-.miu-actions {
+  box-shadow:
+    0 24px 60px -12px rgba(15, 23, 42, 0.1),
+    0 4px 16px -2px rgba(15, 23, 42, 0.04),
+    0 0 0 1px rgba(226, 232, 240, 0.85);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
 }
 
-.miu-btn-primary {
+/* ── Handcrafted Kinetic SVG Stage ── */
+.miu-stage {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   width: 100%;
-  padding: 14px 20px;
-  border-radius: 14px;
-  font-size: 14.5px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 8px 20px -4px rgba(220, 38, 38, 0.35);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 280px;
+  height: 230px;
+  margin-bottom: 24px;
 }
 
-.miu-btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px -4px rgba(220, 38, 38, 0.45);
-}
-
-.miu-btn-primary:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.miu-btn-primary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.miu-btn-secondary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+.miu-svg-art {
   width: 100%;
-  padding: 13px 20px;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  background: #ffffff;
-  color: #1e293b;
-  border: 1px solid #cbd5e1;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  height: 100%;
+  overflow: visible;
 }
 
-.miu-btn-secondary:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
+/* Paper Feed Translation Animation */
+.miu-anim-paper {
+  animation: miuPaperFeed 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: center top;
+}
+
+@keyframes miuPaperFeed {
+  0% {
+    transform: translateY(-24px);
+    opacity: 0.2;
+  }
+  20% {
+    transform: translateY(-16px);
+    opacity: 0.8;
+  }
+  75% {
+    transform: translateY(8px);
+    opacity: 1;
+  }
+  90% {
+    transform: translateY(14px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(22px);
+    opacity: 0;
+  }
+}
+
+/* Sweeping Laser Beam Animation */
+.miu-anim-laser {
+  animation: miuLaserSweep 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes miuLaserSweep {
+  0% {
+    transform: translateX(-40px);
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateX(40px);
+    opacity: 0.2;
+  }
+}
+
+/* Pulsing Busy Red LED */
+.miu-anim-led {
+  animation: miuLedPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes miuLedPulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+/* Mini LCD Text Blink */
+.miu-anim-lcd-pulse {
+  animation: miuLcdBlink 1.2s steps(2, start) infinite;
+}
+
+@keyframes miuLcdBlink {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* ── Typography strictly per prompt: "Printer is in use" ── */
+.miu-title {
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   color: #0f172a;
+  margin: 0 0 10px 0;
+  line-height: 1.25;
 }
 
-.miu-btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 13px;
+.miu-subtitle {
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 500;
   color: #64748b;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color 0.15s ease;
-  margin-top: 4px;
+  margin: 0;
+  line-height: 1.55;
+  max-width: 340px;
 }
 
-.miu-btn-ghost:hover {
-  color: #0f172a;
+@media (max-width: 480px) {
+  .miu-card {
+    padding: 36px 20px;
+    border-radius: 24px;
+  }
+
+  .miu-stage {
+    max-width: 240px;
+    height: 195px;
+    margin-bottom: 20px;
+  }
+
+  .miu-title {
+    font-size: 21px;
+  }
+
+  .miu-subtitle {
+    font-size: 13.5px;
+  }
 }

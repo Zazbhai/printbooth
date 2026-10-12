@@ -27,6 +27,9 @@ export interface MerchantData {
   printerStatus?: string
   printerModel?: string
   kioskLocation?: string
+  merchantError?: string
+  merchantRecommendation?: string
+  merchantErrorAt?: string
 }
 
 interface MerchantContextType {

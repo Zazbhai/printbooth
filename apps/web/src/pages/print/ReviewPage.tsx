@@ -66,7 +66,14 @@ export default function ReviewPage() {
   const isMultiFile = multiFiles.length > 1
   const [activePreviewIdx, setActivePreviewIdx] = useState(0)
 
-  const totalPrice = isMultiFile ? computeTotalPrice() : storedTotal
+  const computedPrice = computeTotalPrice()
+  const totalPrice = computedPrice > 0 ? computedPrice : (storedTotal || 10)
+
+  useEffect(() => {
+    if (totalPrice > 0) {
+      sessionStorage.setItem('pb_total_price', String(totalPrice))
+    }
+  }, [totalPrice])
 
   useEffect(() => {
     if (!kioskId || !isCanonicalKioskFormat(kioskId)) {
@@ -121,19 +128,71 @@ export default function ReviewPage() {
         copies: settings.copies,
         colourMode: settings.colour,
         amount: totalPrice,
+        files: multiFiles.map(f => ({
+          id: f.id,
+          fileName: f.fileName,
+          fileSize: f.fileSize,
+          fileType: f.fileType,
+          pageCount: f.pageCount || 1,
+          copies: f.settings?.copies || settings.copies || 1,
+          colour: f.settings?.colour || settings.colour || 'BW',
+          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
+          pages: f.settings?.pages || 'ALL',
+          pageRange: f.settings?.pages || 'ALL',
+          paperSize: f.settings?.paperSize || 'A4',
+          scaling: f.settings?.scaling || 'FIT',
+          pagesPerSheet: f.settings?.pagesPerSheet || 1,
+          orientation: f.settings?.orientation || 'AUTO',
+          dpi: f.settings?.dpi || '600',
+          margins: f.settings?.margins || 'STANDARD',
+          contrastMode: f.settings?.contrastMode || 'BALANCED',
+          pageBorder: Boolean(f.settings?.pageBorder),
+          pageCopies: f.settings?.pageCopies,
+          pageColours: f.settings?.pageColours,
+          settings: f.settings,
+        })),
       })
     }
   }, [fileName, pageCount, settings.copies, settings.colour, totalPrice, multiFiles])
 
   function handlePay() {
+    sessionStorage.setItem('pb_print_step', 'payment')
+    sessionStorage.setItem('pb_total_price', String(totalPrice))
     if (kioskSession.isKioskSession()) {
       kioskSession.reportPaying({
         fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
         totalPages: pageCount,
         amount: totalPrice,
+        files: multiFiles.map(f => ({
+          id: f.id,
+          fileName: f.fileName,
+          fileSize: f.fileSize,
+          fileType: f.fileType,
+          pageCount: f.pageCount || 1,
+          copies: f.settings?.copies || settings.copies || 1,
+          colour: f.settings?.colour || settings.colour || 'BW',
+          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
+          pages: f.settings?.pages || 'ALL',
+          pageRange: f.settings?.pages || 'ALL',
+          paperSize: f.settings?.paperSize || 'A4',
+          scaling: f.settings?.scaling || 'FIT',
+          pagesPerSheet: f.settings?.pagesPerSheet || 1,
+          orientation: f.settings?.orientation || 'AUTO',
+          dpi: f.settings?.dpi || '600',
+          margins: f.settings?.margins || 'STANDARD',
+          contrastMode: f.settings?.contrastMode || 'BALANCED',
+          pageBorder: Boolean(f.settings?.pageBorder),
+          pageCopies: f.settings?.pageCopies,
+          pageColours: f.settings?.pageColours,
+          settings: f.settings,
+        })),
       })
     }
-    navigate('/print/payment')
+    if (flow?.goToStep) {
+      flow.goToStep('payment')
+    } else {
+      navigate('/print/payment')
+    }
   }
 
   // For multi-file: show active file's settings in summary
@@ -300,7 +359,7 @@ export default function ReviewPage() {
             </div>
           </div>
           <p className="rv-price-note">
-            Amount verified server-side before charge.
+            All taxes included • Instant print collection
           </p>
         </div>
 
@@ -324,7 +383,9 @@ export default function ReviewPage() {
             id="review-pay-now"
             type="button"
           >
-            <span className="rv-pay-text">Pay · ₹{totalPrice}</span>
+            <span className="rv-pay-text">
+              {kioskSession.isKioskSession() ? `Pay on Machine · ₹${totalPrice}` : `Pay · ₹${totalPrice}`}
+            </span>
             <span className="rv-pay-circle">
               <CheckCircle size={15} weight="fill" />
             </span>

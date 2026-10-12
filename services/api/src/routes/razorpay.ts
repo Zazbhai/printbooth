@@ -22,6 +22,7 @@ import { fallbackKiosks, fallbackMerchants } from '../fallbackData.js'
 import { paymentLimiter } from '../middleware/rateLimiter.js'
 import { relayPaymentCaptured } from '../modules/wsRelay.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
+import { triggerSessionPrintOnPayment } from './kioskSessions.js'
 
 export const razorpayRouter = Router()
 razorpayRouter.use(paymentLimiter)
@@ -54,8 +55,8 @@ async function resolveRazorpayKeysForKiosk(kioskId?: string): Promise<{ keyId: s
     }
   }
   return {
-    keyId: process.env.RAZORPAY_KEY_ID || '',
-    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+    keyId: '',
+    keySecret: '',
   }
 }
 
@@ -67,7 +68,7 @@ async function withRazorpay(cb: (rzp: any, creds: { keyId: string; keySecret: st
   const Razorpay = RazorpayModule.default ?? RazorpayModule
   const creds = await resolveRazorpayKeysForKiosk(kioskId)
   if (!creds.keyId || !creds.keySecret) {
-    throw new Error('Razorpay credentials not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET or configure kiosk settings.')
+    throw new Error('Razorpay credentials not configured for this station. Please configure Key ID and Key Secret in Merchant Settings.')
   }
   const rzp = new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret })
   return cb(rzp, creds)
@@ -161,19 +162,58 @@ razorpayRouter.post('/create-order', async (req: Request, res: Response) => {
       }
     }
 
-    let activeKeyId = process.env.RAZORPAY_KEY_ID || ''
-    const rzpOrder = await withRazorpay(
-      async (rzp, creds) => {
-        activeKeyId = creds.keyId
-        return rzp.orders.create({
-          amount: amountPaise,
-          currency,
-          receipt: receipt || `rcpt_${orderId}`,
-          notes: notes || { orderId },
+    let activeKeyId = ''
+    let rzpOrder: any = null
+    let lastError = ''
+    const MAX_ATTEMPTS = 3
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        rzpOrder = await withRazorpay(
+          async (rzp, creds) => {
+            activeKeyId = creds.keyId
+            return rzp.orders.create({
+              amount: amountPaise,
+              currency,
+              receipt: receipt || `rcpt_${orderId}`,
+              notes: notes || { orderId },
+            })
+          },
+          kioskId
+        )
+        if (rzpOrder && rzpOrder.id) {
+          break
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Razorpay order creation failed'
+        console.warn(`[Razorpay] create-order attempt ${attempt}/${MAX_ATTEMPTS} failed: ${lastError}`)
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 600))
+        }
+      }
+    }
+
+    if (!rzpOrder || !rzpOrder.id) {
+      const merchantError = `Razorpay Payment Gateway Error: ${lastError || 'Order creation rejected after 3 attempts'}`
+      const merchantRecommendation =
+        '1. Verify Razorpay Key ID and Key Secret in Merchant Settings.\n2. Ensure your Razorpay account is in Live Mode and KYC is active.\n3. Verify API Key permissions include Order Creation.\n4. Once verified, click "Start Printer Again" in Kiosk Status to resume printer operations.'
+
+      if (kioskId) {
+        await markKioskOffline(kioskId, merchantError, {
+          merchantError,
+          merchantRecommendation,
+          errorSource: 'RAZORPAY',
         })
-      },
-      kioskId
-    )
+      }
+
+      return res.status(502).json({
+        success: false,
+        kioskOffline: true,
+        merchantError,
+        merchantRecommendation,
+        error: merchantError,
+      })
+    }
 
     // Persist to DB if connected
     const paymentId = `PAY-${Date.now().toString().slice(-8)}`
@@ -203,7 +243,7 @@ razorpayRouter.post('/create-order', async (req: Request, res: Response) => {
     })
   } catch (error: any) {
     console.error('[Razorpay] create-order error:', error)
-    res.status(500).json({ success: false, error: error.message })
+    res.status(400).json({ success: false, error: error.message })
   }
 })
 
@@ -320,6 +360,13 @@ razorpayRouter.post('/verify', async (req: Request, res: Response) => {
       razorpayOrderId,
       method: rzpPayment?.method || 'upi',
       status: 'PAID',
+    })
+
+    triggerSessionPrintOnPayment(orderId, cleanKioskId, {
+      gateway: 'razorpay',
+      razorpayPaymentId,
+      razorpayOrderId,
+      amount: rzpPayment?.amount ? rzpPayment.amount / 100 : undefined,
     })
 
     res.json({
@@ -579,6 +626,12 @@ razorpayRouter.post('/webhook', async (req: Request, res: Response) => {
           relayPaymentCaptured(entity.notes?.orderId || entity.order_id, targetKioskId, {
             gateway: 'razorpay',
             event: 'payment.captured',
+            paymentId: entity.id,
+            amount: entity.amount / 100,
+          })
+          const ordId = entity.notes?.orderId || entity.order_id
+          triggerSessionPrintOnPayment(ordId, targetKioskId, {
+            gateway: 'razorpay',
             paymentId: entity.id,
             amount: entity.amount / 100,
           })

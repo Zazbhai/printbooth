@@ -26,7 +26,7 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       fileSize = 1024000,
       pageCount = 1,
       copies = 1,
-      duplex = 'SINGLE',
+      duplex: inputDuplex,
       paperSize = 'A4',
       pageRange,
       pages,
@@ -38,6 +38,13 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       customerEmail,
       customerMac,
     } = req.body
+
+    const rawDuplex = inputDuplex ?? printSettings?.duplex
+    const duplex = (
+      typeof rawDuplex === 'boolean'
+        ? rawDuplex
+        : ['DOUBLE', 'DUPLEX', 'TWO-SIDED', '2-SIDED', 'TRUE', '1'].includes(String(rawDuplex || '').toUpperCase().trim())
+    ) ? 'DOUBLE' : 'SINGLE'
 
     const rawColour = req.body.colourMode || req.body.colour || printSettings?.colourMode || printSettings?.colour || 'BW'
     const pageColours = req.body.pageColours || printSettings?.pageColours
@@ -175,8 +182,10 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       pages: normPageRange,
       scaling: normScaling,
       pagesPerSheet: normPagesPerSheet,
+      files: req.body.files || printSettings?.files,
       printSettings: {
         ...(printSettings || {}),
+        files: req.body.files || printSettings?.files,
         pageRange: normPageRange,
         pages: normPageRange,
         selectedPages,
@@ -225,6 +234,7 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
         otp,
         pickupCode,
         fileName,
+        files: req.body.files || printSettings?.files,
         copies,
         colourMode,
         duplex,

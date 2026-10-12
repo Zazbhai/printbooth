@@ -1914,6 +1914,41 @@
   color: #334155;
 }
 
+/* ── Review Order Back Button in Payment Views ── */
+.rzp-waiting-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
 
+.rzp-waiting-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  user-select: none;
+}
 
+.rzp-waiting-cancel-btn:hover {
+  background: #ffffff;
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.12);
+}
 
+.rzp-waiting-cancel-btn:active {
+  transform: translateY(0) scale(0.98);
+}

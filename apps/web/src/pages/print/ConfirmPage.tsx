@@ -57,16 +57,19 @@ export default function ConfirmPage() {
   const [zoomModalOpen, setZoomModalOpen] = useState(false)
 
   // Multi-file store with guaranteed deduplication by filename + filesize
-  const [rawFiles, setFiles] = useState<ManagedFile[]>(() =>
-    getAllFiles().filter(f => f.status === 'ready')
-  )
+  const [rawFiles, setFiles] = useState<ManagedFile[]>(() => {
+    const ready = getAllFiles().filter(f => f.status === 'ready')
+    if (ready.length > 0) return ready
+    const all = getAllFiles()
+    if (all.length > 0) return all.map(f => ({ ...f, status: 'ready' }))
+    return []
+  })
   const [activeId, setActiveId] = useState<string | null>(() => getActiveFileId())
 
   // Ensure strict deduplication so identical uploads never register twice
   const files = useMemo(() => {
     const seen = new Set<string>()
     return rawFiles.filter(f => {
-      if (f.status !== 'ready') return false
       const key = `${f.fileName}_${f.fileSize}`
       if (seen.has(key)) return false
       seen.add(key)
@@ -79,15 +82,16 @@ export default function ConfirmPage() {
   const hasFiles =
     files.length > 0 ||
     rawFiles.length > 0 ||
-    Boolean(singleDoc.realPages && singleDoc.realPages.length > 0) ||
-    getAllFiles().some(f => f.status === 'ready') ||
+    getAllFiles().length > 0 ||
+    Boolean(singleDoc.fileName || singleDoc.file || (singleDoc.realPages && singleDoc.realPages.length > 0)) ||
     Boolean(typeof window !== 'undefined' && (sessionStorage.getItem('pb_files') || sessionStorage.getItem('pb_file_name')))
 
   // Ensure state sync if files is empty on mount but ready files exist
   useEffect(() => {
     if (files.length === 0) {
-      const ready = getAllFiles().filter(f => f.status === 'ready')
-      if (ready.length > 0) {
+      const all = getAllFiles()
+      if (all.length > 0) {
+        const ready = all.map(f => ({ ...f, status: 'ready' as const }))
         setFiles(ready)
         setActiveId(getActiveFileId() || ready[0].id)
       }
@@ -97,11 +101,17 @@ export default function ConfirmPage() {
   // Redirect to upload only if truly no files exist anywhere in store or session storage
   useEffect(() => {
     if (!hasFiles) {
-      if (flow?.goToStep) {
-        flow.goToStep('upload')
-      } else {
-        navigate('/print/upload', { replace: true })
-      }
+      const timer = setTimeout(() => {
+        const stillNoFiles = getAllFiles().length === 0 && !sessionStorage.getItem('pb_files') && !sessionStorage.getItem('pb_file_name')
+        if (stillNoFiles) {
+          if (flow?.goToStep) {
+            flow.goToStep('upload')
+          } else {
+            navigate('/print/upload', { replace: true })
+          }
+        }
+      }, 500)
+      return () => clearTimeout(timer)
     }
   }, [hasFiles, flow, navigate])
 
@@ -295,9 +305,51 @@ export default function ConfirmPage() {
           fileName: activeFile?.fileName || 'Document.pdf',
           totalPages: activePageCount,
         })
+
+        // Verify if session on kiosk already has document; if not, upload it now
+        kioskSession.getStatus().then(status => {
+          if (!status?.document && (files.length > 0 || singleDoc.file || singleDoc.fileName)) {
+            const ready = getAllFiles().filter(f => f.status === 'ready')
+            const primary = ready[0] || singleDoc
+            const file = (primary as any).file
+            const combinedFileName = ready.length > 1
+              ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}`
+              : primary.fileName
+            const totalSize = ready.reduce((acc, f) => acc + (f.fileSize || 0), 0) || primary.fileSize || 0
+
+            const allPreviews = docPages.slice(0, 5).map((p, idx) => ({
+              pageNumber: p.pageNumber || idx + 1,
+              url: p.url && (p.url.startsWith('data:image/svg') || p.url.length < 32000) ? p.url : '',
+              title: p.title || `Page ${idx + 1}`,
+            }))
+
+            const filesMetadata = ready.map(f => ({
+              id: f.id,
+              fileName: f.fileName,
+              fileSize: f.fileSize,
+              fileType: f.fileType,
+              pageCount: f.pageCount || 1,
+              copies: f.settings?.copies || 1,
+              colour: f.settings?.colour || 'BW',
+              duplex: f.settings?.duplex || 'SINGLE',
+            }))
+
+            kioskSession.uploadDocument({
+              file,
+              fileName: combinedFileName || 'Document.pdf',
+              fileSize: totalSize,
+              fileType: ready.length > 1 ? 'multifile' : (primary as any).fileType || 'pdf',
+              pageCount: totalPages,
+              previews: allPreviews,
+              files: filesMetadata,
+            }).catch(e => {
+              console.warn('[ConfirmPage] Kiosk document sync error:', e)
+            })
+          }
+        }).catch(() => {})
       }
     }
-  }, [confirmMode, activeFile?.fileName, activePageCount, activeSettings.copies, activeSettings.colour, grandTotal])
+  }, [confirmMode, activeFile?.fileName, activePageCount, activeSettings.copies, activeSettings.colour, grandTotal, files.length, docPages, totalPages, singleDoc])
 
   const printFlow = usePrintFlow()
   // Kiosk Location Info
@@ -387,6 +439,35 @@ export default function ConfirmPage() {
         copies: activeSettings.copies,
         colourMode: activeSettings.colour,
       })
+
+      // Ensure document is transferred to kiosk display
+      const ready = getAllFiles().filter(f => f.status === 'ready')
+      if (ready.length > 0) {
+        const first = ready[0]
+        const allPreviews = docPages.slice(0, 8).map((p, idx) => ({
+          pageNumber: p.pageNumber || idx + 1,
+          url: p.url,
+          title: p.title || `Page ${idx + 1}`,
+        }))
+        kioskSession.uploadDocument({
+          file: first.file,
+          fileName: ready.length > 1 ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}` : first.fileName,
+          fileSize: ready.reduce((acc, f) => acc + (f.fileSize || 0), 0),
+          fileType: ready.length > 1 ? 'multifile' : first.fileType,
+          pageCount: totalPages,
+          previews: allPreviews,
+          files: ready.map(f => ({
+            id: f.id,
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            fileType: f.fileType,
+            pageCount: f.pageCount || 1,
+            copies: f.settings?.copies || 1,
+            colour: f.settings?.colour || 'BW',
+            duplex: f.settings?.duplex || 'SINGLE',
+          })),
+        }).catch(() => {})
+      }
     }
     sessionStorage.setItem('pb_print_step', 'settings')
     if (flow?.goToStep) {
@@ -637,9 +718,7 @@ export default function ConfirmPage() {
             <div className="cfp-summary-station-bar">
               <div className="cfp-summary-station-info">
                 <MapPin size={14} weight="bold" color="#dc2626" />
-                <span className="cfp-summary-station-id">{kioskId}</span>
-                <span className="cfp-summary-station-sep">·</span>
-                <span className="cfp-summary-station-name">{kioskName}</span>
+                <span className="cfp-summary-station-name">{kioskName || kioskId}</span>
                 {kioskCampus && (
                   <>
                     <span className="cfp-summary-station-sep">·</span>

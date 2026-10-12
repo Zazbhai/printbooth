@@ -12,6 +12,7 @@ import {
   Prohibit,
   Receipt,
   Check,
+  Copy,
 } from '@phosphor-icons/react'
 import {
   getMerchantOrders,
@@ -60,6 +61,17 @@ export default function MerchantOrdersPage() {
   const [customMac, setCustomMac] = useState('')
   const [banReason, setBanReason] = useState('Non-payment / Unverified payment claim')
   const [isSubmittingBlock, setIsSubmittingBlock] = useState(false)
+
+  // Payment Details modal state
+  const [selectedPaymentOrder, setSelectedPaymentOrder] = useState<any | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [showRawJson, setShowRawJson] = useState(false)
+
+  const handleCopyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
 
   const showToast = useCallback((text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setActionMsg({ text, type })
@@ -112,14 +124,18 @@ export default function MerchantOrdersPage() {
 
   // Accept Payment -> Confirm Payment & Status
   const handleAcceptPayment = async (order: any) => {
-    const orderId = order.orderId || order.id || order.orderNumber
+    const orderId = order.orderId || order.orderNumber || order._id || order.id
     const targetKiosk = order.kioskId || activeKioskId || 'PB-001'
     try {
       await confirmMerchantOrder(orderId, targetKiosk)
       // Update local state immediately
       setOrders((prev) =>
         prev.map((o) => {
-          const match = (o.orderId || o.id || o.orderNumber) === orderId
+          const match =
+            (o.orderId && (o.orderId === orderId || o.orderId === order.orderId)) ||
+            (o.orderNumber && (o.orderNumber === orderId || o.orderNumber === order.orderNumber)) ||
+            (o._id && (String(o._id) === String(orderId) || String(o._id) === String(order._id))) ||
+            (o.id && (o.id === orderId || o.id === order.id))
           if (match) {
             return {
               ...o,
@@ -135,14 +151,15 @@ export default function MerchantOrdersPage() {
         })
       )
       showToast(`Payment Confirmed for #${order.orderNumber || orderId}! Print job authorized.`, 'success')
+      loadData(true)
     } catch (err: any) {
-      showToast(err?.message || 'Failed to confirm payment', 'error')
+      showToast(err?.response?.data?.error || err?.message || 'Failed to confirm payment', 'error')
     }
   }
 
   // Reject unverified payment
   const handleRejectPayment = async (order: any) => {
-    const orderId = order.orderId || order.id || order.orderNumber
+    const orderId = order.orderId || order.orderNumber || order._id || order.id
     const targetKiosk = order.kioskId || activeKioskId || 'PB-001'
     if (!window.confirm(`Reject payment confirmation for Order #${order.orderNumber || orderId}?`)) {
       return
@@ -151,7 +168,11 @@ export default function MerchantOrdersPage() {
       await rejectMerchantOrder(orderId, targetKiosk)
       setOrders((prev) =>
         prev.map((o) => {
-          const match = (o.orderId || o.id || o.orderNumber) === orderId
+          const match =
+            (o.orderId && (o.orderId === orderId || o.orderId === order.orderId)) ||
+            (o.orderNumber && (o.orderNumber === orderId || o.orderNumber === order.orderNumber)) ||
+            (o._id && (String(o._id) === String(orderId) || String(o._id) === String(order._id))) ||
+            (o.id && (o.id === orderId || o.id === order.id))
           if (match) {
             return {
               ...o,
@@ -167,8 +188,9 @@ export default function MerchantOrdersPage() {
         })
       )
       showToast(`Order #${order.orderNumber || orderId} rejected.`, 'info')
+      loadData(true)
     } catch (err: any) {
-      showToast(err?.message || 'Failed to reject payment', 'error')
+      showToast(err?.response?.data?.error || err?.message || 'Failed to reject payment', 'error')
     }
   }
 
@@ -769,10 +791,43 @@ export default function MerchantOrdersPage() {
                       {/* Payment Status */}
                       <td style={{ whiteSpace: 'nowrap' }}>
                         {isConfirmed && (
-                          <span className="badge badge-online" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-                            <Check size={12} weight="bold" />
-                            <span>Payment Confirmed</span>
-                          </span>
+                          <div>
+                            <span className="badge badge-online" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                              <Check size={12} weight="bold" />
+                              <span>Payment Confirmed</span>
+                            </span>
+                            {order.paymentDetails?.bankReferenceNo && (
+                              <div style={{ marginTop: 4 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-xs"
+                                  style={{
+                                    background: 'rgba(56, 189, 248, 0.12)',
+                                    color: '#38bdf8',
+                                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                                    padding: '2px 7px',
+                                    borderRadius: 4,
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    cursor: 'pointer',
+                                  }}
+                                  onClick={() => setSelectedPaymentOrder(order)}
+                                  title="Click to view full UPI verification details"
+                                >
+                                  <Receipt size={11} weight="bold" />
+                                  <span>UTR: {order.paymentDetails.bankReferenceNo}</span>
+                                </button>
+                              </div>
+                            )}
+                            {order.paymentDetails?.payerName && (
+                              <div style={{ fontSize: 10, color: 'var(--clr-text-3)', marginTop: 2 }}>
+                                {order.paymentDetails.payerName} {order.paymentDetails.payerHandle ? `(${order.paymentDetails.payerHandle})` : ''}
+                              </div>
+                            )}
+                          </div>
                         )}
                         {isPending && (
                           <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
@@ -791,6 +846,25 @@ export default function MerchantOrdersPage() {
                       {/* Actions */}
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          {/* View Payment Details / Proof */}
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            style={{
+                              fontSize: 11,
+                              padding: '4px 8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              color: '#38bdf8',
+                              borderColor: 'rgba(56, 189, 248, 0.3)',
+                            }}
+                            onClick={() => setSelectedPaymentOrder(order)}
+                            title="View full transaction proof & bank response"
+                          >
+                            <Receipt size={14} weight="bold" />
+                            <span>Details</span>
+                          </button>
+
                           {/* Payment Confirmation Action */}
                           {isPending && (
                             <>
@@ -1101,6 +1175,302 @@ export default function MerchantOrdersPage() {
               >
                 {isSubmittingBlock ? 'Enforcing Block...' : 'Confirm & Block User'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal: UPI Payment Verification & Full Transaction Details ─── */}
+      {selectedPaymentOrder && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.82)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 130,
+            padding: 16,
+          }}
+          onClick={() => setSelectedPaymentOrder(null)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: 'min(640px, calc(100vw - 32px))',
+              background: '#0c121e',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9)',
+              padding: 'clamp(18px, 4vw, 28px)',
+              boxSizing: 'border-box',
+              maxHeight: 'calc(100vh - 40px)',
+              overflowY: 'auto',
+              borderRadius: 12,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2))',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#10b981',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Receipt size={22} weight="duotone" />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--clr-text-1)' }}>
+                      UPI Payment Proof & Verification
+                    </h2>
+                    <span
+                      className="badge badge-online"
+                      style={{ fontSize: 11, padding: '2px 8px', textTransform: 'uppercase' }}
+                    >
+                      {selectedPaymentOrder.paymentDetails?.rawStatus || selectedPaymentOrder.status || 'Verified'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--clr-text-3)', margin: '2px 0 0' }}>
+                    BharatPe / UPIExpress Real-time Webhook Verification Proof
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '4px 10px', fontSize: 13 }}
+                onClick={() => setSelectedPaymentOrder(null)}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Financial Overview Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                gap: 12,
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 8,
+                  padding: '12px 14px',
+                }}
+              >
+                <div style={{ fontSize: 11, color: 'var(--clr-text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Gross Paid
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#10b981', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
+                  ₹{Number(selectedPaymentOrder.amount || selectedPaymentOrder.paymentDetails?.amount || 0).toFixed(2)}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--clr-text-3)', marginTop: 2 }}>
+                  Convenience Fee: ₹{Number(selectedPaymentOrder.paymentDetails?.convenienceFee || 0).toFixed(2)}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 8,
+                  padding: '12px 14px',
+                }}
+              >
+                <div style={{ fontSize: 11, color: 'var(--clr-text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Payer Identity
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--clr-text-1)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {selectedPaymentOrder.paymentDetails?.payerName || selectedPaymentOrder.customerName || 'Verified Payer'}
+                </div>
+                <div style={{ fontSize: 11, color: '#38bdf8', marginTop: 2 }}>
+                  App: {selectedPaymentOrder.paymentDetails?.payerHandle || 'UPI / BHIM'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 8,
+                  padding: '12px 14px',
+                }}
+              >
+                <div style={{ fontSize: 11, color: 'var(--clr-text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Bank UTR / Ref (RRN)
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                    {selectedPaymentOrder.paymentDetails?.bankReferenceNo || selectedPaymentOrder.paymentDetails?.upiTxnId || '—'}
+                  </span>
+                  {(selectedPaymentOrder.paymentDetails?.bankReferenceNo || selectedPaymentOrder.paymentDetails?.upiTxnId) && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(selectedPaymentOrder.paymentDetails?.bankReferenceNo || selectedPaymentOrder.paymentDetails?.upiTxnId, 'utr')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: copiedKey === 'utr' ? '#10b981' : 'var(--clr-text-4)',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                      title="Copy UTR"
+                    >
+                      {copiedKey === 'utr' ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--clr-text-4)', marginTop: 2 }}>
+                  Verified by BharatPe Switch
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Transaction Info List */}
+            <div
+              style={{
+                background: 'rgba(0, 0, 0, 0.25)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 8,
+                overflow: 'hidden',
+                marginBottom: 20,
+              }}
+            >
+              {[
+                { label: 'Order ID (Client Txn)', value: selectedPaymentOrder.orderNumber || selectedPaymentOrder.orderId, copyKey: 'orderId' },
+                { label: 'Pickup Token', value: `#${selectedPaymentOrder.pickupCode || selectedPaymentOrder.token || '—'}` },
+                { label: 'Machine Station', value: selectedPaymentOrder.kioskId || activeKioskId || 'PB-001' },
+                { label: 'Payer Full Name', value: selectedPaymentOrder.paymentDetails?.payerName || '—' },
+                { label: 'UPI Handle / Payer App', value: selectedPaymentOrder.paymentDetails?.payerHandle || '—' },
+                { label: 'Bank Reference No (RRN)', value: selectedPaymentOrder.paymentDetails?.bankReferenceNo || '—', copyKey: 'bankRef' },
+                { label: 'Internal Bank UTR', value: selectedPaymentOrder.paymentDetails?.internalUtr || '—', copyKey: 'internalUtr' },
+                { label: 'Merchant VPA / Payee Identifier', value: selectedPaymentOrder.paymentDetails?.payeeIdentifier || '—', copyKey: 'payee' },
+                { label: 'UPI Express Order ID', value: selectedPaymentOrder.paymentDetails?.gatewayOrderId || '—', copyKey: 'gatewayOrderId' },
+                { label: 'Gateway Txn ID', value: selectedPaymentOrder.paymentDetails?.gatewayTxnId || '—', copyKey: 'gatewayTxnId' },
+                { label: 'Merchant Txn ID', value: selectedPaymentOrder.paymentDetails?.merchantTxnId || '—', copyKey: 'merchantTxnId' },
+                { label: 'Customer Mobile', value: selectedPaymentOrder.customerPhone || selectedPaymentOrder.paymentDetails?.customerMobile || '—' },
+                { label: 'Customer Email', value: selectedPaymentOrder.customerEmail || selectedPaymentOrder.paymentDetails?.customerEmail || '—' },
+                { label: 'Customer IP Address', value: selectedPaymentOrder.customerIp || '—' },
+                { label: 'Transaction Type', value: selectedPaymentOrder.paymentDetails?.txnSubType || 'SALE_P2PM' },
+                {
+                  label: 'Payment Timestamp',
+                  value: selectedPaymentOrder.paymentDetails?.paymentTimestamp
+                    ? new Date(selectedPaymentOrder.paymentDetails.paymentTimestamp).toLocaleString()
+                    : (selectedPaymentOrder.paidAt ? new Date(selectedPaymentOrder.paidAt).toLocaleString() : '—'),
+                },
+              ].map((row, rIdx) => (
+                <div
+                  key={row.label}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 14px',
+                    fontSize: 12,
+                    borderBottom: rIdx < 15 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+                    background: rIdx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)',
+                  }}
+                >
+                  <span style={{ color: 'var(--clr-text-3)', fontWeight: 500 }}>{row.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--clr-text-1)' }}>
+                      {row.value}
+                    </span>
+                    {row.copyKey && row.value && row.value !== '—' && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(String(row.value), row.copyKey!)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: copiedKey === row.copyKey ? '#10b981' : 'var(--clr-text-4)',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        title={`Copy ${row.label}`}
+                      >
+                        {copiedKey === row.copyKey ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Collapsible Raw Bank / Webhook JSON Inspector */}
+            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  style={{ fontSize: 11, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => setShowRawJson(!showRawJson)}
+                >
+                  <span>{showRawJson ? '▼ Hide Raw Webhook Response' : '▶ View Full Raw Webhook JSON'}</span>
+                </button>
+
+                {showRawJson && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    style={{ fontSize: 11, padding: '4px 8px' }}
+                    onClick={() =>
+                      handleCopyText(
+                        JSON.stringify(
+                          selectedPaymentOrder.paymentDetails?.rawResponse || selectedPaymentOrder.paymentDetails || selectedPaymentOrder,
+                          null,
+                          2
+                        ),
+                        'rawJson'
+                      )
+                    }
+                  >
+                    {copiedKey === 'rawJson' ? '✓ Copied' : 'Copy JSON'}
+                  </button>
+                )}
+              </div>
+
+              {showRawJson && (
+                <pre
+                  style={{
+                    background: '#040711',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 6,
+                    padding: 12,
+                    fontSize: 11,
+                    fontFamily: 'var(--font-mono)',
+                    color: '#93c5fd',
+                    overflowX: 'auto',
+                    maxHeight: 240,
+                    margin: 0,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {JSON.stringify(
+                    selectedPaymentOrder.paymentDetails?.rawResponse || selectedPaymentOrder.paymentDetails || selectedPaymentOrder,
+                    null,
+                    2
+                  )}
+                </pre>
+              )}
             </div>
           </div>
         </div>

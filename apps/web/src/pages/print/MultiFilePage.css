@@ -1352,3 +1352,165 @@
   color: #09090b;
 }
 
+/* ── Manual Transfer to Kiosk Button & Section ── */
+.mfp-transfer-section {
+  width: 100%;
+  max-width: 580px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  animation: mfp-transfer-fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-sizing: border-box;
+}
+
+@keyframes mfp-transfer-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mfp-transfer-kiosk-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff;
+  border: 1px solid rgba(220, 38, 38, 0.5);
+  border-radius: 14px;
+  padding: 16px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(220, 38, 38, 0.28), 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.mfp-transfer-kiosk-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 22px rgba(220, 38, 38, 0.36), 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mfp-transfer-kiosk-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.22);
+}
+
+.mfp-transfer-kiosk-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mfp-transfer-hint-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.spin-fast {
+  animation: mfp-spin 0.8s linear infinite;
+}
+
+@keyframes mfp-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mfp-transfer-section,
+  .mfp-transfer-kiosk-btn,
+  .mfp-action-bar,
+  .spin-fast {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Compact Dropzone when files are already in queue ── */
+.mfp-dropzone-shell.has-files {
+  border-radius: 20px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.mfp-dropzone-shell.has-files .mfp-dropzone {
+  min-height: 160px;
+  padding: 16px 12px;
+  gap: 8px;
+}
+
+/* ── Fixed Floating Bottom Action Bar Dock ── */
+.mfp-action-bar {
+  position: fixed !important;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 70 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: min(580px, calc(100% - 24px)) !important;
+  padding: 12px 18px !important;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(32px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(220%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.98) !important;
+  box-shadow:
+    0 16px 42px -8px rgba(220, 38, 38, 0.22),
+    0 4px 16px rgba(15, 23, 42, 0.08),
+    inset 0 1.5px 2px rgba(255, 255, 255, 1) !important;
+  box-sizing: border-box !important;
+  animation: mfp-transfer-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mfp-action-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mfp-action-count {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 600px) {
+  .mfp-action-bar {
+    left: 10px !important;
+    right: 10px !important;
+    transform: none !important;
+    width: calc(100% - 20px) !important;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 10px 14px !important;
+  }
+}
+
+
+

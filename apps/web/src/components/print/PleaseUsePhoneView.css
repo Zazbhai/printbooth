@@ -1,0 +1,375 @@
+/* ================================================================
+   PRINTBOOTH — PLEASE USE YOUR PHONE (DESKTOP INTERCEPT VIEW)
+   Frosted neomorphic surface aesthetic with 3D device presence,
+   laser-red (#dc2626) accents, and smooth physics.
+   ================================================================ */
+
+.pu-root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background-color: var(--bg, #e0e5ec);
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ambient Radial Backdrop Glow */
+.pu-backdrop-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(220, 38, 38, 0.08) 0%, rgba(224, 229, 236, 0) 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Main Neomorphic Card */
+.pu-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 680px;
+  background: var(--bg, #e0e5ec);
+  border-radius: 28px;
+  box-shadow: 14px 14px 28px var(--dark-shadow, #a3b1c6), -14px -14px 28px var(--light-shadow, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Top Badge Pill */
+.pu-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--bg, #e0e5ec);
+  box-shadow: inset 2.5px 2.5px 5px var(--dark-shadow, #a3b1c6), inset -2.5px -2.5px 5px var(--light-shadow, #ffffff);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent, #dc2626);
+  margin-bottom: 24px;
+}
+
+.pu-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #dc2626);
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.6);
+  animation: puPulse 2s infinite cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes puPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.75; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SVG ANIMATION CONTAINER & KEYFRAMES
+   ═══════════════════════════════════════════════════════════════ */
+
+.pu-anim-stage {
+  position: relative;
+  width: 240px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 20px 0;
+}
+
+.pu-svg-element {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 14px 20px rgba(163, 177, 198, 0.35));
+}
+
+/* Phone Floating Animation */
+.pu-phone-chassis {
+  animation: puPhoneLevitate 4s cubic-bezier(0.16, 1, 0.3, 1) infinite ease-in-out;
+  transform-origin: center center;
+}
+
+@keyframes puPhoneLevitate {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-1.5deg);
+  }
+}
+
+/* Dynamic Shadow Beneath Phone */
+.pu-phone-shadow {
+  animation: puShadowScale 4s cubic-bezier(0.16, 1, 0.3, 1) infinite ease-in-out;
+  transform-origin: 120px 205px;
+}
+
+@keyframes puShadowScale {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(0.82);
+    opacity: 0.18;
+  }
+}
+
+/* Laser Scan Line */
+.pu-laser-beam {
+  animation: puScanLaser 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes puScanLaser {
+  0% {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(115px);
+    opacity: 0;
+  }
+}
+
+/* Sliding Floating Document */
+.pu-doc-sheet {
+  animation: puDocSlide 3.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: center center;
+}
+
+@keyframes puDocSlide {
+  0% {
+    transform: translateY(-24px) scale(0.92);
+    opacity: 0;
+  }
+  20% {
+    transform: translateY(0px) scale(1);
+    opacity: 1;
+  }
+  75% {
+    transform: translateY(0px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(18px) scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* Radiating Wireless / NFC Transmission Waves */
+.pu-wave-1 {
+  animation: puSignalWave 2.4s infinite cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pu-wave-2 {
+  animation: puSignalWave 2.4s infinite cubic-bezier(0.16, 1, 0.3, 1) 0.4s;
+}
+
+.pu-wave-3 {
+  animation: puSignalWave 2.4s infinite cubic-bezier(0.16, 1, 0.3, 1) 0.8s;
+}
+
+@keyframes puSignalWave {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+    stroke-width: 3.5;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+    stroke-width: 1;
+  }
+}
+
+/* Floating Sparkle Particles */
+.pu-sparkle-1 {
+  animation: puSparkle 3s infinite ease-in-out;
+}
+
+.pu-sparkle-2 {
+  animation: puSparkle 3s infinite ease-in-out 1.2s;
+}
+
+@keyframes puSparkle {
+  0%, 100% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-6px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TEXT CONTENT & HEADINGS
+   ═══════════════════════════════════════════════════════════════ */
+
+.pu-title {
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+  line-height: 1.15;
+}
+
+.pu-title span {
+  color: var(--accent, #dc2626);
+}
+
+.pu-subtitle {
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: #475569;
+  max-width: 500px;
+  margin: 0 0 28px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   QR CODE CARD & MOBILE LINK ACTIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+.pu-qr-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.pu-qr-socket {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 20px;
+  box-shadow: inset 4px 4px 8px var(--dark-shadow, #a3b1c6), inset -4px -4px 8px var(--light-shadow, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.pu-qr-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pu-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.pu-btn-neo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  background: var(--bg, #e0e5ec);
+  box-shadow: 5px 5px 12px var(--dark-shadow, #a3b1c6), -5px -5px 12px var(--light-shadow, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.pu-btn-neo:hover {
+  transform: translateY(-2px);
+  box-shadow: 7px 7px 16px var(--dark-shadow-deep, #8f9fb6), -7px -7px 16px var(--light-shadow, #ffffff);
+  color: #0f172a;
+}
+
+.pu-btn-neo:active {
+  transform: translateY(1px);
+  box-shadow: inset 3px 3px 6px var(--dark-shadow, #a3b1c6), inset -3px -3px 6px var(--light-shadow, #ffffff);
+}
+
+.pu-btn-primary {
+  background: var(--accent, #dc2626);
+  color: #ffffff !important;
+  border-color: rgba(220, 38, 38, 0.4);
+  box-shadow: 5px 5px 14px rgba(220, 38, 38, 0.35), -5px -5px 12px var(--light-shadow, #ffffff);
+}
+
+.pu-btn-primary:hover {
+  background: #b91c1c;
+  box-shadow: 6px 6px 18px rgba(220, 38, 38, 0.45), -6px -6px 14px var(--light-shadow, #ffffff);
+}
+
+/* Discrete Developer Bypass Footer Link */
+.pu-dev-bypass {
+  margin-top: 24px;
+  font-size: 0.76rem;
+  color: #94a3b8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.pu-dev-bypass:hover {
+  color: var(--accent, #dc2626);
+}
+
+/* Responsive adjustment */
+@media (max-width: 640px) {
+  .pu-card {
+    padding: 30px 20px;
+    border-radius: 22px;
+  }
+  .pu-title {
+    font-size: 1.7rem;
+  }
+  .pu-subtitle {
+    font-size: 0.88rem;
+  }
+  .pu-anim-stage {
+    width: 200px;
+    height: 180px;
+  }
+}

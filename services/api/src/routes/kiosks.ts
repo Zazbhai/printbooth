@@ -3,12 +3,12 @@ import { Kiosk } from '../models/Kiosk.js'
 import { Merchant } from '../models/Merchant.js'
 import { isDbConnected } from '../db.js'
 import { fallbackKiosks, fallbackMerchants } from '../fallbackData.js'
+import { getKioskPrintUrl, getPublicWebUrl } from '../config.js'
 import { getRealPrinterHardwareStatus } from '../modules/printerDetector.js'
 import { cacheMiddleware, cachePurgePattern } from '../redis.js'
 import { handleVerifyPinLogic } from './print.js'
 import { verifyKioskSecret } from '../modules/kioskAuth.js'
-import { getKioskPrintUrl, getPublicWebUrl } from '../config.js'
-import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
+import { isKioskPiReachable, markKioskOffline, resumeKioskPrinter } from '../modules/kioskLiveness.js'
 import {
   isKioskRelayConnected,
   triggerKioskUpdate,
@@ -455,9 +455,9 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
         paymentGateway: kDoc.paymentGateway || 'upiexpress',
         paymentConfig: {
           paymentGateway: kDoc.paymentGateway || 'upiexpress',
-          upiExpressConfigured: Boolean(kDoc.upiExpressApiKey || process.env.UPIEXPRESS_API_KEY),
-          razorpayConfigured: Boolean(kDoc.razorpayKeyId || process.env.RAZORPAY_KEY_ID),
-          razorpayKeyId: kDoc.razorpayKeyId || process.env.RAZORPAY_KEY_ID || '',
+          upiExpressConfigured: Boolean(kDoc.upiExpressApiKey),
+          razorpayConfigured: Boolean(kDoc.razorpayKeyId),
+          razorpayKeyId: kDoc.razorpayKeyId || '',
         },
       },
     })
@@ -482,21 +482,29 @@ kiosksRouter.get('/:id/payment-config', async (req: Request, res: Response) => {
     }
 
     if (!kiosk) {
-      kiosk = fallbackKiosks.find((k) => (k.kioskId || k.id) === kioskId) || fallbackKiosks[0]
+      kiosk = fallbackKiosks.find((k) => (k.kioskId || k.id) === kioskId)
     }
     if (!merchant) {
-      merchant = fallbackMerchants.find((m) => m.kioskId === kioskId || (kiosk?.merchantId && m.merchantId === kiosk.merchantId)) || fallbackMerchants[0]
+      merchant = fallbackMerchants.find((m) => m.kioskId === kioskId || (kiosk?.merchantId && m.merchantId === kiosk.merchantId))
     }
 
     const gateway = kiosk?.paymentGateway || merchant?.paymentGateway || 'upiexpress'
-    const upiKey = kiosk?.upiExpressApiKey || merchant?.upiExpressApiKey || process.env.UPIEXPRESS_API_KEY || ''
-    const rzpKey = kiosk?.razorpayKeyId || merchant?.razorpayKeyId || process.env.RAZORPAY_KEY_ID || ''
+    const upiKey = kiosk?.upiExpressApiKey || merchant?.upiExpressApiKey || ''
+    const rzpKey = kiosk?.razorpayKeyId || merchant?.razorpayKeyId || ''
+    const isConfigured = gateway === 'razorpay' ? rzpKey.length > 0 : upiKey.length > 0
+    const errorMessage = !isConfigured
+      ? (gateway === 'razorpay'
+          ? `Razorpay Key ID is not configured for Station ${kioskId}. Please contact the merchant.`
+          : `UPI Express API Key is not configured for Station ${kioskId}. Please contact the merchant.`)
+      : null
 
     return res.json({
       success: true,
       data: {
         kioskId,
         paymentGateway: gateway,
+        isConfigured,
+        errorMessage,
         upiExpressConfigured: upiKey.length > 0,
         razorpayConfigured: rzpKey.length > 0,
         razorpayKeyId: rzpKey,
@@ -635,6 +643,19 @@ const handleSingleKioskStatus = async (req: Request, res: Response) => {
 
 kiosksRouter.patch('/:id/status', handleSingleKioskStatus)
 kiosksRouter.put('/:id/status', handleSingleKioskStatus)
+
+// POST /api/kiosks/:id/resume — Start back the printer and clear gateway error from kiosk status
+kiosksRouter.post('/:id/resume', async (req: Request, res: Response) => {
+  try {
+    const cleanId = (req.params.id || '').trim().toUpperCase()
+    const result = await resumeKioskPrinter(cleanId)
+    await cachePurgePattern('kiosks:*').catch(() => {})
+    await cachePurgePattern('admin:*').catch(() => {})
+    res.json(result)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
 
 // GET /api/kiosks/:id/detected-printers — Lists all detected printers on this kiosk machine
 kiosksRouter.get('/:id/detected-printers', async (req: Request, res: Response) => {

@@ -10,8 +10,10 @@ export function getClientWebUrl(): string {
     return envUrl.trim().replace(/\/+$/, '')
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    // If running on admin.printbooth.in -> https://printbooth.in
-    const host = window.location.hostname.replace(/^admin\./, '')
+    if (window.location.hostname.includes('printbooth')) {
+      return 'https://printbooth.co.in'
+    }
+    const host = window.location.hostname.replace(/^admin\./, '').replace(/^portal\./, '')
     return `${window.location.protocol}//${host}`
   }
   return 'http://localhost:5200'
@@ -42,6 +44,9 @@ export function getApiBaseUrl(): string {
         const clean = envUrl.trim().replace(/\/+$/, '')
         return clean.endsWith('/api') ? clean : `${clean}/api`
       }
+      if (window.location.hostname.includes('printbooth')) {
+        return 'https://api.printbooth.co.in/api'
+      }
       return `${window.location.origin}/api`
     }
   }
@@ -69,6 +74,9 @@ export function getWsRelayUrl(): string {
   if (typeof window !== 'undefined') {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     if (!isLocalhost) {
+      if (window.location.hostname.includes('printbooth')) {
+        return 'wss://api.printbooth.co.in/ws'
+      }
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       return `${proto}//${window.location.host}/ws`
     }

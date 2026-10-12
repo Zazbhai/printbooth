@@ -1434,33 +1434,17 @@ export default function MerchantsPage() {
 
                 {/* Conditional Gateway Credentials / API details */}
                 {newMerchant.paymentGateway === 'upiexpress' ? (
-                  <div className="merchant-form-row merchant-form-row--2" style={{ background: 'rgba(5, 150, 105, 0.04)', padding: 12, borderRadius: 8, border: '1px solid rgba(5, 150, 105, 0.15)' }}>
-                    <div className="merchant-form-group">
+                  <div className="merchant-form-row" style={{ background: 'rgba(5, 150, 105, 0.04)', padding: 12, borderRadius: 8, border: '1px solid rgba(5, 150, 105, 0.15)' }}>
+                    <div className="merchant-form-group" style={{ width: '100%' }}>
                       <label className="merchant-form-label">
-                        Merchant UPI ID / VPA <span className="label-sub">(Settlement account)</span>
-                      </label>
-                      <div className="merchant-input-wrap">
-                        <Bank size={16} className="merchant-input-icon" />
-                        <input
-                          type="text"
-                          className="merchant-input"
-                          placeholder="e.g. printbooth@okaxis"
-                          value={newMerchant.upiExpressUpiId}
-                          onChange={e => setNewMerchant({ ...newMerchant, upiExpressUpiId: e.target.value.trim() })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="merchant-form-group">
-                      <label className="merchant-form-label">
-                        UPI Express API Key <span className="label-sub">(Optional, uses master key if blank)</span>
+                        UPI Express API Key <span className="label-sub">(Settlement account API key; optional, uses system master key if blank)</span>
                       </label>
                       <div className="merchant-input-wrap">
                         <Key size={16} className="merchant-input-icon" />
                         <input
                           type="text"
                           className="merchant-input merchant-input--mono"
-                          placeholder="Leave empty for system default"
+                          placeholder="Merchant API Key (from UPI Express portal)"
                           value={newMerchant.upiExpressApiKey}
                           onChange={e => setNewMerchant({ ...newMerchant, upiExpressApiKey: e.target.value.trim() })}
                         />

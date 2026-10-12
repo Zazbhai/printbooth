@@ -23,26 +23,35 @@ function PrintRouteRedirect() {
   const [searchParams] = useSearchParams()
   const pathParts = location.pathname.split('/').filter(Boolean)
   const pathParam = pathParts.length > 1 ? pathParts[1] : null
+  const isKnownStep = Boolean(pathParam && ['upload', 'confirm', 'settings', 'review', 'payment', 'status', 'success', 'kiosk'].includes(pathParam.toLowerCase()))
   const explicitPrinterId =
     searchParams.get('id') ||
     searchParams.get('printer_id') ||
-    pathParam
-
-  if (explicitPrinterId && /^PB-\d{3}$/i.test(explicitPrinterId.trim())) {
-    const cleanId = explicitPrinterId.trim().toUpperCase()
-    sessionStorage.setItem('pb_kiosk_id', cleanId)
-    localStorage.setItem('pb_kiosk_id', cleanId)
-    return <Navigate to={`/print?id=${cleanId}`} replace />
-  }
+    (!isKnownStep ? pathParam : null)
 
   const savedKioskId = typeof window !== 'undefined'
     ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id'))
     : null
-  if (savedKioskId && /^PB-\d{3}$/i.test(savedKioskId.trim())) {
-    return <Navigate to={`/print?id=${savedKioskId.trim().toUpperCase()}`} replace />
+  const targetKioskId = (explicitPrinterId && /^PB-\d{3,4}$/i.test(explicitPrinterId.trim()))
+    ? explicitPrinterId.trim().toUpperCase()
+    : (savedKioskId && /^PB-\d{3,4}$/i.test(savedKioskId.trim()))
+      ? savedKioskId.trim().toUpperCase()
+      : null
+
+  const nextParams = new URLSearchParams(searchParams)
+  if (targetKioskId) {
+    sessionStorage.setItem('pb_kiosk_id', targetKioskId)
+    localStorage.setItem('pb_kiosk_id', targetKioskId)
+    nextParams.set('id', targetKioskId)
+  }
+  if (isKnownStep && pathParam) {
+    nextParams.set('step', pathParam.toLowerCase())
+  } else if (!targetKioskId && !nextParams.has('step')) {
+    nextParams.set('step', 'kiosk')
   }
 
-  return <Navigate to="/print?step=kiosk" replace />
+  const queryString = nextParams.toString()
+  return <Navigate to={`/print${queryString ? `?${queryString}` : ''}`} replace />
 }
 
 // Apple HIG page-level transition variants

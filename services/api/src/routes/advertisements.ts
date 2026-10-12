@@ -1,9 +1,21 @@
 import { Router, Request, Response } from 'express'
+import mongoose from 'mongoose'
 import { Advertisement, IAdvertisement } from '../models/Advertisement.js'
 import { fallbackAdvertisements } from '../fallbackData.js'
 import { isDbConnected } from '../db.js'
 
 export const advertisementsRouter = Router()
+
+/**
+ * Safe query filter for advertisement campaign by ID (handles both ObjectId and custom campaignId strings)
+ */
+function getAdFilter(id: string) {
+  const clean = String(id || '').trim()
+  if (mongoose.Types.ObjectId.isValid(clean)) {
+    return { $or: [{ campaignId: clean }, { _id: clean }] }
+  }
+  return { campaignId: clean }
+}
 
 /**
  * Public Kiosk Endpoint: Get active background advertisements for a specific kiosk
@@ -82,7 +94,7 @@ advertisementsRouter.post('/kiosk/:kioskId/impression/:campaignId', async (req: 
     const { campaignId } = req.params
     if (isDbConnected()) {
       await Advertisement.updateOne(
-        { $or: [{ campaignId }, { _id: campaignId }] },
+        getAdFilter(campaignId),
         { $inc: { impressionsCount: 1 } }
       )
     } else {
@@ -104,7 +116,7 @@ advertisementsRouter.post('/kiosk/:kioskId/click/:campaignId', async (req: Reque
     const { campaignId } = req.params
     if (isDbConnected()) {
       await Advertisement.updateOne(
-        { $or: [{ campaignId }, { _id: campaignId }] },
+        getAdFilter(campaignId),
         { $inc: { clicksCount: 1 } }
       )
     } else {
@@ -248,10 +260,15 @@ advertisementsRouter.patch('/:id/toggle', async (req: Request, res: Response) =>
       return res.json({ success: true, data: ad })
     }
 
-    const ad = await Advertisement.findOne({
-      $or: [{ campaignId: id }, { _id: id }],
-    })
-    if (!ad) return res.status(404).json({ success: false, error: 'Campaign not found' })
+    let ad = await Advertisement.findOne(getAdFilter(id))
+    if (!ad) {
+      const fb = fallbackAdvertisements.find((a) => a.campaignId === id || a._id === id || a.id === id)
+      if (fb) {
+        fb.status = fb.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
+        return res.json({ success: true, data: fb })
+      }
+      return res.status(404).json({ success: false, error: 'Campaign not found' })
+    }
 
     ad.status = ad.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
     await ad.save()
@@ -283,11 +300,18 @@ advertisementsRouter.put('/:id', async (req: Request, res: Response) => {
     }
 
     const updated = await Advertisement.findOneAndUpdate(
-      { $or: [{ campaignId: id }, { _id: id }] },
+      getAdFilter(id),
       { $set: body },
       { new: true }
     )
-    if (!updated) return res.status(404).json({ success: false, error: 'Campaign not found' })
+    if (!updated) {
+      const adIndex = fallbackAdvertisements.findIndex((a) => a.campaignId === id || a._id === id || a.id === id)
+      if (adIndex !== -1) {
+        fallbackAdvertisements[adIndex] = { ...fallbackAdvertisements[adIndex], ...body, updatedAt: new Date() }
+        return res.json({ success: true, data: fallbackAdvertisements[adIndex] })
+      }
+      return res.status(404).json({ success: false, error: 'Campaign not found' })
+    }
 
     res.json({ success: true, data: updated })
   } catch (err: any) {
@@ -310,7 +334,11 @@ advertisementsRouter.delete('/:id', async (req: Request, res: Response) => {
       return res.json({ success: true, message: 'Campaign deleted successfully' })
     }
 
-    await Advertisement.deleteOne({ $or: [{ campaignId: id }, { _id: id }] })
+    await Advertisement.deleteOne(getAdFilter(id))
+    const adIndex = fallbackAdvertisements.findIndex((a) => a.campaignId === id || a._id === id || a.id === id)
+    if (adIndex !== -1) {
+      fallbackAdvertisements.splice(adIndex, 1)
+    }
     res.json({ success: true, message: 'Campaign deleted successfully' })
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message })

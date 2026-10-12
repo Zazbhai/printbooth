@@ -13,13 +13,15 @@ import {
   Clock,
   User,
 } from '@phosphor-icons/react'
-import { claimKioskSession, getApiBase } from '@/lib/kioskSession'
+import { claimKioskSession, getApiBase, decodeTokenSessionId } from '@/lib/kioskSession'
 import './KioskDisplayQrScanner.css'
 
 interface KioskDisplayQrScannerProps {
   kioskId: string
   kioskName?: string
   onSessionClaimed: (token: string, verifiedKioskId: string) => void
+  onMachineInUse?: (kioskId: string, token: string) => void
+  onSessionExpired?: (message: string) => void
   onCancel?: () => void
 }
 
@@ -89,6 +91,8 @@ export default function KioskDisplayQrScanner({
   kioskId,
   kioskName = 'PrintBooth Station',
   onSessionClaimed,
+  onMachineInUse,
+  onSessionExpired,
   onCancel,
 }: KioskDisplayQrScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -212,22 +216,51 @@ export default function KioskDisplayQrScanner({
       // Stop busy polling
       if (busyPollRef.current) clearInterval(busyPollRef.current)
 
-      // Claim session and trigger callback
-      sessionStorage.setItem('pb_kiosk_session_token', extractedToken)
-      sessionStorage.setItem('pb_kiosk_id', targetId)
-      sessionStorage.setItem('pb_kiosk_id_from_session', targetId)
-
-      claimKioskSession(extractedToken).then(() => {
-        onSessionClaimed(extractedToken!, targetId)
-      }).catch(() => {
-        onSessionClaimed(extractedToken!, targetId)
+      claimKioskSession(extractedToken).then((result) => {
+        if (result.machineInUse) {
+          if (onMachineInUse) {
+            onMachineInUse(targetId, extractedToken!)
+          } else {
+            setStatusMessage('⚠️ Kiosk is currently in use by another person.')
+          }
+          return
+        }
+        if (result.isExpired) {
+          if (onSessionExpired) {
+            onSessionExpired(result.message || 'This QR code has expired.')
+          } else {
+            setStatusMessage('⚠️ QR Code has expired. Point at the live QR on kiosk screen.')
+            setScannedSuccess(false)
+          }
+          return
+        }
+        if (result.success) {
+          const sessId = result.sessionId || decodeTokenSessionId(extractedToken!) || ''
+          sessionStorage.setItem('pb_kiosk_session_token', extractedToken!)
+          localStorage.setItem('pb_kiosk_session_token', extractedToken!)
+          if (sessId) {
+            sessionStorage.setItem('pb_kiosk_session_id', sessId)
+            localStorage.setItem('pb_kiosk_session_id', sessId)
+          }
+          sessionStorage.setItem('pb_kiosk_id', targetId)
+          localStorage.setItem('pb_kiosk_id', targetId)
+          sessionStorage.setItem('pb_kiosk_id_from_session', targetId)
+          onSessionClaimed(extractedToken!, targetId)
+        } else {
+          setStatusMessage(result.message || 'Unable to claim session. Please try again.')
+          setScannedSuccess(false)
+        }
+      }).catch((err) => {
+        console.warn('[KioskDisplayQrScanner] Claim failed:', err)
+        setStatusMessage('Connection failed. Please retry scanning.')
+        setScannedSuccess(false)
       })
 
       return true
     }
 
     return false
-  }, [kioskId, onSessionClaimed])
+  }, [kioskId, onSessionClaimed, onMachineInUse, onSessionExpired])
 
   // Process video frames with jsQR
   const scanFrame = useCallback(() => {
@@ -568,6 +601,45 @@ export default function KioskDisplayQrScanner({
             style={{ display: 'none' }}
             onChange={handleFileUpload}
           />
+
+          <button
+            type="button"
+            className="pb-scanner-upload-btn"
+            style={{
+              background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+              color: '#ffffff',
+              border: 'none',
+              marginBottom: '8px',
+            }}
+            onClick={async () => {
+              try {
+                setStatusMessage('Pairing with kiosk display…')
+                const apiBase = getApiBase()
+                let res = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
+                let data = res.ok ? await res.json() : null
+                let liveToken = data?.session?.token
+                if (!liveToken || data?.session?.state === 'DONE') {
+                  res = await fetch(`${apiBase}/api/kiosk-sessions/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kioskId, force: true }),
+                  })
+                  data = res.ok ? await res.json() : null
+                  liveToken = data?.token || data?.session?.token
+                }
+                if (liveToken) {
+                  processQrContent(liveToken)
+                  return
+                }
+              } catch (e) {
+                console.warn('[KioskDisplayQrScanner] pair error:', e)
+              }
+              setStatusMessage('Unable to connect to screen automatically. Please scan the QR code.')
+            }}
+          >
+            <Desktop size={16} weight="bold" />
+            <span>Connect to Screen ({kioskId})</span>
+          </button>
 
           <button
             type="button"

@@ -141,7 +141,9 @@ deviceRouter.post(['/demo/jobs', '/jobs'], async (req: Request, res: Response) =
     const jobId = req.body.jobId || `JOB-TEST-${Date.now().toString().slice(-4)}`
     const copies = Math.max(1, Math.min(Number(req.body.copies) || 1, 10))
     const colour = Boolean(req.body.colour)
-    const duplex = Boolean(req.body.duplex)
+    const duplex = typeof req.body.duplex === 'boolean'
+      ? req.body.duplex
+      : ['DOUBLE', 'DUPLEX', 'TWO-SIDED', '2-SIDED', 'TRUE', '1'].includes(String(req.body.duplex || '').toUpperCase().trim())
 
     const online = isKioskOnline(targetKiosk)
 

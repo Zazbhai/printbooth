@@ -87,6 +87,9 @@ export interface PrintJobState {
   fileDeleted?: boolean
   fileDeletedAt?: number
   kioskId?: string
+  masterOrderId?: string
+  fileIndex?: number
+  totalFiles?: number
 }
 
 export const printJobs = new Map<string, PrintJobState>()
@@ -402,7 +405,12 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
     const rawCol = String(req.body.colourMode || req.body.colour || 'BW').toUpperCase().replace('&', '')
     const colourMode = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
     const pageRange = req.body.pageRange || req.body.pages || 'ALL'
-    const duplex = (req.body.duplex || 'SINGLE').toUpperCase()
+    const rawDuplex = req.body.duplex
+    const duplex = (
+      typeof rawDuplex === 'boolean'
+        ? rawDuplex
+        : ['DOUBLE', 'DUPLEX', 'TWO-SIDED', '2-SIDED', 'TRUE', '1'].includes(String(rawDuplex || '').toUpperCase().trim())
+    ) ? 'DOUBLE' : 'SINGLE'
     const printerName = req.body.printerName || undefined
     const paperSize = (req.body.paperSize || req.body.paper_size || 'A4').toUpperCase()
     const scaling = (req.body.scaling || req.body.scale || 'FIT').toUpperCase()
@@ -437,9 +445,12 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
         attempts++
       } while (usedPinsRegistry.has(releasePin) && attempts < 50)
     }
-    const isImmediate = req.body.immediate === 'true' || req.body.immediate === true
-    const rawTotalPages = Number(req.body.totalPages || req.body.pageCount || req.body.totalSheets)
-    const resolvedTotalPages = Math.max(1, !isNaN(rawTotalPages) && rawTotalPages > 0 ? rawTotalPages : 1)
+    const isImmediate = req.body.isImmediate === true || req.body.isImmediate === 'true' || req.body.immediate === true || req.body.immediate === 'true'
+    const rawTotalPages = Number(req.body.totalPages || req.body.totalDocPages || req.body.pageCount) || 1
+    const resolvedTotalPages = Math.max(1, rawTotalPages)
+    const masterOrderId = req.body.masterOrderId || req.body.master_order_id || req.body.parentOrderId
+    const fileIndex = Number(req.body.fileIndex || req.body.file_index) || undefined
+    const totalFiles = Number(req.body.totalFiles || req.body.total_files) || undefined
 
     const jobState: PrintJobState = {
       orderId,
@@ -470,6 +481,9 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       fileDeleted: false,
       releasePin,
       kioskId: cleanKiosk,
+      masterOrderId: masterOrderId ? String(masterOrderId).trim() : undefined,
+      fileIndex,
+      totalFiles,
     }
 
     syncJobState(jobState)
@@ -543,6 +557,9 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
         pageCopies,
         pageColours,
         fileUrl: `${req.protocol}://${req.get('host')}/api/print/download/${orderId}`,
+        masterOrderId: masterOrderId ? String(masterOrderId).trim() : undefined,
+        fileIndex,
+        totalFiles,
         stagedAt: Date.now(),
       },
     })
@@ -729,14 +746,15 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
       job = await cacheGet<PrintJobState>(`print:job:${orderId}`)
     }
 
+    const masterOrderId = orderId.includes('_sub_') ? orderId.split('_sub_')[0] : orderId
     let order: any = null
     if (isDbConnected()) {
       try {
-        order = await Order.findOne({ $or: [{ orderId }, { orderNumber: orderId }] })
+        order = await Order.findOne({ $or: [{ orderId }, { orderNumber: orderId }, { orderId: masterOrderId }, { orderNumber: masterOrderId }] })
       } catch {}
     }
     if (!order) {
-      order = fallbackOrders.find((o) => o.orderId === orderId || o.orderNumber === orderId)
+      order = fallbackOrders.find((o) => o.orderId === orderId || o.orderNumber === orderId || o.orderId === masterOrderId || o.orderNumber === masterOrderId)
     }
 
     // ── Cryptographic Authentication & Multi-Merchant File Isolation ──
@@ -799,6 +817,14 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
 
     if (job?.filePath && fs.existsSync(job.filePath)) {
       return res.sendFile(path.resolve(job.filePath))
+    }
+
+    if (orderId.includes('_sub_')) {
+      const subIdx = parseInt(orderId.split('_sub_')[1], 10) - 1
+      const orderFileList = order?.files || order?.printSettings?.files
+      if (Array.isArray(orderFileList) && orderFileList[subIdx]?.filePath && fs.existsSync(orderFileList[subIdx].filePath)) {
+        return res.sendFile(path.resolve(orderFileList[subIdx].filePath))
+      }
     }
 
     if (order?.fileUrl && fs.existsSync(order.fileUrl)) {
@@ -919,38 +945,81 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
 
   console.log(`[PIN Verification] Verifying PIN '${pin}' for station ${kioskId}...`)
 
-  // ── 1. Search in-memory staged jobs ──
+  // ── 1. Search in-memory staged jobs (gather ALL jobs associated with this PIN) ──
+  const matchedJobs: PrintJobState[] = []
   for (const job of printJobs.values()) {
     if (job.releasePin === pin && (!job.kioskId || job.kioskId === kioskId)) {
-      if (job.isPinUsed || job.status === 'PRINTING' || job.status === 'PRINTED') {
-        usedPinsRegistry.add(pin)
-        cacheSet(`used_pin:${pin}`, '1', 86400 * 30).catch(() => {})
-        return {
-          success: false,
-          valid: false,
-          error: 'This PIN has already been used and is no longer valid.',
-        }
-      }
+      matchedJobs.push(job)
+    }
+  }
 
-      // 24-Hour Expiration Guard: Reject if file retention exceeded 24 hours
-      if (isOrderFileExpired(job)) {
-        usedPinsRegistry.add(pin)
-        cacheSet(`used_pin:${pin}`, '1', 86400 * 30).catch(() => {})
-        permanentlyDeleteOrderFiles(job.orderId, '24H_STORAGE_LIMIT_EXPIRED').catch(() => {})
-        console.log(`[PIN Verification] ⛔ BLOCKED: Job for Order ${job.orderId} exceeded 24-hour storage limit.`)
-        return {
-          success: false,
-          valid: false,
-          error: 'This PIN has expired (24-hour file storage limit exceeded). Uploaded files are deleted permanently after 24 hours.',
-        }
-      }
-
-      console.log(`[PIN Verification] ✓ In-memory job matched: Order ${job.orderId}. Purging PIN '${pin}' permanently...`)
-
-      // PERMANENT CONSUMPTION: Mark used and DELETE PIN from memory immediately
+  if (matchedJobs.length > 0) {
+    const anyUsed = matchedJobs.some(j => j.isPinUsed || j.status === 'PRINTING' || j.status === 'PRINTED')
+    if (anyUsed) {
       usedPinsRegistry.add(pin)
       cacheSet(`used_pin:${pin}`, '1', 86400 * 30).catch(() => {})
+      return {
+        success: false,
+        valid: false,
+        error: 'This PIN has already been used and is no longer valid.',
+      }
+    }
 
+    // 24-Hour Expiration Guard: Reject if file retention exceeded 24 hours
+    const anyExpired = matchedJobs.some(j => isOrderFileExpired(j))
+    if (anyExpired) {
+      usedPinsRegistry.add(pin)
+      cacheSet(`used_pin:${pin}`, '1', 86400 * 30).catch(() => {})
+      for (const j of matchedJobs) {
+        permanentlyDeleteOrderFiles(j.orderId, '24H_STORAGE_LIMIT_EXPIRED').catch(() => {})
+      }
+      console.log(`[PIN Verification] ⛔ BLOCKED: Order exceeded 24-hour storage limit.`)
+      return {
+        success: false,
+        valid: false,
+        error: 'This PIN has expired (24-hour file storage limit exceeded). Uploaded files are deleted permanently after 24 hours.',
+      }
+    }
+
+    console.log(`[PIN Verification] ✓ In-memory matched ${matchedJobs.length} document(s) for PIN '${pin}'. Executing each with exact specified settings...`)
+
+    // PERMANENT CONSUMPTION: Mark used and DELETE PIN from memory immediately
+    usedPinsRegistry.add(pin)
+    cacheSet(`used_pin:${pin}`, '1', 86400 * 30).catch(() => {})
+
+    const primaryJob = matchedJobs[0]
+    const masterOrderId = primaryJob.masterOrderId || primaryJob.orderId
+
+    // Synchronize database: permanently unset PIN and record in usedPins
+    if (isDbConnected()) {
+      const allOrderIds = matchedJobs.map(j => j.orderId)
+      if (masterOrderId) allOrderIds.push(masterOrderId)
+      await Order.updateMany(
+        { $or: [{ orderId: { $in: allOrderIds } }, { orderNumber: { $in: allOrderIds } }, { releasePin: pin }, { otp: pin }, { pickupCode: pin }] },
+        {
+          $set: { status: 'PRINTING', printedAt: new Date(), isPinUsed: true, pinUsedAt: new Date() },
+          $unset: { releasePin: 1, otp: 1, pickupCode: 1 },
+          $addToSet: { usedPins: pin },
+        }
+      ).catch(() => {})
+    }
+
+    // Purge in fallbackOrders
+    for (const fb of fallbackOrders) {
+      if (matchedJobs.some(j => j.orderId === fb.orderId) || fb.orderId === masterOrderId || fb.releasePin === pin || fb.otp === pin || fb.pickupCode === pin) {
+        fb.status = 'PRINTING'
+        fb.isPinUsed = true
+        fb.pinUsedAt = new Date()
+        delete fb.releasePin
+        delete fb.otp
+        delete fb.pickupCode
+      }
+    }
+
+    // Spool EVERY matched document with its own exact settings
+    let totalPrintCount = 0
+    for (let idx = 0; idx < matchedJobs.length; idx++) {
+      const job = matchedJobs[idx]
       job.status = 'PRINTING'
       job.isPinUsed = true
       job.pinUsedAt = Date.now()
@@ -959,42 +1028,22 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
       delete (job as any).pickupCode
       syncJobState(job)
 
-      // Synchronize database: permanently unset PIN and record in usedPins
-      if (isDbConnected()) {
-        await Order.updateMany(
-          { $or: [{ orderId: job.orderId }, { orderNumber: job.orderId }, { releasePin: pin }, { otp: pin }, { pickupCode: pin }] },
-          {
-            $set: { status: 'PRINTING', printedAt: new Date(), isPinUsed: true, pinUsedAt: new Date() },
-            $unset: { releasePin: 1, otp: 1, pickupCode: 1 },
-            $addToSet: { usedPins: pin },
-          }
-        ).catch(() => {})
-      }
-
-      // Purge in fallbackOrders
-      for (const fb of fallbackOrders) {
-        if (fb.orderId === job.orderId || fb.releasePin === pin || fb.otp === pin || fb.pickupCode === pin) {
-          fb.status = 'PRINTING'
-          fb.isPinUsed = true
-          fb.pinUsedAt = new Date()
-          delete fb.releasePin
-          delete fb.otp
-          delete fb.pickupCode
-        }
-      }
-
       const rawCol = String(job.colourMode || 'BW').toUpperCase().replace('&', '')
       const resolvedColour = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
       const resolvedCopies = Math.max(1, Number(job.copies) || 1)
       const targetKiosk = job.kioskId || kioskId
 
+      console.log(`[PIN Verification] 🖨️ Dispatching file [${idx + 1}/${matchedJobs.length}] "${job.fileName}" (${resolvedCopies} copies, ${resolvedColour}, ${job.duplex || 'SINGLE'}, pages: ${job.pageRange || 'ALL'}, paper: ${job.paperSize || 'A4'}, n-up: ${job.pagesPerSheet || 1})...`)
+
       if (isTestMode()) {
         simulateTestPrintJob(job)
       } else if (isKioskRelayConnected(targetKiosk)) {
-        console.log(`[PIN Verification] 📡 Relaying single canonical PIN_VERIFIED for Order ${job.orderId} to kiosk ${targetKiosk}...`)
         relayPinVerified(job.orderId, targetKiosk, {
           orderId: job.orderId,
-          orderNumber: (job as any).orderNumber || job.orderId,
+          orderNumber: (job as any).orderNumber || job.masterOrderId || job.orderId,
+          masterOrderId: job.masterOrderId || masterOrderId,
+          fileIndex: idx + 1,
+          totalFiles: matchedJobs.length,
           pinVerified: true,
           status: 'PRINTING',
           fileName: job.fileName,
@@ -1022,62 +1071,27 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
         simulateTestPrintJob(job)
       }
 
-      let docPages = Math.max(1, Number((job as any).totalDocPages || (job as any).docPageCount || job.totalPages || 1))
-      if (isDbConnected()) {
-        try {
-          const dbDoc = await Order.findOne({ $or: [{ orderId: job.orderId }, { orderNumber: job.orderId }] })
-          if (dbDoc && dbDoc.pageCount && dbDoc.pageCount > 1) {
-            docPages = Number(dbDoc.totalDocPages || dbDoc.docPageCount || dbDoc.pageCount) || docPages
-          }
-        } catch {}
-      }
+      totalPrintCount += resolvedCopies
+    }
 
-      const targetRange = String(job.pageRange || 'ALL').trim()
-      const specifiedPages = parsePageRangeList(targetRange, docPages)
-      const userPrintCount = specifiedPages.length * resolvedCopies
+    // Advance any active kiosk QR session to PRINTING state
+    try {
+      advanceSessionOnPinVerified(kioskId, pin, masterOrderId)
+    } catch (ksErr) {
+      console.warn('[KioskSession] advanceSessionOnPinVerified notice:', ksErr)
+    }
 
-      // Advance any active kiosk QR session to PRINTING state
-      try {
-        advanceSessionOnPinVerified(kioskId, pin, job.orderId)
-      } catch (ksErr) {
-        console.warn('[KioskSession] advanceSessionOnPinVerified notice:', ksErr)
-      }
-
-      return {
-        success: true,
-        valid: true,
-        message: 'PIN verified successfully! Hardware printing started.',
-        order: {
-          orderId: job.orderId,
-          orderNumber: (job as any).orderNumber || job.orderId,
-          fileName: job.fileName,
-          copies: resolvedCopies,
-          colourMode: resolvedColour,
-          duplex: job.duplex,
-          paperSize: job.paperSize || 'A4',
-          pageRange: targetRange,
-          pages: targetRange,
-          selectedPages: specifiedPages,
-          pageCount: specifiedPages.length,
-          totalPages: userPrintCount,
-          totalDocPages: docPages,
-          docPageCount: docPages,
-          printSettings: {
-            pageRange: targetRange,
-            pages: targetRange,
-            selectedPages: specifiedPages,
-            copies: resolvedCopies,
-            colourMode: resolvedColour,
-            duplex: job.duplex,
-            paperSize: job.paperSize,
-            pageColours: job.pageColours,
-            pageCopies: job.pageCopies,
-          },
-          pageColours: job.pageColours,
-          pageCopies: job.pageCopies,
-          status: 'PRINTING',
-        },
-      }
+    return {
+      success: true,
+      valid: true,
+      orderId: masterOrderId,
+      orderNumber: (primaryJob as any).orderNumber || masterOrderId,
+      fileName: matchedJobs.length > 1 ? `${matchedJobs.length} Documents` : primaryJob.fileName,
+      totalFiles: matchedJobs.length,
+      copies: primaryJob.copies,
+      colourMode: primaryJob.colourMode,
+      totalPrints: totalPrintCount,
+      message: `PIN verified! Dispatched ${matchedJobs.length} document(s) with exact specified settings to printer.`,
     }
   }
 
@@ -1247,44 +1261,132 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     existingJob.pinUsedAt = Date.now()
     delete existingJob.releasePin
   }
-  syncJobState(existingJob)
+  const filesList = (Array.isArray(order.files) && order.files.length > 0)
+    ? order.files
+    : (Array.isArray(order.printSettings?.files) && order.printSettings.files.length > 0)
+      ? order.printSettings.files
+      : []
 
-  if (isTestMode()) {
-    simulateTestPrintJob(existingJob)
-  } else if (isKioskRelayConnected(kioskId)) {
-    console.log(`[PIN Verification] 📡 Relaying single canonical PIN_VERIFIED for Order ${canonicalOrderId} to kiosk ${kioskId}...`)
-    relayPinVerified(canonicalOrderId, kioskId, {
-      orderId: canonicalOrderId,
-      orderNumber: canonicalOrderNumber,
-      pinVerified: true,
-      status: 'PRINTING',
-      fileName: order.fileName,
-      copies: resolvedCopies,
-      colourMode: resolvedColour,
-      colour: resolvedColour,
-      duplex: resolvedDuplex,
-      paperSize: resolvedPaper,
-      pageRange: resolvedRange,
-      pages: resolvedRange,
-      scaling: resolvedScaling,
-      pagesPerSheet: resolvedNUp,
-      margins: resolvedMargins,
-      contrastMode: resolvedContrast,
-      customScalePercent: resolvedCustomScale,
-      pageBorder: resolvedPageBorder,
-      dpi: resolvedDpi,
-      orientation: resolvedOrientation,
-      pageCopies: resolvedPageCopies,
-      pageColours: resolvedPageColours,
-      fileUrl: `/api/print/download/${canonicalOrderId}`,
-      dispatchedLocally: false,
-      spooledViaPrintExecute: true,
-      verifiedAt: Date.now(),
-    })
-  } else if (process.env.ALLOW_HOST_WINDOWS_PRINT === 'true') {
-    dispatchWindowsPrintJob(existingJob)
+  if (filesList.length > 1) {
+    console.log(`[PIN Verification] 🖨️ Relaying ${filesList.length} customized files from order database for ${canonicalOrderId}...`)
+    for (let idx = 0; idx < filesList.length; idx++) {
+      const f = filesList[idx]
+      const subOrderId = `${canonicalOrderId}_sub_${idx + 1}`
+      const fSettings = f.settings || {}
+      const fCopies = Math.max(1, Number(fSettings.copies || f.copies || resolvedCopies) || 1)
+      const rawFCol = String(fSettings.colour || f.colour || resolvedColour).toUpperCase().replace('&', '')
+      const fColour = (rawFCol === 'COLOUR' || rawFCol === 'COLOR') ? 'COLOUR' : 'BW'
+      const fDuplex = fSettings.duplex || f.duplex || resolvedDuplex
+      const fPaper = fSettings.paperSize || f.paperSize || resolvedPaper
+      const fRange = fSettings.pages || fSettings.pageRange || f.pageRange || f.pages || resolvedRange
+      const fScaling = fSettings.scaling || f.scaling || resolvedScaling
+      const fNUp = fSettings.pagesPerSheet || f.pagesPerSheet || resolvedNUp
+      const fOrientation = fSettings.orientation || f.orientation || resolvedOrientation
+      const fDpi = fSettings.dpi || f.dpi || resolvedDpi
+
+      const subJob: PrintJobState = {
+        orderId: subOrderId,
+        masterOrderId: canonicalOrderId,
+        fileIndex: idx + 1,
+        totalFiles: filesList.length,
+        fileName: f.fileName || `Document_${idx + 1}.pdf`,
+        filePath: f.filePath || order.fileUrl || '',
+        copies: fCopies,
+        colourMode: fColour,
+        duplex: fDuplex,
+        paperSize: fPaper,
+        pageRange: fRange,
+        scaling: fScaling,
+        pagesPerSheet: fNUp,
+        orientation: fOrientation,
+        dpi: fDpi,
+        pageColours: fSettings.pageColours || f.pageColours,
+        pageCopies: fSettings.pageCopies || f.pageCopies,
+        status: 'PRINTING',
+        printedPages: 0,
+        totalPages: f.pageCount || 1,
+        percent: 0,
+        startedAt: Date.now(),
+        kioskId,
+      }
+      syncJobState(subJob)
+
+      if (isTestMode()) {
+        simulateTestPrintJob(subJob)
+      } else if (isKioskRelayConnected(kioskId)) {
+        relayPinVerified(subOrderId, kioskId, {
+          orderId: subOrderId,
+          masterOrderId: canonicalOrderId,
+          fileIndex: idx + 1,
+          totalFiles: filesList.length,
+          orderNumber: canonicalOrderNumber,
+          pinVerified: true,
+          status: 'PRINTING',
+          fileName: subJob.fileName,
+          copies: fCopies,
+          colourMode: fColour,
+          colour: fColour,
+          duplex: fDuplex,
+          paperSize: fPaper,
+          pageRange: fRange,
+          pages: fRange,
+          scaling: fScaling,
+          pagesPerSheet: fNUp,
+          orientation: fOrientation,
+          dpi: fDpi,
+          pageCopies: subJob.pageCopies,
+          pageColours: subJob.pageColours,
+          fileUrl: `/api/print/download/${subOrderId}`,
+          dispatchedLocally: false,
+          spooledViaPrintExecute: true,
+          verifiedAt: Date.now(),
+        })
+      } else if (process.env.ALLOW_HOST_WINDOWS_PRINT === 'true') {
+        dispatchWindowsPrintJob(subJob)
+      } else {
+        simulateTestPrintJob(subJob)
+      }
+    }
   } else {
-    simulateTestPrintJob(existingJob)
+    syncJobState(existingJob)
+
+    if (isTestMode()) {
+      simulateTestPrintJob(existingJob)
+    } else if (isKioskRelayConnected(kioskId)) {
+      console.log(`[PIN Verification] 📡 Relaying single canonical PIN_VERIFIED for Order ${canonicalOrderId} to kiosk ${kioskId}...`)
+      relayPinVerified(canonicalOrderId, kioskId, {
+        orderId: canonicalOrderId,
+        orderNumber: canonicalOrderNumber,
+        pinVerified: true,
+        status: 'PRINTING',
+        fileName: order.fileName,
+        copies: resolvedCopies,
+        colourMode: resolvedColour,
+        colour: resolvedColour,
+        duplex: resolvedDuplex,
+        paperSize: resolvedPaper,
+        pageRange: resolvedRange,
+        pages: resolvedRange,
+        scaling: resolvedScaling,
+        pagesPerSheet: resolvedNUp,
+        margins: resolvedMargins,
+        contrastMode: resolvedContrast,
+        customScalePercent: resolvedCustomScale,
+        pageBorder: resolvedPageBorder,
+        dpi: resolvedDpi,
+        orientation: resolvedOrientation,
+        pageCopies: resolvedPageCopies,
+        pageColours: resolvedPageColours,
+        fileUrl: `/api/print/download/${canonicalOrderId}`,
+        dispatchedLocally: false,
+        spooledViaPrintExecute: true,
+        verifiedAt: Date.now(),
+      })
+    } else if (process.env.ALLOW_HOST_WINDOWS_PRINT === 'true') {
+      dispatchWindowsPrintJob(existingJob)
+    } else {
+      simulateTestPrintJob(existingJob)
+    }
   }
 
   const docPages = Math.max(1, Number(order.totalDocPages || order.docPageCount || order.pageCount || 1))

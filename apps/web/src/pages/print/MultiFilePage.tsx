@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { usePrintNavigate as useNavigate, usePrintFlow } from './PrintFlowContext'
 import {
@@ -11,6 +11,7 @@ import {
   FileDoc,
   FilePpt,
   File as FileIcon,
+  ArrowsClockwise,
 } from '@phosphor-icons/react'
 import {
   addFile,
@@ -25,10 +26,11 @@ import {
   isSupportedFileType,
   persistAllFilesToSession,
   persistActiveFileToSession,
+  calcFileTotalSheets,
   type ManagedFile,
 } from '../../lib/multiFileStore'
 import { clearUploadedDoc, setUploadedDoc, getUploadedFileAsync } from '../../lib/documentStore'
-import { kioskSession } from '../../lib/kioskSession'
+import { kioskSession, getActiveKioskSession, clearActiveKioskSession } from '../../lib/kioskSession'
 import { ClearDocumentModal } from '../../components/ui/ClearDocumentModal'
 import { renderFilePages } from '../../lib/multiFileRenderer'
 import { generateDocumentPages } from '../../lib/documentPreview'
@@ -71,16 +73,20 @@ export default function MultiFilePage() {
   const [showClearAllModal, setShowClearAllModal] = useState(false)
 
   // Kiosk Remote Upload state: when user opened via kiosk QR
-  const isKioskMode = kioskSession.isKioskSession()
-  const [isTransferredToKiosk, setIsTransferredToKiosk] = useState(false)
-  const [kioskLiveStatus, setKioskLiveStatus] = useState<any>(null)
-
-  // Report to kiosk display immediately that user's phone is connected and ready to upload
-  useEffect(() => {
-    if (kioskSession.isKioskSession()) {
-      kioskSession.reportUploading()
+  const isKioskMode = useMemo(() => {
+    if (kioskSession.isKioskSession()) return true
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      if (sp.get('session')) return true
+      if (sessionStorage.getItem('pb_kiosk_session_token') || localStorage.getItem('pb_kiosk_session_token')) return true
+      if (sessionStorage.getItem('pb_kiosk_session_id') || localStorage.getItem('pb_kiosk_session_id')) return true
+      if (sessionStorage.getItem('pb_kiosk_id') || sp.get('id') || (flow && flow.printerId)) return true
     }
-  }, [])
+    return false
+  }, [searchParams, flow])
+  const [isTransferredToKiosk, setIsTransferredToKiosk] = useState(false)
+  const [isSendingToKiosk, setIsSendingToKiosk] = useState(false)
+  const [kioskLiveStatus, setKioskLiveStatus] = useState<any>(null)
 
   useEffect(() => {
     if (!isTransferredToKiosk) return
@@ -243,6 +249,12 @@ export default function MultiFilePage() {
     }
 
     setDropError(null)
+    const isPpt = /\.(pptx?|ppsx?)$/i.test(file.name)
+    const isDocx = /\.(docx?|doc)$/i.test(file.name)
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportUploading(file.name)
+    }
+
     const entry = addFile(file)
     if (!entry) {
       setDropError(`"${file.name}" is already in your list or could not be added.`)
@@ -250,7 +262,13 @@ export default function MultiFilePage() {
     }
 
     updateFile(entry.id, { status: 'processing' })
-    setProcessingStatus(`Rendering pages for ${file.name}…`)
+    setProcessingStatus(
+      isPpt
+        ? `Processing PPT & converting to PDF for ${file.name}…`
+        : isDocx
+        ? `Processing DOCX & converting to PDF for ${file.name}…`
+        : `Rendering pages for ${file.name}…`
+    )
 
     try {
       const pages = await renderFilePages(file, fileType, () => {})
@@ -298,35 +316,81 @@ export default function MultiFilePage() {
   }
 
   const handleUploadToKiosk = useCallback(async () => {
-    const ready = getAllFiles().filter(f => f.status === 'ready')
-    if (ready.length === 0) return
+    const all = getAllFiles()
+    let ready = all.filter(f => f.status === 'ready')
+    if (ready.length === 0 && all.length > 0) {
+      ready = all
+    }
+    if (ready.length === 0) {
+      return { success: false, error: 'No files available to transfer' }
+    }
 
     const primary = ready[0]
     const file = primary.file || (await getUploadedFileAsync())
 
-    const previews = primary.realPages?.map((p, idx) => ({
-      pageNumber: p.pageNumber || idx + 1,
-      url: p.url,
-      title: p.title || `Page ${idx + 1}`,
-    })) || []
+    const totalSheets = ready.reduce((acc, f) => acc + (calcFileTotalSheets(f) || f.pageCount || 1), 0)
+    const totalSize = ready.reduce((acc, f) => acc + (f.fileSize || 0), 0)
+    const combinedFileName = ready.length > 1
+      ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}`
+      : primary.fileName
 
-    // Fire non-blocking background upload to kiosk display
-    kioskSession.uploadDocument({
-      file,
-      fileName: primary.fileName,
-      fileSize: primary.fileSize,
-      fileType: primary.fileType,
-      pageCount: primary.pageCount || 1,
-      previews,
-    }).then(result => {
+    // Gather previews across all ready files so kiosk preview gallery shows all pages (max 5 for fast transfer)
+    const allPreviews: Array<{ pageNumber: number; url: string; title?: string }> = []
+    let pageCounter = 1
+    for (const f of ready) {
+      if (f.realPages && f.realPages.length > 0) {
+        for (const p of f.realPages) {
+          allPreviews.push({
+            pageNumber: pageCounter++,
+            url: p.url,
+            title: ready.length > 1 ? `${f.fileName} • P.${p.pageNumber || 1}` : (p.title || `Page ${p.pageNumber || 1}`),
+          })
+          if (allPreviews.length >= 5) break
+        }
+      } else if (f.thumbnail) {
+        allPreviews.push({
+          pageNumber: pageCounter++,
+          url: f.thumbnail,
+          title: f.fileName,
+        })
+      }
+      if (allPreviews.length >= 5) break
+    }
+
+    // Clean metadata: STRICTLY NO huge base64 strings in file metadata
+    const filesMetadata = ready.map(f => ({
+      id: f.id,
+      fileName: f.fileName,
+      fileSize: f.fileSize,
+      fileType: f.fileType,
+      pageCount: f.pageCount || 1,
+      copies: f.settings?.copies || 1,
+      colour: f.settings?.colour || 'BW',
+      duplex: f.settings?.duplex || 'SINGLE',
+    }))
+
+    // Fire upload to kiosk display
+    try {
+      const result = await kioskSession.uploadDocument({
+        file,
+        fileName: combinedFileName,
+        fileSize: totalSize,
+        fileType: ready.length > 1 ? 'multifile' : primary.fileType,
+        pageCount: totalSheets,
+        previews: allPreviews,
+        files: filesMetadata,
+      })
       if ((result as any)?.machineInUse) {
         window.dispatchEvent(new CustomEvent('kiosk:machine_in_use', {
           detail: { kioskId: kioskSession.getKioskId() || 'PB-001' }
         }))
+        return { success: false, machineInUse: true, error: 'Machine is currently in use' }
       }
-    }).catch(err => {
+      return result || { success: true }
+    } catch (err: any) {
       console.warn('[MultiFilePage] Background kiosk transfer error:', err)
-    })
+      return { success: false, error: err?.message || 'Transfer failed' }
+    }
   }, [])
 
   const transitionToConfirm = useCallback(() => {
@@ -336,20 +400,37 @@ export default function MultiFilePage() {
     }
     setIsUploadAnimating(false)
     setIsProcessing(false)
+
+    // Ensure all uploaded files are marked ready
+    const all = getAllFiles()
+    all.forEach(f => {
+      if (f.status !== 'ready') {
+        updateFile(f.id, { status: 'ready' })
+      }
+    })
+
     persistAllFilesToSession()
     persistActiveFileToSession()
 
-    const ready = getAllFiles().filter(f => f.status === 'ready')
+    const ready = getAllFiles()
+    let combinedFileName = ''
+    let totalSheets = 1
     if (ready.length > 0) {
       const first = ready[0]
-      sessionStorage.setItem('pb_file_name', first.fileName)
-      sessionStorage.setItem('pb_file_size', String(first.fileSize))
-      sessionStorage.setItem('pb_page_count', String(first.pageCount))
+      totalSheets = ready.reduce((acc, f) => acc + (calcFileTotalSheets(f) || f.pageCount || 1), 0)
+      const totalSize = ready.reduce((acc, f) => acc + (f.fileSize || 0), 0)
+      combinedFileName = ready.length > 1
+        ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}`
+        : first.fileName
+
+      sessionStorage.setItem('pb_file_name', combinedFileName)
+      sessionStorage.setItem('pb_file_size', String(totalSize))
+      sessionStorage.setItem('pb_page_count', String(totalSheets))
       sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
     }
-    // In Kiosk QR Mode: initiate fast transfer to kiosk in background and proceed straight to settings
+
+    // In Kiosk QR Mode: proceed to settings
     if (isKioskMode) {
-      handleUploadToKiosk()
       sessionStorage.setItem('pb_print_step', 'settings')
       if (flow?.goToStep) {
         flow.goToStep('settings')
@@ -359,12 +440,67 @@ export default function MultiFilePage() {
       return
     }
 
+    sessionStorage.setItem('pb_confirm_mode', 'doc')
+    sessionStorage.setItem('pb_print_step', 'confirm')
+
     if (flow?.goToStep) {
       flow.goToStep('confirm')
     } else {
       navigate('/print/confirm')
     }
-  }, [flow, navigate, isKioskMode, handleUploadToKiosk])
+  }, [flow, navigate, isKioskMode])
+
+  const handleTransferToKiosk = useCallback(async () => {
+    if (isSendingToKiosk) return
+
+    // Ensure all uploaded files are marked ready
+    const all = getAllFiles()
+    all.forEach(f => {
+      if (f.status !== 'ready') {
+        updateFile(f.id, { status: 'ready' })
+      }
+    })
+
+    persistAllFilesToSession()
+    persistActiveFileToSession()
+
+    const ready = getAllFiles()
+    if (ready.length === 0) return
+
+    const first = ready[0]
+    const totalSheets = ready.reduce((acc, f) => acc + (calcFileTotalSheets(f) || f.pageCount || 1), 0)
+    const totalSize = ready.reduce((acc, f) => acc + (f.fileSize || 0), 0)
+    const combinedFileName = ready.length > 1
+      ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}`
+      : first.fileName
+
+    sessionStorage.setItem('pb_file_name', combinedFileName)
+    sessionStorage.setItem('pb_file_size', String(totalSize))
+    sessionStorage.setItem('pb_page_count', String(totalSheets))
+    sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
+
+    setIsSendingToKiosk(true)
+    setDropError(null)
+
+    try {
+      const res = await handleUploadToKiosk()
+      if (res && (res as any).machineInUse) {
+        setDropError('This kiosk is currently in use by another person. Please wait a moment.')
+      } else if (res && (res as any).error && !(res as any).success) {
+        // Log warning and proceed with local configuration
+        console.warn('[MultiFilePage] Kiosk transfer warning, advancing to settings:', res)
+        transitionToConfirm()
+      } else {
+        // Redirection to configuration / settings phase
+        transitionToConfirm()
+      }
+    } catch (err: any) {
+      console.error('[MultiFilePage] handleTransferToKiosk error:', err)
+      transitionToConfirm()
+    } finally {
+      setIsSendingToKiosk(false)
+    }
+  }, [isSendingToKiosk, handleUploadToKiosk, transitionToConfirm])
 
   // Cleanup safety timeout on unmount
   useEffect(() => {
@@ -376,6 +512,19 @@ export default function MultiFilePage() {
   }, [])
 
   async function handleFiles(fileList: FileList | File[]) {
+    // If kiosk session was reported expired, clear stale session but let local file upload proceed
+    if (kioskSession.isKioskSession()) {
+      const activeSess = getActiveKioskSession()
+      if (activeSess.sessionId) {
+        try {
+          const status = await kioskSession.getStatus()
+          if (status.isExpired) {
+            clearActiveKioskSession()
+          }
+        } catch {}
+      }
+    }
+
     if (printerIssue?.hasIssue && !userDismissedRef.current) {
       setDropError(`Cannot upload: ${printerIssue.reason}. Uploading is disabled.`)
       return
@@ -408,18 +557,15 @@ export default function MultiFilePage() {
     }
 
     setDropError(null)
-    setIsUploadAnimating(true)
     setIsProcessing(true)
+    setIsUploadAnimating(false)
     processingCompleteRef.current = false
     animationCompleteRef.current = false
 
-    // Safety fallback: if for any reason onComplete doesn't fire after 9s, proceed to settings
-    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current)
-    safetyTimeoutRef.current = setTimeout(() => {
-      if (processingCompleteRef.current) {
-        transitionToConfirm()
-      }
-    }, 9000)
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current)
+      safetyTimeoutRef.current = null
+    }
 
     uploadAnimRef.current?.triggerAnimation()
     setProcessingStatus(`Uploading ${arr.length} ${arr.length === 1 ? 'file' : 'files'}…`)
@@ -444,11 +590,10 @@ export default function MultiFilePage() {
     }
 
     setIsProcessing(false)
+    setIsUploadAnimating(false)
     setProcessingStatus('')
 
     if (!anySuccess) {
-      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current)
-      setIsUploadAnimating(false)
       uploadAnimRef.current?.reset()
       return
     }
@@ -458,8 +603,8 @@ export default function MultiFilePage() {
     persistAllFilesToSession()
     persistActiveFileToSession()
 
-    // INSTANT TRANSITION: Move to confirm page immediately with zero delay
-    transitionToConfirm()
+    // Automatically transfer to kiosk session and redirect to configuration phase
+    await handleTransferToKiosk()
   }
 
   function handleRemoveFile(id: string) {
@@ -493,10 +638,8 @@ export default function MultiFilePage() {
 
   const handleUploadComplete = useCallback(() => {
     animationCompleteRef.current = true
-    if (processingCompleteRef.current) {
-      transitionToConfirm()
-    }
-  }, [transitionToConfirm])
+    setIsUploadAnimating(false)
+  }, [])
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
@@ -524,17 +667,17 @@ export default function MultiFilePage() {
     const stateDesc = (() => {
       switch (kioskLiveStatus?.state) {
         case 'CONFIRMING':
-          return '👀 Kiosk Touchscreen: Reviewing pages on screen...'
+          return '👀 Kiosk: Reviewing pages on screen…'
         case 'CONFIGURING':
-          return '⚙️ Kiosk Touchscreen: Selecting print options (Colour, Copies, Duplex)...'
+          return '⚙️ Kiosk: Selecting print options…'
         case 'PAYING':
-          return '💳 Kiosk Touchscreen: UPI Payment in progress...'
+          return '💳 Kiosk: UPI Payment in progress…'
         case 'PRINTING':
-          return '🖨️ Kiosk: Printing your document on Brother hardware...'
+          return '🖨️ Printing your document…'
         case 'DONE':
-          return '🎉 Print complete! Please collect your document from the tray below.'
+          return '🎉 Print complete! Please collect your document from the output tray.'
         default:
-          return '🖥️ Connected to Kiosk Touchscreen — Awaiting user interaction'
+          return '🖥️ Connected to Kiosk'
       }
     })()
 
@@ -639,8 +782,8 @@ export default function MultiFilePage() {
           <div className="mfp-kiosk-banner-left">
             <span className="mfp-kiosk-banner-dot" />
             <div>
-              <div className="mfp-kiosk-banner-title">Connected to Station {searchParams.get('id') || kioskSession.getKioskId() || 'PB-001'}</div>
-              <div className="mfp-kiosk-banner-sub">Upload file here. The kiosk display mirrors your steps in real-time — zero touch required.</div>
+              <div className="mfp-kiosk-banner-title">Connected to {flow?.kioskName || 'PrintBooth Station'}</div>
+              <div className="mfp-kiosk-banner-sub">Upload your files here. The kiosk display updates in real time.</div>
             </div>
           </div>
         </div>
@@ -650,7 +793,7 @@ export default function MultiFilePage() {
       <div className="mfp-header">
         <h1 className="mfp-title">Upload Documents</h1>
         <p className="mfp-subtitle">
-          Upload single or multiple files to print. Instant client-side page rendering.
+          Upload single or multiple files to print instantly.
         </p>
 
         {flow?.printerId && (
@@ -671,7 +814,7 @@ export default function MultiFilePage() {
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
             }}
           >
-            <span>Station: <strong>{flow.kioskName || flow.printerId}</strong> ({flow.printerId})</span>
+            <span>Station: <strong>{flow.kioskName || flow.printerId}</strong></span>
             <button
               type="button"
               onClick={() => flow.goToStep('kiosk')}
@@ -697,7 +840,7 @@ export default function MultiFilePage() {
 
 
       {/* ── Uploaded Documents List with Individual Delete & Clear All ── */}
-      {files.length > 0 && !isProcessing && !isUploadAnimating && (
+      {files.length > 0 && (
         <div className="mfp-file-list" style={{ width: '100%', maxWidth: '580px' }}>
           <div className="mfp-file-list-header">
             <span className="mfp-file-list-title">
@@ -755,12 +898,45 @@ export default function MultiFilePage() {
               </div>
             </div>
           ))}
+
+          {/* Primary In-Flow Transfer Button DIRECTLY below uploaded files */}
+          <div className="mfp-transfer-section" style={{ marginTop: '14px', width: '100%' }}>
+            <button
+              type="button"
+              className="mfp-transfer-kiosk-btn"
+              onClick={handleTransferToKiosk}
+              disabled={isSendingToKiosk || isProcessing}
+              id="mfp-transfer-to-kiosk-btn"
+            >
+              {isSendingToKiosk ? (
+                <>
+                  <ArrowsClockwise size={18} weight="bold" className="spin-fast" />
+                  <span>Transferring to Kiosk Screen…</span>
+                </>
+              ) : (
+                <>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                    <line x1="8" y1="21" x2="16" y2="21" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                  </svg>
+                  <span>Transfer to Kiosk ({readyCount} {readyCount === 1 ? 'File' : 'Files'})</span>
+                  <span className="mfp-btn-icon-circle">
+                    <ArrowRight size={14} weight="bold" />
+                  </span>
+                </>
+              )}
+            </button>
+            <span className="mfp-transfer-hint-sub">
+              Sends your {readyCount === 1 ? 'document' : 'documents'} directly to the kiosk screen for instant preview &amp; printing
+            </span>
+          </div>
         </div>
       )}
 
       {/* Double-Bezel Drop Zone (Available while under file limit) */}
       {files.length < MAX_FILES ? (
-        <div className="mfp-dropzone-shell">
+        <div className={`mfp-dropzone-shell ${files.length > 0 ? 'has-files' : ''}`}>
           <div
             className={`mfp-dropzone${dragOver ? ' drag-over' : ''}${isProcessing || isUploadAnimating ? ' processing' : ''}`}
             onDrop={handleDrop}
@@ -840,7 +1016,7 @@ export default function MultiFilePage() {
       </div>
 
       {/* Sticky Bottom Action Bar when files are uploaded & ready */}
-      {readyCount > 0 && !isProcessing && !isUploadAnimating && (
+      {readyCount > 0 && (
         <div className="mfp-action-bar">
           <div className="mfp-action-info">
             <span className="mfp-action-count">
@@ -850,15 +1026,25 @@ export default function MultiFilePage() {
 
           <button
             type="button"
-            onClick={transitionToConfirm}
+            onClick={handleTransferToKiosk}
+            disabled={isSendingToKiosk || isProcessing}
             className="mfp-view-confirm-link"
-            style={{ border: 'none', cursor: 'pointer' }}
+            style={{ border: 'none', cursor: isSendingToKiosk ? 'not-allowed' : 'pointer' }}
             id="mfp-continue-btn"
           >
-            <span>{isKioskMode ? 'Transfer to Kiosk & Continue' : 'Continue'}</span>
-            <span className="mfp-btn-icon-circle">
-              <ArrowRight size={13} weight="bold" />
-            </span>
+            {isSendingToKiosk ? (
+              <>
+                <ArrowsClockwise size={14} weight="bold" className="spin-fast" />
+                <span>Transferring…</span>
+              </>
+            ) : (
+              <>
+                <span>Transfer to Kiosk</span>
+                <span className="mfp-btn-icon-circle">
+                  <ArrowRight size={13} weight="bold" />
+                </span>
+              </>
+            )}
           </button>
         </div>
       )}

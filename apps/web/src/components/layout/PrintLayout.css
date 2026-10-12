@@ -506,9 +506,10 @@ body.printer-offline-active #header-recent-prints-btn {
   overflow-x: hidden;
 }
 
-/* Settings & Confirm pages — natural scroll with clearance for sticky bottom dock */
+/* Settings & Confirm pages & Multi-file upload — natural scroll with clearance for sticky bottom dock */
 .print-content:has(.clean-settings-container),
-.print-content:has(.cfp-root) {
+.print-content:has(.cfp-root),
+.print-content:has(.mfp-root) {
   padding-block: 4px 110px;
   display: flex;
   flex-direction: column;
@@ -516,7 +517,9 @@ body.printer-offline-active #header-recent-prints-btn {
 
 /* ── Responsive Behavior ── */
 @media (max-width: 640px) {
-  .print-content:has(.clean-settings-container) {
+  .print-content:has(.clean-settings-container),
+  .print-content:has(.cfp-root),
+  .print-content:has(.mfp-root) {
     padding-block: 4px 120px;
     padding-inline: 8px;
   }

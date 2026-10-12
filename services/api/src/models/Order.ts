@@ -45,6 +45,7 @@ export interface IOrder extends Document {
     confirmedAt?: Date
     confirmedBy?: string
   }
+  paymentDetails?: Record<string, any>
   pickupCode?: string
   releasePin?: string
   otp?: string
@@ -113,6 +114,7 @@ const OrderSchema = new Schema<IOrder>(
       confirmedAt: { type: Date },
       confirmedBy: { type: String },
     },
+    paymentDetails: { type: Schema.Types.Mixed },
     pickupCode: { type: String, index: true },
     releasePin: { type: String, index: true },
     otp: { type: String, index: true },

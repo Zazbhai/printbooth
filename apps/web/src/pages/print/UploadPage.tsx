@@ -194,9 +194,28 @@ export default function UploadPage() {
       realPages: null,
     }))
 
+    const isPpt = /\.(pptx?)$/i.test(file.name)
+    const isDocx = /\.(docx?)$/i.test(file.name)
+    if (kioskSession.isKioskSession()) {
+      if (isPpt || isDocx) {
+        kioskSession.reportProcessing(file.name, isPpt ? 'PPT' : 'DOCX')
+      } else {
+        kioskSession.reportUploading(file.name)
+      }
+    }
+
     try {
       const fileType = getFileType(file)
-      const extractedPages = await renderFilePages(file, fileType)
+      const RENDER_TIMEOUT_MS = 30000 // 30s max — prevents infinite hang on phones
+      const extractedPages = await Promise.race([
+        renderFilePages(file, fileType),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Document processing timed out. Please try again or use a smaller file.')),
+            RENDER_TIMEOUT_MS
+          )
+        ),
+      ])
       const pageCount = extractedPages.length || 1
 
       // Save real document & real rendered page data URLs

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { usePrintNavigate as useNavigate, usePrintFlow } from './PrintFlowContext'
 import {
   Clock,
@@ -16,7 +17,7 @@ import {
   Printer,
 } from '@phosphor-icons/react'
 import { createPrintOrder, sendPrintJob } from '@/lib/api'
-import { getAllFiles, hasAnyReadyFile, parsePageRange, type FileSettings, type ManagedFile } from '@/lib/multiFileStore'
+import { getAllFiles, hasAnyReadyFile, computeTotalPrice, parsePageRange, type FileSettings, type ManagedFile } from '@/lib/multiFileStore'
 import { getUploadedFileAsync, hasRealUploadedDoc } from '@/lib/documentStore'
 import { getFileFromCache } from '@/lib/fileCache'
 import { isCanonicalKioskFormat } from '@/lib/kioskValidation'
@@ -29,7 +30,6 @@ import { kioskSession } from '@/lib/kioskSession'
 import './PaymentPage.css'
 
 const API = getApiHostUrl()
-const VITE_RZP_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID ?? ''
 
 type PaymentStatus = 'WAITING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
 type LogLevel = 'info' | 'success' | 'error' | 'warn'
@@ -65,10 +65,6 @@ function loadRazorpayScript(): Promise<boolean> {
   })
 }
 
-/** Generate QR code SVG URL via Google Charts API */
-function makeQrUrl(data: string, size = 220) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&format=svg&ecc=M`
-}
 
 /** Detect mobile device */
 function isMobileDevice() {
@@ -84,7 +80,15 @@ export default function PaymentPage() {
   const flow = usePrintFlow()
 
   // ── Session data ──
-  const totalPrice  = Number(sessionStorage.getItem('pb_total_price') ?? 10)
+  const storedPrice = Number(sessionStorage.getItem('pb_total_price') ?? 10)
+  const liveComputedPrice = computeTotalPrice()
+  const totalPrice = liveComputedPrice > 0 ? liveComputedPrice : storedPrice
+
+  useEffect(() => {
+    if (totalPrice > 0) {
+      sessionStorage.setItem('pb_total_price', String(totalPrice))
+    }
+  }, [totalPrice])
   const fileName    = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_file_name') : null) ?? 'document.pdf'
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const kioskId     = searchParams?.get('kioskId') || searchParams?.get('id') || flow?.printerId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_kiosk_id') : '') || 'PB-001'
@@ -155,8 +159,9 @@ export default function PaymentPage() {
   // ── State ──
   const [status,          setStatus]          = useState<PaymentStatus>('WAITING')
   const [timeLeft,        setTimeLeft]        = useState(10 * 60)
-  const [,                setErrorMsg]        = useState('')
-  const [rzpKeyId,        setRzpKeyId]        = useState<string>(VITE_RZP_KEY)
+  const [gatewayErrorMsg, setGatewayErrorMsg] = useState<string>('')
+  const setErrorMsg = (msg: string) => setGatewayErrorMsg(msg)
+  const [rzpKeyId,        setRzpKeyId]        = useState<string>('')
   const [razorpayReady,   setRazorpayReady]   = useState(false)
   const [apiOnline,       setApiOnline]       = useState(false)
 
@@ -166,7 +171,6 @@ export default function PaymentPage() {
     return 'upiexpress'
   })
   const [upieConfigured,  setUpieConfigured]  = useState(false)
-  const [merchantUpiId,   setMerchantUpiId]   = useState<string>('')
   const [isInitializing,  setIsInitializing]  = useState(true)
 
   // Tracks whether auto-fire has already been attempted
@@ -182,7 +186,6 @@ export default function PaymentPage() {
   const [isMobile,        setIsMobile]        = useState<boolean>(isMobileDevice)
   const [showMoreMethods, setShowMoreMethods] = useState<boolean>(false)
   const isKioskMode = kioskSession.isKioskSession()
-  const [showDirectPayOnPhone, setShowDirectPayOnPhone] = useState<boolean>(false)
 
   useEffect(() => {
     const handleDeviceCheck = () => {
@@ -236,16 +239,20 @@ export default function PaymentPage() {
             log(`✓ Station ${kioskId} assigned gateway: ${gw.toUpperCase()}`, 'success')
             if (j.data.razorpayKeyId) {
               setRzpKeyId(j.data.razorpayKeyId)
+            } else {
+              setRzpKeyId('')
             }
             if (j.data.upiExpressConfigured !== undefined) {
               setUpieConfigured(Boolean(j.data.upiExpressConfigured))
             }
-            if (j.data.merchantUpiId) {
-              setMerchantUpiId(j.data.merchantUpiId)
+            if (j.data.isConfigured === false) {
+              setGatewayErrorMsg(j.data.errorMessage || `Payment gateway (${gw.toUpperCase()}) credentials are not configured for Station ${kioskId}. Please notify the merchant.`)
+            } else {
+              setGatewayErrorMsg('')
             }
           }
         } catch (err) {
-          log(`Station payment config fetch failed (using fallback): ${err}`, 'warn')
+          log(`Station payment config fetch failed: ${err}`, 'warn')
         }
       }
 
@@ -260,14 +267,11 @@ export default function PaymentPage() {
           setApiOnline(true)
           log(`✓ Backend online — Razorpay Key: ${j.data.keyId.slice(0, 12)}… Mode: ${j.data.mode}`, 'success')
         } else {
+          setRzpKeyId('')
           log('Backend responded but Razorpay key not configured', 'warn')
         }
       } catch (err) {
-        if (VITE_RZP_KEY) {
-          log(`Backend offline — using VITE_RAZORPAY_KEY_ID fallback: ${VITE_RZP_KEY.slice(0, 12)}…`, 'warn')
-        } else {
-          log('Backend offline and no VITE_RAZORPAY_KEY_ID set', 'error')
-        }
+        log('Backend offline or Razorpay config unavailable', 'error')
       }
 
       // Fetch UPI Express config
@@ -324,24 +328,29 @@ export default function PaymentPage() {
     }
   }, [])
 
-  // ── Auto-fire payment gateway once init completes ──
+  // ── Auto-fire payment gateway once init completes or when order amount updates ──
   useEffect(() => {
     if (isInitializing) return          // still loading
-    if (autoFiredRef.current) return     // already fired
     if (status !== 'WAITING') return     // already in progress / done
-    autoFiredRef.current = true
+
     if (selectedGateway === 'upiexpress' && upieConfigured) {
-      log('Auto-launching UPI Express payment gateway…')
-      handleUpiExpressPayment()
+      const orderAmountMatches = upieOrder && Math.abs(Number(upieOrder.amount) - Number(totalPrice)) <= 0.25
+      if (!upieOrder || !orderAmountMatches) {
+        log(`Auto-launching UPI Express payment gateway for ₹${totalPrice}…`)
+        handleUpiExpressPayment()
+      }
     } else if (selectedGateway === 'razorpay' && razorpayReady && rzpKeyId) {
-      log('✓ Dynamic Razorpay direct payment hub active on screen', 'info')
+      if (!autoFiredRef.current) {
+        autoFiredRef.current = true
+        log('✓ Dynamic Razorpay direct payment hub active on screen', 'info')
+      }
     } else {
       // Fallback: if gateway not ready yet, nothing to do — user can tap manually
       log('Gateway ready for direct method selection', 'info')
       autoFiredRef.current = false  // allow retry when user taps
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitializing, upieConfigured, razorpayReady, rzpKeyId, selectedGateway])
+  }, [isInitializing, upieConfigured, razorpayReady, rzpKeyId, selectedGateway, totalPrice])
 
   // ── WSS Relay: Catch payments in real-time with sub-50ms latency ──
   useEffect(() => {
@@ -370,6 +379,9 @@ export default function PaymentPage() {
         totalPages: isMultiFile
           ? multiFiles.reduce((s, f) => s + f.pageCount * (f.settings?.copies || 1), 0)
           : pageCount * settings.copies,
+        copies: settings.copies,
+        colourMode: settings.colour,
+        duplex: settings.duplex,
         amount: totalPrice,
         orderId,
       })
@@ -436,6 +448,24 @@ export default function PaymentPage() {
       : settings.colour === 'COLOUR'
     const effectiveColourMode = hasAnyColourPage ? 'COLOUR' : 'BW'
 
+    const allCandidateFiles = [
+      ...multiFiles.map(f => f.fileName || ''),
+      fileName || '',
+    ]
+    const hasPptDoc = allCandidateFiles.some(f => /\.(pptx?|ppsx?)$/i.test(f))
+    const hasDocxDoc = allCandidateFiles.some(f => /\.(docx?|doc)$/i.test(f))
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportPrinting({
+        orderId,
+        fileName: hasPptDoc ? 'presentation.pptx' : hasDocxDoc ? 'document.docx' : fileName,
+        phase: hasPptDoc
+          ? 'Payment confirmed! Processing PPT into print PDF…'
+          : hasDocxDoc
+          ? 'Payment confirmed! Processing DOCX into print PDF…'
+          : 'Payment confirmed! Preparing print job…',
+      })
+    }
+
     try {
       const selectedPgs = parsePageRange(settings.pages || 'ALL', pageCount)
       const effectivePageCount = selectedPgs.length
@@ -474,6 +504,30 @@ export default function PaymentPage() {
           pageBorder: Boolean(settings.pageBorder),
           pageCopies: settings.pageCopies,
           pageColours: settings.pageColours,
+          files: multiFiles.map(f => ({
+            id: f.id,
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            fileType: f.fileType,
+            pageCount: f.pageCount,
+            copies: f.settings?.copies || settings.copies || 1,
+            colour: (f.settings?.colour || settings.colour || 'BW') as 'BW' | 'COLOUR',
+            colourMode: (f.settings?.colour || settings.colour || 'BW') as 'BW' | 'COLOUR',
+            duplex: (f.settings?.duplex || settings.duplex || 'SINGLE') as 'SINGLE' | 'DOUBLE',
+            pages: f.settings?.pages || 'ALL',
+            pageRange: f.settings?.pages || 'ALL',
+            paperSize: f.settings?.paperSize || 'A4',
+            scaling: f.settings?.scaling || 'FIT',
+            pagesPerSheet: f.settings?.pagesPerSheet || 1,
+            orientation: f.settings?.orientation || 'AUTO',
+            dpi: f.settings?.dpi || '600',
+            margins: f.settings?.margins || 'STANDARD',
+            contrastMode: f.settings?.contrastMode || 'BALANCED',
+            pageBorder: Boolean(f.settings?.pageBorder),
+            pageCopies: f.settings?.pageCopies,
+            pageColours: f.settings?.pageColours,
+            settings: f.settings,
+          })),
         },
       })
       finalOrderId = created?.orderNumber || orderId
@@ -558,8 +612,9 @@ export default function PaymentPage() {
     let lastError = ''
 
     if (multiFilesReady.length > 0) {
-      log(`🖨 Transmitting ${multiFilesReady.length} document(s) with selected settings to printer…`, 'info')
-      for (const mf of multiFilesReady) {
+      log(`🖨 Transmitting ${multiFilesReady.length} document(s) with exact customized settings to printer…`, 'info')
+      for (let idx = 0; idx < multiFilesReady.length; idx++) {
+        const mf = multiFilesReady[idx]
         if (mf.file) {
           try {
             const mfSettings = mf.settings || settings
@@ -568,11 +623,15 @@ export default function PaymentPage() {
               ? Object.values(mfSettings.pageColours!).some(c => c === 'COLOUR')
               : mfSettings.colour === 'COLOUR'
             const mfColourMode = mfHasAnyColour ? 'COLOUR' : 'BW'
-            log(`Sending "${mf.fileName}" (${mfSettings.copies || 1} copies, ${mfColourMode}, ${mfSettings.duplex || 'SINGLE'}, ${mfSettings.paperSize || 'A4'}, ${mfSettings.dpi || '600'} DPI)…`)
+            const subOrderId = multiFilesReady.length > 1 ? `${finalOrderId}_sub_${idx + 1}` : finalOrderId
+            log(`Sending [${idx + 1}/${multiFilesReady.length}] "${mf.fileName}" (${mfSettings.copies || 1} copies, ${mfColourMode}, ${mfSettings.duplex || 'SINGLE'}, pages: ${mfSettings.pages || 'ALL'}, ${mfSettings.paperSize || 'A4'}, ${mfSettings.dpi || '600'} DPI)…`)
             const res = await sendPrintJob({
               file: mf.file,
               fileName: mf.fileName,
-              orderId: finalOrderId,
+              orderId: subOrderId,
+              masterOrderId: finalOrderId,
+              fileIndex: idx + 1,
+              totalFiles: multiFilesReady.length,
               kioskId,
               releasePin,
               copies:             mfSettings.copies             || 1,
@@ -595,7 +654,7 @@ export default function PaymentPage() {
             })
             if (res && res.success !== false) {
               dispatchSuccess = true
-              log(`✓ "${mf.fileName}" dispatched for instant autonomous printing!`, 'success')
+              log(`✓ [${idx + 1}/${multiFilesReady.length}] "${mf.fileName}" dispatched with specified settings!`, 'success')
             } else {
               lastError = res?.error || 'Failed to dispatch print job'
               log(`✗ Print dispatch response error: ${lastError}`, 'error')
@@ -696,18 +755,18 @@ export default function PaymentPage() {
   async function handleRazorpayPayment(targetMethod?: 'upi' | 'card' | 'wallet' | 'netbanking') {
     if (!razorpayReady) {
       log('Cannot proceed — Razorpay SDK not loaded', 'error')
-      setErrorMsg('Razorpay SDK not loaded. Check internet connection.')
+      setGatewayErrorMsg('Razorpay SDK not loaded. Check internet connection.')
       return
     }
     if (!rzpKeyId) {
       log('Cannot proceed — no Razorpay Key ID', 'error')
-      setErrorMsg('Razorpay Key ID not configured.')
+      setGatewayErrorMsg(`Razorpay Key ID and Secret are not configured for Station ${kioskId}. Please contact the merchant.`)
       return
     }
 
     setStatus('PROCESSING')
     setActiveMethod(targetMethod || 'all')
-    setErrorMsg('')
+    setGatewayErrorMsg('')
     log(`Initiating direct checkout for method: ${targetMethod || 'all'}…`)
 
     let razorpayOrderId: string | undefined
@@ -850,16 +909,26 @@ export default function PaymentPage() {
 
   // ── UPI Express: Create Order ──
   async function handleUpiExpressPayment() {
+    if (!upieConfigured) {
+      log('Cannot proceed — UPI Express not configured', 'error')
+      setGatewayErrorMsg(`UPI Express API Key is not configured for Station ${kioskId}. Please contact the merchant.`)
+      return
+    }
+
     setStatus('PROCESSING')
-    setErrorMsg('')
+    setGatewayErrorMsg('')
     log('Creating UPI Express order…')
 
     try {
+      // Generate guaranteed unique client transaction ID for UPI Express
+      const freshClientTxnId = 'PB-' + Array.from(crypto.getRandomValues(new Uint8Array(10)))
+        .map(b => b.toString(16).padStart(2, '0')).join('')
+
       const r = await fetch(`${API}/api/upiexpress/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientTxnId:     orderId,
+          clientTxnId:     freshClientTxnId,
           amount:          String(totalPrice),
           customerName:    'Kiosk Guest',
           customerEmail:   'guest@kiosk.printbooth',
@@ -873,25 +942,23 @@ export default function PaymentPage() {
       const j = await r.json()
 
       if (!j.success) {
-        if (j.kioskOffline) {
-          setStatus('FAILED')
-          setErrorMsg(j.error || 'This station is currently offline or powered off. Please notify staff or choose another station.')
-          return
-        }
-        throw new Error(j.error || 'Failed to create UPI Express order')
+        setStatus('FAILED')
+        setGatewayErrorMsg(j.error || (j.kioskOffline ? 'This station is currently offline or powered off.' : 'Failed to create UPI Express order.'))
+        return
       }
 
-      setUpieOrder(j.data)
+      setUpieOrder({ ...j.data, amount: String(totalPrice) })
       setStatus('WAITING')
       log(`✓ UPI Express order created: #${j.data.orderId}`, 'success')
       log(`Payment URL ready — awaiting UPI scan…`, 'info')
 
-      // Start polling for payment status
-      startUpiExpressPolling(orderId)
+      // Start polling for payment status using the exact clientTxnId
+      const effectiveClientTxnId = j.data?.clientTxnId || freshClientTxnId
+      startUpiExpressPolling(effectiveClientTxnId)
     } catch (err: any) {
       log(`UPI Express order creation failed: ${err.message}`, 'error')
       setStatus('FAILED')
-      setErrorMsg(err.message || 'Failed to create UPI Express order.')
+      setGatewayErrorMsg(err.message || 'Failed to create UPI Express order.')
     }
   }
 
@@ -943,11 +1010,17 @@ export default function PaymentPage() {
     }, 4000)
   }
 
-  const effectiveMerchantVpa = merchantUpiId || ''
-  const directMerchantUpi = effectiveMerchantVpa
-    ? `upi://pay?pa=${encodeURIComponent(effectiveMerchantVpa)}&pn=${encodeURIComponent(kioskName || 'PrintBooth')}&am=${totalPrice}&cu=INR&tn=${encodeURIComponent(orderId)}`
-    : ''
-  const activeQrTarget = upieOrder?.upiIntentUrl || upieOrder?.paymentUrl || directMerchantUpi
+  // Strictly use upiintent returned from UPI Express API without modifying anything (matching test.py)
+  const upiIntentString = useMemo(() => {
+    if (upieOrder && upieOrder.amount && Math.abs(Number(upieOrder.amount) - Number(totalPrice)) > 0.25) {
+      return ''
+    }
+    const raw = upieOrder?.upiIntentUrl || (upieOrder as any)?.upiintent
+    if (raw && typeof raw === 'string' && raw.trim().startsWith('upi://')) {
+      return raw.trim()
+    }
+    return ''
+  }, [upieOrder, totalPrice])
 
   const displayName  = isMultiFile ? `${multiFiles.length} files` : fileName
 
@@ -960,7 +1033,7 @@ export default function PaymentPage() {
     intent?: UpiExpressOrder['upiIntent']
   }) {
     const rawPaymentUrl = upieOrder?.paymentUrl || ''
-    const baseUpi = upieOrder?.upiIntentUrl || directMerchantUpi || rawPaymentUrl
+    const baseUpi = upiIntentString || rawPaymentUrl
 
     const makeSchemeLink = (scheme: string, standardLink?: string) => {
       if (standardLink) return standardLink
@@ -1120,7 +1193,7 @@ export default function PaymentPage() {
       </div>
 
       {/* ── Admin-Specified Payment Gateway Header (Locked / Enforced) ── */}
-      {status === 'WAITING' && (
+      {status === 'WAITING' && !isKioskMode && (
         <div className="gateway-assigned-banner" id="gateway-assigned-banner">
           <div className="gateway-assigned-left">
             <div className={`gateway-assigned-icon ${selectedGateway}`}>
@@ -1168,9 +1241,9 @@ export default function PaymentPage() {
                   <div className="kiosk-companion-icon-wrap">
                     <Printer size={32} weight="bold" color="#dc2626" />
                   </div>
-                  <h1 className="kiosk-companion-headline">Please pay and collect the print</h1>
+                  <h1 className="kiosk-companion-headline">Please check machine display for payment</h1>
                   <p className="kiosk-companion-sub">
-                    A payment QR code is displayed on the kiosk screen in front of you (Station {kioskId}). Scan with any UPI app to pay ₹{totalPrice.toFixed(2)}.
+                    After payment, your print will dispense automatically.
                   </p>
                 </div>
 
@@ -1192,62 +1265,49 @@ export default function PaymentPage() {
                     </span>
                   </div>
                   <div className="kiosk-companion-summary-row">
-                    <span className="kiosk-companion-row-label">Station ID</span>
-                    <span className="kiosk-companion-row-val" style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 700 }}>
-                      {kioskId}
+                    <span className="kiosk-companion-row-label">Station</span>
+                    <span className="kiosk-companion-row-val">
+                      {kioskName || kioskId}
                     </span>
                   </div>
                 </div>
 
-                {/* Live Waiting Pulse Banner */}
-                <div className="kiosk-companion-pulse-box">
-                  <span className="kiosk-companion-pulse-dot" />
-                  <div className="kiosk-companion-pulse-content">
-                    <strong>Payment QR is active on kiosk display</strong>
-                    <span>Awaiting UPI scan & payment confirmation…</span>
+                {/* Live Waiting Pulse Banner or Gateway Warning */}
+                {gatewayErrorMsg ? (
+                  <div className="gateway-unconfigured-notice" id="gateway-unconfigured-notice" style={{ margin: '14px 0' }}>
+                    <XCircle size={22} weight="bold" />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '13px' }}>Gateway Not Configured</div>
+                      <div style={{ fontSize: '11.5px', opacity: 0.85, marginTop: '2px', lineHeight: 1.4 }}>
+                        {gatewayErrorMsg}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="kiosk-companion-pulse-box">
+                    <span className="kiosk-companion-pulse-dot" />
+                    <div className="kiosk-companion-pulse-content">
+                      <strong>Payment QR is active on kiosk display</strong>
+                      <span>Scan with any UPI app on the machine to complete payment…</span>
+                    </div>
+                  </div>
+                )}
 
-                {/* Quick 3-Step Guide */}
-                <div className="kiosk-companion-steps">
-                  <div className="kiosk-companion-step-item">
-                    <div className="kiosk-step-number">1</div>
-                    <div className="kiosk-step-text">
-                      <strong>Scan QR on kiosk display</strong>
-                      <span>Point your UPI app scanner at the kiosk screen</span>
-                    </div>
-                  </div>
-                  <div className="kiosk-companion-step-item">
-                    <div className="kiosk-step-number">2</div>
-                    <div className="kiosk-step-text">
-                      <strong>Complete payment</strong>
-                      <span>Pay ₹{totalPrice.toFixed(2)} with your UPI PIN</span>
-                    </div>
-                  </div>
-                  <div className="kiosk-companion-step-item">
-                    <div className="kiosk-step-number">3</div>
-                    <div className="kiosk-step-text">
-                      <strong>Collect from tray</strong>
-                      <span>Printer dispenses pages automatically</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Direct Pay Option Toggle */}
-                <div className="kiosk-companion-direct-fallback">
-                  <button
-                    type="button"
-                    className="kiosk-companion-toggle-direct"
-                    onClick={() => setShowDirectPayOnPhone(v => !v)}
-                  >
-                    <span>{showDirectPayOnPhone ? '▲ Hide Direct Phone Pay' : '▼ Or Pay Directly on this Phone'}</span>
-                  </button>
-
-                  {showDirectPayOnPhone && (
-                    <div className="kiosk-companion-direct-apps animate-fadeIn">
-                      <MobileUpiDirects gateway={selectedGateway} />
-                    </div>
-                  )}
+                {/* Information Callout */}
+                <div className="kiosk-companion-notice" style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'rgba(220, 38, 38, 0.05)',
+                  border: '1px solid rgba(220, 38, 38, 0.18)',
+                  color: '#991b1b',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  lineHeight: 1.4,
+                }}>
+                  <span>⚡ After payment, your print will dispense automatically from the collection tray.</span>
                 </div>
 
                 {/* Timer & Privacy footer */}
@@ -1257,7 +1317,7 @@ export default function PaymentPage() {
                     <span>Session: {minutes}:{seconds}</span>
                   </div>
                   <span className="kiosk-no-info-text">
-                    Zero-Touch Kiosk · Auto Hardware Dispense
+                    Instant Automated Dispense • PrintBooth Kiosk
                   </span>
                 </div>
               </div>
@@ -1276,6 +1336,18 @@ export default function PaymentPage() {
                     <span className="rzp-summary-station">Station {kioskId || 'PB-001'}</span>
                   </div>
                 </div>
+
+                {(!isInitializing && (!rzpKeyId || Boolean(gatewayErrorMsg))) && (
+                  <div className="gateway-unconfigured-notice" id="gateway-unconfigured-notice" style={{ margin: '14px 0' }}>
+                    <XCircle size={22} weight="bold" />
+                    <div>
+                      <div style={{ fontWeight: 700 }}>Razorpay Gateway Pending Setup</div>
+                      <div style={{ fontSize: '11.5px', opacity: 0.85, marginTop: '2px', lineHeight: 1.4 }}>
+                        {gatewayErrorMsg || `Merchant API credentials (Key ID) for Station ${kioskId} have not been configured yet.`}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {isMobile ? (
                   /* ── Mobile: ONLY UPI Directs, NO QR Code ── */
@@ -1511,14 +1583,18 @@ export default function PaymentPage() {
                   </div>
                 )}
 
-                <div className="rzp-waiting-actions" style={{ marginTop: '8px' }}>
+                <div className="rzp-waiting-actions" style={{ marginTop: '10px' }}>
                   <button
                     type="button"
                     className="rzp-waiting-cancel-btn"
-                    onClick={() => navigate('/print/confirm?mode=final')}
+                    id="payment-back-to-review"
+                    onClick={() => {
+                      setUpieOrder(null)
+                      navigate('/print/review')
+                    }}
                   >
                     <ArrowLeft size={14} weight="bold" />
-                    <span>Review Print Options</span>
+                    <span>Review Order & Print Options</span>
                   </button>
                 </div>
               </div>
@@ -1564,13 +1640,13 @@ export default function PaymentPage() {
                 {/* Action Area: QR Code + All UPI Directs */}
                 <div className="kiosk-action-area">
                   {/* If UPI Express is unconfigured */}
-                  {!isInitializing && !upieConfigured && !upieOrder && (
+                  {!isInitializing && (!upieConfigured || Boolean(gatewayErrorMsg)) && !upieOrder && (
                     <div className="gateway-unconfigured-notice" id="gateway-unconfigured-notice">
                       <XCircle size={22} weight="bold" />
                       <div>
                         <div style={{ fontWeight: 700 }}>UPI Express Gateway Pending Setup</div>
-                        <div style={{ fontSize: '11.5px', opacity: 0.85, marginTop: '2px' }}>
-                          Merchant API credentials for Station {kioskId} have not been configured yet.
+                        <div style={{ fontSize: '11.5px', opacity: 0.85, marginTop: '2px', lineHeight: 1.4 }}>
+                          {gatewayErrorMsg || `Merchant API credentials for Station ${kioskId} have not been configured yet.`}
                         </div>
                       </div>
                     </div>
@@ -1588,14 +1664,23 @@ export default function PaymentPage() {
                           <span>Scan with any UPI app to pay ₹{totalPrice}</span>
                         </div>
                         <div className="upie-qr-frame">
-                          <img
-                            src={makeQrUrl(activeQrTarget, 220)}
-                            alt="UPI Payment QR Code"
-                            className="upie-qr-img"
-                            width={220}
-                            height={220}
-                          />
-                          {(upiePolling || status === 'PROCESSING') && (
+                          {upiIntentString ? (
+                            <QRCodeSVG
+                              value={upiIntentString}
+                              size={220}
+                              level="M"
+                              includeMargin={true}
+                              fgColor="#09090b"
+                              bgColor="#ffffff"
+                              className="upie-qr-svg"
+                            />
+                          ) : (
+                            <div style={{ width: 220, height: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                              <div className="kiosk-spinner" />
+                              <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Generating payment QR…</span>
+                            </div>
+                          )}
+                          {(upiePolling || status === 'PROCESSING') && Boolean(upiIntentString) && (
                             <div className="upie-qr-pulse-ring" />
                           )}
                         </div>
@@ -1640,6 +1725,22 @@ export default function PaymentPage() {
                         <span>{isMobile ? 'Tap your UPI app above to complete payment' : 'Scan the QR code above to complete payment'}</span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Back to Review Order button */}
+                  <div className="rzp-waiting-actions" style={{ marginTop: '12px', marginBottom: '4px' }}>
+                    <button
+                      type="button"
+                      className="rzp-waiting-cancel-btn"
+                      id="upie-back-to-review"
+                      onClick={() => {
+                        setUpieOrder(null)
+                        navigate('/print/review')
+                      }}
+                    >
+                      <ArrowLeft size={14} weight="bold" />
+                      <span>Review Order & Print Options</span>
+                    </button>
                   </div>
 
                   {/* Timer & Privacy footer */}

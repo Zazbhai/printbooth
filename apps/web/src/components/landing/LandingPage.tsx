@@ -45,46 +45,33 @@ export default function LandingPage() {
   const isSingleColumn = useIsSingleColumn()
 
   const reducedMotion = useReducedMotion()
-  const [loaded, setLoaded] = useState(() => {
-    try {
-      return sessionStorage.getItem('pb_landing_loaded') === 'true'
-    } catch {
-      return false
-    }
-  })
-  const [loadProgress, setLoadProgress] = useState(() => {
-    try {
-      return sessionStorage.getItem('pb_landing_loaded') === 'true' ? 100 : 0
-    } catch {
-      return 0
-    }
-  })
+  const [loaded, setLoaded] = useState(false)
+  const [loadProgress, setLoadProgress] = useState(0)
   const [activeSection, setActiveSection] = useState(0)
   const [transitionDirection, setTransitionDirection] = useState<'down' | 'up'>('down')
   const [transitionEffect, setTransitionEffect] = useState<TransitionEffect>('slideUp')
   const transitionEffectRef = useRef<TransitionEffect>('slideUp')
   transitionEffectRef.current = transitionEffect
 
-  const handleSceneReady = useCallback(() => {
+  useEffect(() => {
     let current = 0
     const interval = setInterval(() => {
-      current += 8
+      current += 10
       if (current >= 100) {
-        current = 100
         clearInterval(interval)
         setLoadProgress(100)
       } else {
         setLoadProgress(current)
       }
-    }, 25)
+    }, 50)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleSceneReady = useCallback(() => {
+    setLoadProgress(100)
   }, [])
 
   const handleLoadComplete = useCallback(() => {
-    try {
-      sessionStorage.setItem('pb_landing_loaded', 'true')
-    } catch {
-      // ignore
-    }
     setLoaded(true)
   }, [])
 
@@ -700,16 +687,9 @@ export default function LandingPage() {
 
   const skip3D = reducedMotion
 
-  // On mobile & tablets, instantly set loaded = true so user doesn't wait for heavy loader
-  useEffect(() => {
-    if ((isMobileOrTablet || isMobile || isSingleColumn) && !loaded) {
-      setLoaded(true)
-    }
-  }, [isMobileOrTablet, isMobile, isSingleColumn, loaded])
-
   return (
     <>
-      {!loaded && !skip3D && !isMobileOrTablet && !isMobile && !isSingleColumn && (
+      {!loaded && !skip3D && (
         <LoadingScreen
           progress={loadProgress}
           ready={loadProgress >= 100}
@@ -719,7 +699,7 @@ export default function LandingPage() {
 
       <div
         ref={landingPageRef}
-        className={`landing-page ${loaded || skip3D || isMobileOrTablet || isMobile || isSingleColumn ? 'landing-page--ready' : 'landing-page--loading'}`}
+        className={`landing-page ${loaded || skip3D ? 'landing-page--ready' : 'landing-page--loading'}`}
       >
         <LandingNav onNavigate={goToSection} activeSection={activeSection} />
 

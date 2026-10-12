@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express'
+import mongoose from 'mongoose'
 import { Kiosk } from '../models/Kiosk.js'
 import { Order } from '../models/Order.js'
+import { Payment } from '../models/Payment.js'
 import { Merchant } from '../models/Merchant.js'
 import { Alert } from '../models/Alert.js'
 import { Notification } from '../models/Notification.js'
@@ -11,14 +13,14 @@ import { requireMerchant } from '../modules/auth.js'
 import { getRealPrinterHardwareStatus } from '../modules/printerDetector.js'
 import { getKioskPiPrinters } from '../modules/kioskPiPrinters.js'
 import { isUserBlocked, blockUser, unblockUser, getBlockedUsers, normalizeIp } from '../modules/blocklist.js'
-import { getKioskPrintUrl } from '../config.js'
-import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
+import { isKioskPiReachable, markKioskOffline, resumeKioskPrinter } from '../modules/kioskLiveness.js'
 import { NetworkDetectorService } from '../modules/networkDetector.js'
-import { sendPiScanPrinters, isKioskRelayConnected } from '../modules/wsRelay.js'
+import { sendPiScanPrinters, isKioskRelayConnected, broadcastToKioskUsers } from '../modules/wsRelay.js'
 import { createTicket } from '../modules/helpdeskStore.js'
 import { generateKioskSecret, generatePiEnvContent, resolveKioskApiBaseUrl } from '../modules/kioskAuth.js'
 import { cachePurgePattern } from '../redis.js'
 import { getKioskPaperState, setKioskPaper, adjustKioskPaper } from '../modules/paperManager.js'
+import { getKioskPrintUrl } from '../config.js'
 
 export const merchantRouter = Router()
 
@@ -256,7 +258,7 @@ merchantRouter.get('/printer-telemetry', async (req: Request, res: Response) => 
     }
 
     const isUsbConnected = piHw?.usbConnected !== false
-    const isOnline = isHardwareReachable && Boolean(piHw ? (piHw.isOnline && isUsbConnected) : false)
+    let isOnline = isHardwareReachable && Boolean(piHw ? (piHw.isOnline && isUsbConnected) : false)
     const statusLabels = !isHardwareReachable
       ? ['OFFLINE', 'PI_DISCONNECTED']
       : !isUsbConnected
@@ -271,7 +273,7 @@ merchantRouter.get('/printer-telemetry', async (req: Request, res: Response) => 
     const hasNoToner = isHardwareReachable && statusLabels.includes('NO TONER')
     const isDoorOpen = isHardwareReachable && statusLabels.includes('DOOR OPEN')
     const isPaused = isHardwareReachable && statusLabels.includes('PAUSED')
-    const hasError = !isOnline || isWorkOffline || hasPaperJam || hasPaperOut || hasNoToner || isDoorOpen || statusLabels.includes('ERROR')
+    let hasError = !isOnline || isWorkOffline || hasPaperJam || hasPaperOut || hasNoToner || isDoorOpen || statusLabels.includes('ERROR')
 
     let issueCode = 'HEALTHY'
     let issueSeverity: 'CRITICAL' | 'WARNING' | 'INFO' | 'OK' = 'OK'
@@ -279,7 +281,20 @@ merchantRouter.get('/printer-telemetry', async (req: Request, res: Response) => 
     let issueDescription = 'Hardware sensors report normal operation. Ready to accept print jobs.'
     let remedies: string[] = []
 
-    if (!isHardwareReachable) {
+    if (kiosk?.merchantError) {
+      isOnline = false
+      hasError = true
+      issueCode = 'PAYMENT_GATEWAY_ERROR'
+      issueSeverity = 'CRITICAL'
+      issueTitle = 'Payment Gateway Offline Protection'
+      issueDescription = kiosk.merchantError
+      remedies = kiosk.merchantRecommendation
+        ? kiosk.merchantRecommendation.split('\n').filter(Boolean)
+        : [
+            'Check payment gateway credentials in Merchant Settings.',
+            'Click "Start Printer Again" in Kiosk Status to bring the machine back online.',
+          ]
+    } else if (!isHardwareReachable) {
       issueCode = 'MACHINE_POWERED_OFF'
       issueSeverity = 'CRITICAL'
       issueTitle = `Station ${kioskId} is Powered Off or Offline`
@@ -464,6 +479,8 @@ merchantRouter.get('/printer-telemetry', async (req: Request, res: Response) => 
           title: issueTitle,
           description: issueDescription,
           remedies,
+          merchantError: kiosk?.merchantError || null,
+          merchantRecommendation: kiosk?.merchantRecommendation || null,
         },
         toner: {
           overallLevel: overallToner,
@@ -513,10 +530,28 @@ merchantRouter.post('/printer-action', async (req: Request, res: Response) => {
     } else if (action === 'cancel-job' && jobId) {
       const result = await CupsAutomationService.cancelJob(kioskId, parseInt(jobId, 10))
       return res.json(result)
+    } else if (action === 'resume' || action === 'start' || action === 'start-printer') {
+      const result = await resumeKioskPrinter(kioskId)
+      await cachePurgePattern('kiosks:*').catch(() => {})
+      await cachePurgePattern('merchant:*').catch(() => {})
+      return res.json(result)
     }
     return res.status(400).json({ success: false, error: `Unknown action '${action}'` })
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/merchant/kiosks/:kioskId/resume & /api/merchant/printer/resume
+merchantRouter.post(['/kiosks/:kioskId/resume', '/printer/resume', '/printer/start'], async (req: Request, res: Response) => {
+  try {
+    const rawKioskId = (req.params.kioskId || req.body.kioskId || req.query.kioskId || 'PB-001') as string
+    const result = await resumeKioskPrinter(rawKioskId)
+    await cachePurgePattern('kiosks:*').catch(() => {})
+    await cachePurgePattern('merchant:*').catch(() => {})
+    return res.json(result)
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message })
   }
 })
 
@@ -564,40 +599,60 @@ merchantRouter.get('/transactions', async (req: Request, res: Response) => {
   }
 })
 
-// POST /api/merchant/transactions/:orderId/confirm & /api/merchant/orders/:orderId/confirm
-merchantRouter.post(['/transactions/:orderId/confirm', '/orders/:orderId/confirm'], async (req: Request, res: Response) => {
+// Reusable payment confirmation handler
+const handleConfirmPayment = async (req: Request, res: Response) => {
   try {
     const { orderId } = req.params
     const rawKioskId = (req.body?.kioskId as string) || (req.query.kioskId as string)
     const kioskId = rawKioskId && /^PB-\d{3}$/.test(rawKioskId.trim()) ? rawKioskId.trim() : 'PB-001'
+    const cleanId = decodeURIComponent(String(orderId || req.body?.orderId || req.query?.orderId || '')).trim()
+
+    if (!cleanId) {
+      return res.status(400).json({ success: false, error: 'Order identifier is required.' })
+    }
 
     if (!isDbConnected()) {
-      const order = fallbackOrders.find((o) => o.orderId === orderId || o.orderNumber === orderId)
+      const order = fallbackOrders.find(
+        (o) =>
+          o.orderId?.toLowerCase() === cleanId.toLowerCase() ||
+          o.orderNumber?.toLowerCase() === cleanId.toLowerCase()
+      )
       if (!order) {
-        return res.status(404).json({ success: false, error: `Order ${orderId} not found.` })
+        return res.status(404).json({ success: false, error: `Order ${cleanId} not found.` })
       }
       order.status = 'PAID'
       order.paymentConfirmation = {
         status: 'CONFIRMED',
         confirmedAt: new Date(),
-        confirmedBy: 'Merchant Host',
+        confirmedBy: 'Merchant Partner',
       }
       order.paidAt = new Date()
       return res.json({
         success: true,
-        message: `Payment confirmed for Order #${order.orderNumber || orderId}. Print job marked as confirmed.`,
+        message: `Payment confirmed for Order #${order.orderNumber || cleanId}. Machine is authorized to print.`,
         data: order,
       })
     }
 
+    const isObjectId = mongoose.Types.ObjectId.isValid(cleanId) && cleanId.length === 24
+    const queryConditions: any[] = [
+      { orderId: cleanId },
+      { orderNumber: cleanId },
+      { orderId: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+      { orderNumber: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+    ]
+    if (isObjectId) {
+      queryConditions.push({ _id: new mongoose.Types.ObjectId(cleanId) })
+    }
+
     const updated = await Order.findOneAndUpdate(
-      { $or: [{ orderId }, { orderNumber: orderId }] },
+      { $or: queryConditions },
       {
         $set: {
           status: 'PAID',
           'paymentConfirmation.status': 'CONFIRMED',
           'paymentConfirmation.confirmedAt': new Date(),
-          'paymentConfirmation.confirmedBy': 'Merchant Host',
+          'paymentConfirmation.confirmedBy': 'Merchant Partner',
           paidAt: new Date(),
         },
       },
@@ -605,14 +660,24 @@ merchantRouter.post(['/transactions/:orderId/confirm', '/orders/:orderId/confirm
     )
 
     if (!updated) {
-      return res.status(404).json({ success: false, error: `Order ${orderId} not found.` })
+      return res.status(404).json({ success: false, error: `Order ${cleanId} not found.` })
     }
 
     // Increment kiosk revenue
     await Kiosk.findOneAndUpdate(
-      { kioskId: updated.kioskId },
+      { kioskId: updated.kioskId || kioskId },
       { $inc: { todayRevenue: updated.amount, totalRevenue: updated.amount } }
     ).catch(() => {})
+
+    // Real-time broadcast to kiosk device & users
+    try {
+      broadcastToKioskUsers(updated.kioskId || kioskId, 'PAYMENT_CONFIRMED', {
+        orderId: updated.orderId,
+        orderNumber: updated.orderNumber,
+        pickupCode: updated.pickupCode || updated.releasePin,
+        status: 'PAID',
+      })
+    } catch {}
 
     res.json({
       success: true,
@@ -622,52 +687,94 @@ merchantRouter.post(['/transactions/:orderId/confirm', '/orders/:orderId/confirm
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message })
   }
-})
+}
 
-// POST /api/merchant/transactions/:orderId/reject & /api/merchant/orders/:orderId/reject
-merchantRouter.post(['/transactions/:orderId/reject', '/orders/:orderId/reject'], async (req: Request, res: Response) => {
+// Reusable payment rejection handler
+const handleRejectPayment = async (req: Request, res: Response) => {
   try {
     const { orderId } = req.params
+    const rawKioskId = (req.body?.kioskId as string) || (req.query.kioskId as string)
+    const kioskId = rawKioskId && /^PB-\d{3}$/.test(rawKioskId.trim()) ? rawKioskId.trim() : 'PB-001'
+    const cleanId = decodeURIComponent(String(orderId || req.body?.orderId || req.query?.orderId || '')).trim()
+
+    if (!cleanId) {
+      return res.status(400).json({ success: false, error: 'Order identifier is required.' })
+    }
 
     if (!isDbConnected()) {
-      const order = fallbackOrders.find((o) => o.orderId === orderId || o.orderNumber === orderId)
+      const order = fallbackOrders.find(
+        (o) =>
+          o.orderId?.toLowerCase() === cleanId.toLowerCase() ||
+          o.orderNumber?.toLowerCase() === cleanId.toLowerCase()
+      )
       if (order) {
         order.status = 'REJECTED'
         order.paymentConfirmation = {
           status: 'REJECTED',
           confirmedAt: new Date(),
-          confirmedBy: 'Merchant Host',
+          confirmedBy: 'Merchant Partner',
         }
       }
       return res.json({
         success: true,
-        message: `Transaction ${orderId} rejected.`,
+        message: `Transaction ${cleanId} rejected.`,
         data: order,
       })
     }
 
+    const isObjectId = mongoose.Types.ObjectId.isValid(cleanId) && cleanId.length === 24
+    const queryConditions: any[] = [
+      { orderId: cleanId },
+      { orderNumber: cleanId },
+      { orderId: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+      { orderNumber: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+    ]
+    if (isObjectId) {
+      queryConditions.push({ _id: new mongoose.Types.ObjectId(cleanId) })
+    }
+
     const updated = await Order.findOneAndUpdate(
-      { $or: [{ orderId }, { orderNumber: orderId }] },
+      { $or: queryConditions },
       {
         $set: {
           status: 'REJECTED',
           'paymentConfirmation.status': 'REJECTED',
           'paymentConfirmation.confirmedAt': new Date(),
-          'paymentConfirmation.confirmedBy': 'Merchant Host',
+          'paymentConfirmation.confirmedBy': 'Merchant Partner',
         },
       },
       { new: true }
     )
 
+    if (!updated) {
+      return res.status(404).json({ success: false, error: `Order ${cleanId} not found.` })
+    }
+
+    try {
+      broadcastToKioskUsers(updated.kioskId || kioskId, 'PAYMENT_REJECTED', {
+        orderId: updated.orderId,
+        orderNumber: updated.orderNumber,
+        status: 'REJECTED',
+      })
+    } catch {}
+
     res.json({
       success: true,
-      message: `Transaction rejected by merchant.`,
+      message: `Transaction rejected by merchant partner.`,
       data: updated,
     })
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message })
   }
-})
+}
+
+// POST /api/merchant/orders/:orderId/confirm & /api/merchant/transactions/:orderId/confirm
+merchantRouter.post('/orders/:orderId/confirm', handleConfirmPayment)
+merchantRouter.post('/transactions/:orderId/confirm', handleConfirmPayment)
+
+// POST /api/merchant/orders/:orderId/reject & /api/merchant/transactions/:orderId/reject
+merchantRouter.post('/orders/:orderId/reject', handleRejectPayment)
+merchantRouter.post('/transactions/:orderId/reject', handleRejectPayment)
 
 // POST /api/merchant/users/block - Block user by IP or MAC address
 merchantRouter.post('/users/block', async (req: Request, res: Response) => {
@@ -906,11 +1013,15 @@ merchantRouter.get('/dashboard', async (req: Request, res: Response) => {
       }))
     }
 
+    const paperCapacity = kiosk?.paperTrayCapacity || 150
+    const remainingPages = typeof kiosk?.remainingPages === 'number'
+      ? kiosk.remainingPages
+      : (typeof kiosk?.paperLevel === 'number' ? Math.round((kiosk.paperLevel / 100) * paperCapacity) : 0)
     const effectivePaper = isPrinterOnline
-      ? ((kiosk?.paperLevel && kiosk.paperLevel > 0) ? kiosk.paperLevel : 85)
+      ? Math.min(100, Math.max(0, Math.round((remainingPages / paperCapacity) * 100)))
       : 0
     const effectiveToner = isPrinterOnline
-      ? ((kiosk?.tonerLevel && kiosk.tonerLevel > 0) ? kiosk.tonerLevel : 92)
+      ? (typeof kiosk?.tonerLevel === 'number' ? kiosk.tonerLevel : 0)
       : 0
 
     res.json({
@@ -981,6 +1092,27 @@ merchantRouter.get('/hardware', async (req: Request, res: Response) => {
         hardware.wifi = {
           ...hardware.wifi,
           ...network.wifi,
+        }
+      }
+    }
+
+    const cleanId = kioskId.trim().toUpperCase()
+    let kioskDoc: any = null
+    if (isDbConnected()) {
+      kioskDoc = await Kiosk.findOne({ kioskId: cleanId }).lean()
+    }
+    if (!kioskDoc) {
+      kioskDoc = fallbackKiosks.find((k) => (k.kioskId || k.id) === cleanId)
+    }
+    if (kioskDoc && hardware) {
+      hardware.merchantError = kioskDoc.merchantError || null
+      hardware.merchantRecommendation = kioskDoc.merchantRecommendation || null
+      hardware.merchantErrorAt = kioskDoc.merchantErrorAt || null
+      hardware.status = kioskDoc.status
+      if (kioskDoc.status === 'OFFLINE' || kioskDoc.merchantError) {
+        if (hardware.printer) {
+          hardware.printer.isOnline = false
+          hardware.printer.status = 'OFFLINE'
         }
       }
     }
@@ -1323,9 +1455,35 @@ merchantRouter.get('/orders', async (req: Request, res: Response) => {
       orders.map(async (o) => {
         const targetKiosk = o.kioskId || cleanKioskId || 'PB-001'
         const isBlocked = await isUserBlocked(targetKiosk, o.customerIp, o.customerMac)
+        let paymentDetails = o.paymentDetails
+        if (!paymentDetails && isDbConnected()) {
+          try {
+            const pay: any = await Payment.findOne({ orderId: o.orderId || o.orderNumber }).lean()
+            if (pay) {
+              paymentDetails = {
+                gateway: pay.notes?.gateway || 'upiexpress',
+                upiTxnId: pay.notes?.upiTxnId || pay.razorpayPaymentId,
+                bankReferenceNo: pay.notes?.bankReferenceNo,
+                internalUtr: pay.notes?.internalUtr,
+                payerName: pay.notes?.payerName,
+                payerHandle: pay.notes?.payerHandle,
+                payeeIdentifier: pay.notes?.payeeIdentifier,
+                gatewayOrderId: pay.notes?.gatewayOrderId,
+                gatewayTxnId: pay.notes?.gatewayTxnId,
+                merchantTxnId: pay.notes?.merchantTxnId,
+                customerMobile: pay.notes?.customerMobile,
+                customerEmail: pay.notes?.customerEmail,
+                customerName: pay.notes?.customerName,
+                amount: pay.amount,
+                paymentTimestamp: pay.capturedAt || pay.createdAt,
+              }
+            }
+          } catch {}
+        }
         return {
           ...o,
           isUserBlocked: isBlocked,
+          paymentDetails,
         }
       })
     )
@@ -1502,6 +1660,33 @@ merchantRouter.put('/settings', async (req: Request, res: Response) => {
     if (req.body.razorpayKeyId !== undefined) updateFields.razorpayKeyId = String(req.body.razorpayKeyId).trim()
     if (req.body.razorpayKeySecret && req.body.razorpayKeySecret !== '••••••••') {
       updateFields.razorpayKeySecret = String(req.body.razorpayKeySecret).trim()
+    }
+
+    // Explicit merchant validation: if gateway is specified, credentials must be configured
+    const targetGateway = updateFields.paymentGateway || req.body.paymentGateway
+    if (targetGateway === 'upiexpress') {
+      const existingDoc: any = isDbConnected()
+        ? await Merchant.findOne({ kioskId }).lean()
+        : fallbackMerchants.find((m) => m.kioskId === kioskId)
+      const effectiveKey = updateFields.upiExpressApiKey !== undefined ? updateFields.upiExpressApiKey : existingDoc?.upiExpressApiKey
+      if (!effectiveKey || !effectiveKey.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'UPI Express API Key is not configured for this station. Please provide your UPI Express API Key.',
+        })
+      }
+    } else if (targetGateway === 'razorpay') {
+      const existingDoc: any = isDbConnected()
+        ? await Merchant.findOne({ kioskId }).lean()
+        : fallbackMerchants.find((m) => m.kioskId === kioskId)
+      const effectiveKeyId = updateFields.razorpayKeyId !== undefined ? updateFields.razorpayKeyId : existingDoc?.razorpayKeyId
+      const effectiveSecret = updateFields.razorpayKeySecret !== undefined ? updateFields.razorpayKeySecret : existingDoc?.razorpayKeySecret
+      if (!effectiveKeyId || !effectiveKeyId.trim() || !effectiveSecret || !effectiveSecret.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Razorpay Key ID and Key Secret are not configured for this station. Please provide both Razorpay credentials.',
+        })
+      }
     }
 
     // Update in fallback data

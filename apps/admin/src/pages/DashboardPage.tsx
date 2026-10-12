@@ -91,16 +91,17 @@ export default function DashboardPage() {
   const printTypeData = Array.isArray(dbData?.printFormats) ? dbData.printFormats : []
   const rawPrints = Number(dbData?.summary?.todayPrints || 0)
   const rawRev = parseFloat(String(dbData?.summary?.todayRevenue || '0').replace(/[^0-9.]/g, '')) || 0
-  const combinedUsers = Number(dbData?.summary?.combinedUsers || 1855)
+  const combinedUsers = Number(dbData?.summary?.combinedUsers ?? 0)
   const activeCount = dbData?.summary?.activeKiosksCount ?? kiosks.filter((k: any) => k.status === 'ONLINE').length
   const totalCount = dbData?.summary?.totalKiosksCount ?? (kiosks.length || 1)
   const fleetHealthText = dbData?.summary?.fleetHealth || (activeCount > 0 ? `${Math.round((activeCount / totalCount) * 100)}%` : '0%')
   const pendingAlerts = dbData?.summary?.pendingAlertsCount ?? 0
 
+  const zeroCohort = { users: 0, prints: 0, revenue: 0, revenueFormatted: '₹0', arpu: 0, pagesPerUser: '0.0', growth: 'Realtime' }
   const ipoMetrics = dbData?.ipoMetrics || {
-    daily: { users: 48, prints: 510, revenue: 1992, revenueFormatted: '₹1,992', arpu: 42, pagesPerUser: '10.6', growth: '+14.8% DoD' },
-    monthly: { users: 495, prints: 6240, revenue: 24870, revenueFormatted: '₹24,870', arpu: 50, pagesPerUser: '12.6', growth: '+38.2% MoM' },
-    overall: { users: 1855, prints: 24690, revenue: 98670, revenueFormatted: '₹98,670', arpu: 53, pagesPerUser: '13.3', growth: '+184.6% YoY' },
+    daily: zeroCohort,
+    monthly: zeroCohort,
+    overall: zeroCohort,
   }
 
   const rawUserList = Array.isArray(dbData?.userDirectory) ? dbData.userDirectory : []

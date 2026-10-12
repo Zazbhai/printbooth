@@ -1,224 +1,345 @@
-.pbl-container {
-  --pbl-ink: #0a0f13;
-  --pbl-yellow: #f3b023;
-  --pbl-purple: #7f17b2;
-  --pbl-darkblue: #3253ec;
-  --pbl-cyan: #00c2f2;
-  --pbl-skyblue: #29c2ff;
-  --pbl-bg: #e0e5ec;
+/* ==========================================================================
+   PrintBooth Official Loading Screen
+   - Hardware Emblem: Static, razor-sharp, zero distracting motion
+   - Typography: Ultra-smooth kinetic letter wave & high-craft text shimmer
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&display=swap');
 
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: var(--pbl-bg);
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  contain: strict;
-}
-
-.pbl-fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-}
-
-.pbl-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  pointer-events: none;
-}
-
-.pbl-stage {
-  position: relative;
-  z-index: 2;
+.pb-loader-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem 1.2rem;
-  text-align: center;
-  opacity: 0;
-  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.pbl-stage.pbl-live {
-  opacity: 1;
-}
-
-.pbl-word {
-  display: flex;
   justify-content: center;
-  align-items: flex-end;
-  line-height: 0.9;
+  background: #ffffff;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  box-sizing: border-box;
   position: relative;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-.pbl-word.pbl-top {
-  font-size: clamp(2.6rem, 10vw, 8rem);
-  letter-spacing: -0.01em;
+.pb-loader-container--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
 }
 
-.pbl-word.pbl-bottom {
-  font-size: clamp(1.4rem, 5.2vw, 4.2rem);
-  margin-top: 0.28em;
-  letter-spacing: 0.22em;
-  padding-left: 0.22em;
+/* Stage wrapper maintaining perfect centered proportions */
+.pb-loader-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  padding: 32px 24px;
 }
 
-.pbl-letter {
-  font-family: 'Orbitron', sans-serif;
+/* ── 1. STATIC EMBLEM (NO ANIMATION ON LOGO) ── */
+.pb-emblem-wrapper {
+  position: relative;
+  width: min(46vw, 190px);
+  aspect-ratio: 480 / 515;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pb-emblem-img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.07));
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Clean static ground shadow */
+.pb-ground-shadow {
+  width: min(38vw, 160px);
+  height: 12px;
+  margin-top: 12px;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.12) 0%, rgba(15, 23, 42, 0.02) 55%, transparent 72%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ── 2. OPTIMIZED KINETIC WORDMARK TYPOGRAPHY ── */
+.pb-wordmark {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5px;
+  font-size: clamp(2rem, 5.8vw, 2.75rem);
   font-weight: 900;
-  color: var(--pbl-ink);
-  display: inline-block;
+  letter-spacing: -0.02em;
+  line-height: 1;
   position: relative;
+  cursor: default;
+}
+
+.pb-word-group {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Individual letter characters */
+.pb-char {
+  display: inline-block;
+  color: #0f172a;
+  position: relative;
+  will-change: transform, color, text-shadow;
   opacity: 0;
-  transform: translate3d(0, 18px, 0) scale(0.92);
-  will-change: transform, opacity;
+  animation:
+    pb-char-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+    pb-char-glow-wave 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay:
+    calc(var(--i) * 0.035s),
+    calc(0.5s + var(--i) * 0.07s);
 }
 
-.pbl-letter.pbl-in {
-  animation: pblLand 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Brand Laser Red for "BOOTH" */
+.pb-char--red {
+  color: #dc2626;
+  text-shadow: 0 0 12px rgba(220, 38, 38, 0.28);
+  animation-name: pb-char-in, pb-char-glow-wave-red;
 }
 
-@keyframes pblLand {
+/* Specular Light Wave running across the letters */
+.pb-wordmark-glint {
+  position: absolute;
+  inset: -6px -20px;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(255, 255, 255, 0.8) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  opacity: 0;
+  animation: pb-wordmark-shimmer 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay: 0.55s;
+}
+
+/* ── 3. STATUS TAGLINE & DYNAMIC MESSAGE ── */
+.pb-tagline {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  animation: pb-tagline-in 0.5s 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pb-tagline-dot-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+}
+
+.pb-tagline-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.9);
+}
+
+.pb-tagline-radar {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(220, 38, 38, 0.6);
+  animation: pb-radar-expand 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.pb-tagline-text {
+  font-size: clamp(0.7rem, 1.8vw, 0.78rem);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: linear-gradient(
+    90deg,
+    #64748b 0%,
+    #475569 35%,
+    #0f172a 50%,
+    #475569 65%,
+    #64748b 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pb-tagline-shimmer 2.4s linear infinite;
+}
+
+.pb-tagline-ellipsis {
+  display: inline-flex;
+  gap: 2px;
+  font-weight: 800;
+  color: #dc2626;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.pb-tagline-ellipsis span {
+  display: inline-block;
+  opacity: 0.2;
+  animation: pb-ellipsis-pulse 1.4s ease-in-out infinite;
+}
+
+.pb-tagline-ellipsis span:nth-child(1) { animation-delay: 0s; }
+.pb-tagline-ellipsis span:nth-child(2) { animation-delay: 0.22s; }
+.pb-tagline-ellipsis span:nth-child(3) { animation-delay: 0.44s; }
+
+/* ── KEYFRAME ANIMATIONS (FOCUSED ENTIRELY ON TEXT) ── */
+
+/* Letter Entrance: crisp settle with organic easing */
+@keyframes pb-char-in {
   0% {
     opacity: 0;
-    transform: translate3d(0, 18px, 0) scale(0.92);
+    transform: translateY(10px);
+    filter: blur(4px);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translateY(0);
+    filter: blur(0);
   }
 }
 
-.pbl-shard {
-  background: linear-gradient(
-    124deg,
-    var(--pbl-yellow) 0%,
-    var(--pbl-yellow) 18%,
-    var(--pbl-purple) 42%,
-    var(--pbl-darkblue) 60%,
-    var(--pbl-cyan) 76%,
-    var(--pbl-skyblue) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  position: relative;
-  overflow: hidden;
-}
-
-.pbl-shard::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.85) 50%, transparent 80%);
-  mix-blend-mode: screen;
-  transform: translate3d(-150%, 0, 0);
-  will-change: transform;
-  animation: pblSheen 3.2s cubic-bezier(0.16, 1, 0.3, 1) 1.2s infinite;
-}
-
-@keyframes pblSheen {
-  0%,
-  50% {
-    transform: translate3d(-150%, 0, 0);
+/* Kinetic Luminous Wave on "PRINT" letters */
+@keyframes pb-char-glow-wave {
+  0%, 100% {
+    transform: translateY(0);
+    color: #0f172a;
+    text-shadow: none;
   }
-  100% {
-    transform: translate3d(350%, 0, 0);
+  16% {
+    transform: translateY(-2.5px);
+    color: #334155;
+    text-shadow: 0 0 16px rgba(15, 23, 42, 0.22);
+  }
+  32% {
+    transform: translateY(0);
+    color: #0f172a;
+    text-shadow: none;
   }
 }
 
-.pbl-scanline {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 14%;
-  background: linear-gradient(90deg, transparent 0%, rgba(41, 194, 255, 0.08) 25%, rgba(41, 194, 255, 0.45) 50%, rgba(123, 23, 178, 0.45) 75%, transparent 100%);
-  pointer-events: none;
-  opacity: 0;
-  transform: translate3d(-200%, 0, 0);
-  will-change: transform, opacity;
+/* Kinetic Luminous Wave on "BOOTH" letters */
+@keyframes pb-char-glow-wave-red {
+  0%, 100% {
+    transform: translateY(0);
+    color: #dc2626;
+    text-shadow: 0 0 12px rgba(220, 38, 38, 0.28);
+  }
+  16% {
+    transform: translateY(-2.5px);
+    color: #ef4444;
+    text-shadow:
+      0 0 18px rgba(220, 38, 38, 0.7),
+      0 0 32px rgba(220, 38, 38, 0.35);
+  }
+  32% {
+    transform: translateY(0);
+    color: #dc2626;
+    text-shadow: 0 0 12px rgba(220, 38, 38, 0.28);
+  }
 }
 
-.pbl-scanline.pbl-sweep {
-  animation: pblSweep 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes pblSweep {
+/* Smooth specular sweep across the wordmark */
+@keyframes pb-wordmark-shimmer {
   0% {
-    transform: translate3d(-150%, 0, 0);
+    opacity: 0;
+    transform: translateX(-110%);
+  }
+  8% {
+    opacity: 0.85;
+  }
+  38% {
+    opacity: 0.85;
+    transform: translateX(110%);
+  }
+  42%, 100% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+/* Subtitle entrance */
+@keyframes pb-tagline-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Pulse radar ring */
+@keyframes pb-radar-expand {
+  0% {
+    transform: scale(0.6);
     opacity: 0.9;
   }
-  80% {
-    opacity: 0.8;
-  }
-  100% {
-    transform: translate3d(900%, 0, 0);
+  75%, 100% {
+    transform: scale(2.2);
     opacity: 0;
   }
 }
 
-.pbl-tagline {
-  margin-top: 1.1em;
-  letter-spacing: 0.32em;
-  font-size: clamp(0.62rem, 2vw, 1.05rem);
-  color: var(--pbl-ink);
-  font-weight: 400;
-  font-family: 'Poppins', sans-serif;
-  opacity: 0;
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  transform: translate3d(0, 8px, 0);
-  display: flex;
-  align-items: center;
-  gap: 0.6em;
-  text-transform: uppercase;
+/* Status tagline typographic gradient shimmer */
+@keyframes pb-tagline-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
-.pbl-tagline.pbl-in {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
+/* Ellipsis dots wave */
+@keyframes pb-ellipsis-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
 
-.pbl-tagline-segment {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6em;
-}
-
-.pbl-dot {
-  width: 0.42em;
-  height: 0.42em;
-  border-radius: 50%;
-  background: var(--pbl-skyblue);
-  display: inline-block;
-  box-shadow: 0 0 6px rgba(41, 194, 255, 0.7);
-}
-
+/* Accessibility: respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  .pbl-letter {
+  .pb-char,
+  .pb-char--red,
+  .pb-wordmark-glint,
+  .pb-tagline-text,
+  .pb-tagline-radar,
+  .pb-tagline-ellipsis span {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+    color: inherit !important;
+    -webkit-text-fill-color: initial !important;
   }
-  .pbl-tagline {
-    transition: none;
-    opacity: 1;
-    transform: none;
-  }
-  .pbl-shard::after,
-  .pbl-scanline {
-    animation: none !important;
+  .pb-char--red {
+    color: #dc2626 !important;
   }
 }
-

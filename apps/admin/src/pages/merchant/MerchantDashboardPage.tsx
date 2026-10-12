@@ -23,6 +23,8 @@ import {
   X,
   Copy,
   Article,
+  WarningOctagon,
+  Play,
 } from '@phosphor-icons/react'
 import {
   AreaChart,
@@ -46,12 +48,13 @@ import {
   sendCupsTestPrint,
   cleanPrinterHeads,
   getMerchantNetwork,
+  resumeMerchantPrinter,
   type IKioskNetworkTelemetry,
 } from '@/lib/api'
 import './MerchantDashboardPage.css'
 
 export default function MerchantDashboardPage() {
-  const { activeKioskId, activeMerchant, isHardwareOnline } = useActiveMerchant()
+  const { activeKioskId, activeMerchant, isHardwareOnline, refreshMerchants } = useActiveMerchant()
   const [period, setPeriod] = useState<'1D' | '1W' | '1M' | '1Y'>('1D')
   const [refillRequested, setRefillRequested] = useState(false)
   const [dbData, setDbData] = useState<any>(null)
@@ -61,6 +64,7 @@ export default function MerchantDashboardPage() {
   const [cleanHeadsLoading, setCleanHeadsLoading] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [resumingPrinter, setResumingPrinter] = useState(false)
 
   const handleCopyText = (id: string, text: string) => {
     navigator.clipboard.writeText(text).catch(() => {})
@@ -68,6 +72,34 @@ export default function MerchantDashboardPage() {
     setTimeout(() => {
       setCopiedId((curr) => (curr === id ? null : curr))
     }, 2000)
+  }
+
+  const loadDashboardData = async () => {
+    try {
+      const [data, netData] = await Promise.all([
+        getMerchantDashboard(activeKioskId, period),
+        getMerchantNetwork(activeKioskId),
+      ])
+      if (data) setDbData(data)
+      if (netData) setNetwork(netData)
+    } catch {}
+  }
+
+  const handleResumePrinter = async () => {
+    setResumingPrinter(true)
+    try {
+      await resumeMerchantPrinter(activeKioskId)
+      await Promise.all([
+        loadDashboardData(),
+        refreshMerchants ? refreshMerchants().catch(() => {}) : Promise.resolve(),
+      ])
+      setActionFeedback('Station printer resumed and brought back online successfully!')
+      setTimeout(() => setActionFeedback(null), 4000)
+    } catch (err: any) {
+      console.error('Failed to resume printer:', err)
+    } finally {
+      setResumingPrinter(false)
+    }
   }
 
   useEffect(() => {
@@ -100,10 +132,23 @@ export default function MerchantDashboardPage() {
   const isDataReady = Boolean(dbData) && !fetching
   const loading = useDashboardSkeleton(isDataReady, 60)
 
+  const activeMerchantError =
+    dbData?.hardware?.merchantError ||
+    dbData?.hardware?.errorInfo?.merchantError ||
+    activeMerchant?.merchantError ||
+    null
+
+  const activeMerchantRecommendation =
+    dbData?.hardware?.merchantRecommendation ||
+    dbData?.hardware?.errorInfo?.merchantRecommendation ||
+    activeMerchant?.merchantRecommendation ||
+    null
+
   const isKioskOnline = Boolean(
-    (dbData?.hardware?.printer?.isOnline !== false && dbData?.hardware?.printer?.status !== 'OFFLINE') ||
+    !activeMerchantError &&
+    ((dbData?.hardware?.printer?.isOnline !== false && dbData?.hardware?.printer?.status !== 'OFFLINE') ||
     isHardwareOnline ||
-    dbData?.kiosk?.status === 'ONLINE'
+    dbData?.kiosk?.status === 'ONLINE')
   )
 
   // ──────── Notifications & Admin Broadcasts ────────
@@ -465,43 +510,123 @@ export default function MerchantDashboardPage() {
         {!isKioskOnline && (
           <div
             style={{
-              background: 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              borderLeft: '5px solid #dc2626',
+              background: activeMerchantError
+                ? 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)'
+                : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+              border: activeMerchantError ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+              borderLeft: activeMerchantError ? '5px solid #dc2626' : '5px solid #d97706',
               borderRadius: 12,
-              padding: '14px 18px',
+              padding: '16px 20px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 14,
+              gap: 16,
               flexWrap: 'wrap',
-              boxShadow: '0 4px 16px rgba(220, 38, 38, 0.06)',
+              boxShadow: activeMerchantError
+                ? '0 6px 20px rgba(220, 38, 38, 0.1)'
+                : '0 4px 16px rgba(217, 119, 6, 0.08)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: 1 }}>
               <div
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  background: 'rgba(239, 68, 68, 0.12)',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: activeMerchantError ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#dc2626',
+                  color: activeMerchantError ? '#dc2626' : '#d97706',
                   flexShrink: 0,
                 }}
               >
-                <Printer size={20} weight="fill" />
+                {activeMerchantError ? <WarningOctagon size={22} weight="fill" /> : <Printer size={22} weight="fill" />}
               </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#991b1b' }}>
-                  Station {activeKioskId} Printer is Currently Offline
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      background: activeMerchantError ? 'rgba(220, 38, 38, 0.12)' : 'rgba(217, 119, 6, 0.12)',
+                      color: activeMerchantError ? '#991b1b' : '#92400e',
+                      border: activeMerchantError ? '1px solid rgba(220, 38, 38, 0.25)' : '1px solid rgba(217, 119, 6, 0.25)',
+                    }}
+                  >
+                    {activeMerchantError ? 'Payment Gateway Error' : 'Printer Offline'}
+                  </span>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: activeMerchantError ? '#991b1b' : '#92400e' }}>
+                    Station {activeKioskId} Printer is Currently Offline
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: '#7f1d1d' }}>
-                  Customer print requests cannot be processed. Ensure the Raspberry Pi is powered on with the printer connected via USB.
+
+                <div style={{ fontSize: 13, color: activeMerchantError ? '#7f1d1d' : '#78350f', lineHeight: 1.4, marginBottom: activeMerchantError ? 8 : 0 }}>
+                  {activeMerchantError
+                    ? `Payment API failed after 3 attempts. Printer ${activeKioskId} is paused to protect customers from failed deductions.`
+                    : 'Customer print requests cannot be processed. Ensure the Raspberry Pi is powered on with the printer connected via USB.'}
                 </div>
+
+                {activeMerchantError && (
+                  <div
+                    style={{
+                      background: 'rgba(254, 226, 226, 0.9)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: 6,
+                      padding: '6px 10px',
+                      fontSize: 12,
+                      color: '#991b1b',
+                      fontFamily: 'monospace',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <strong>Error:</strong> {activeMerchantError}
+                  </div>
+                )}
+
+                {activeMerchantRecommendation && (
+                  <div style={{ fontSize: 12, color: '#7f1d1d', fontWeight: 500 }}>
+                    <strong>Action:</strong> {activeMerchantRecommendation.split('\n')[0]}
+                  </div>
+                )}
               </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <Link
+                to="/merchant/kiosks"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 12, textDecoration: 'none' }}
+              >
+                Hardware Details
+              </Link>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleResumePrinter}
+                disabled={resumingPrinter}
+                style={{
+                  background: '#10b981',
+                  borderColor: '#10b981',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  gap: 6,
+                }}
+              >
+                {resumingPrinter ? (
+                  <>
+                    <ArrowsClockwise size={14} className="animate-spin" />
+                    <span>Starting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} weight="fill" />
+                    <span>Start Printer Again</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}

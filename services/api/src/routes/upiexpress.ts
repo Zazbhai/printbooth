@@ -6,13 +6,14 @@
  * POST /api/upiexpress/webhook        — Receive UPI Express webhook callbacks
  */
 
+import crypto from 'crypto'
 import { Router, Request, Response } from 'express'
 import { isDbConnected } from '../db.js'
 import { Payment } from '../models/Payment.js'
 import { Order } from '../models/Order.js'
 import { Kiosk } from '../models/Kiosk.js'
 import { Merchant } from '../models/Merchant.js'
-import { fallbackKiosks, fallbackMerchants } from '../fallbackData.js'
+import { fallbackKiosks, fallbackMerchants, fallbackOrders } from '../fallbackData.js'
 import { paymentLimiter } from '../middleware/rateLimiter.js'
 import { relayPaymentCaptured } from '../modules/wsRelay.js'
 import { getPublicWebUrl } from '../config.js'
@@ -23,6 +24,15 @@ export const upiExpressRouter = Router()
 upiExpressRouter.use(paymentLimiter)
 
 const UPIEXPRESS_BASE_URL = 'https://upiexpress.com/api'
+
+/**
+ * Generate a guaranteed globally unique client transaction ID.
+ * Follows exact UPI Express / BharatPe format: 'PB-' + 20 hex characters (total 23 chars).
+ * Example: 'PB-c8d62aa6abcb498b9504'
+ */
+export function generateUniqueClientTxnId(prefix = 'PB'): string {
+  return `${prefix}-${crypto.randomBytes(10).toString('hex')}`
+}
 
 export async function resolveUpiKeyForKiosk(kioskId?: string): Promise<string> {
   if (kioskId) {
@@ -43,7 +53,7 @@ export async function resolveUpiKeyForKiosk(kioskId?: string): Promise<string> {
     const fbM = fallbackMerchants.find(m => m.kioskId === cleanId) as any
     if (fbM?.upiExpressApiKey) return fbM.upiExpressApiKey
   }
-  return process.env.UPIEXPRESS_API_KEY || ''
+  return (process.env.UPIEXPRESS_API_KEY || '').trim()
 }
 
 export async function resolveMerchantUpiIdForKiosk(kioskId?: string): Promise<string> {
@@ -65,10 +75,11 @@ export async function resolveMerchantUpiIdForKiosk(kioskId?: string): Promise<st
     const fbM = fallbackMerchants.find(m => m.kioskId === cleanId) as any
     if (fbM?.upiExpressUpiId) return fbM.upiExpressUpiId
   }
-  return 'printbooth@okaxis'
+  return ''
 }
 
 export interface CreateUpiOrderParams {
+  apiKey?: string
   kioskId?: string
   clientTxnId: string
   amount: number | string
@@ -91,10 +102,13 @@ export interface CreateUpiOrderResult {
   success: boolean
   error?: string
   kioskOffline?: boolean
+  merchantError?: string
+  merchantRecommendation?: string
   data?: {
     orderId: string
     paymentUrl: string
     upiIntentUrl: string
+    upiintent?: string
     upiIdHash: string
     upiIntent: any
     clientTxnId: string
@@ -102,6 +116,14 @@ export interface CreateUpiOrderResult {
     merchantUpiId?: string
     gateway: 'upiexpress'
   }
+}
+
+/**
+ * Passthrough for UPI Intent URI.
+ * Never rewrite or mutate the provider's URI (matching test.py).
+ */
+export function enforceExactUpiAmount(upiUri: string, _exactAmount?: number | string): string {
+  return upiUri
 }
 
 export async function createUpiExpressOrder(
@@ -121,29 +143,19 @@ export async function createUpiExpressOrder(
     }
   }
 
-  const apiKey = await resolveUpiKeyForKiosk(kioskId)
+  const apiKey = params.apiKey || (await resolveUpiKeyForKiosk(kioskId))
   const merchantUpiId = await resolveMerchantUpiIdForKiosk(kioskId)
 
   if (!apiKey) {
-    const fallbackDirect = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent('PrintBooth ' + (kioskId || 'Station'))}&am=${Number(params.amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent(params.clientTxnId)}`
+    console.error(`[UPIExpress] Missing API Key for station ${kioskId || 'PB-001'}`)
     return {
-      success: true,
-      data: {
-        orderId: params.clientTxnId,
-        paymentUrl: fallbackDirect,
-        upiIntentUrl: fallbackDirect,
-        upiIdHash: '',
-        upiIntent: {},
-        clientTxnId: params.clientTxnId,
-        amount: Number(params.amount),
-        merchantUpiId,
-        gateway: 'upiexpress',
-      },
+      success: false,
+      error: `UPI Express API Key is not configured for station ${kioskId || 'PB-001'}.`,
     }
   }
 
   const {
-    clientTxnId,
+    clientTxnId: requestedClientTxnId,
     amount,
     customerName = 'Kiosk Customer',
     customerEmail = 'kiosk@printbooth.co.in',
@@ -159,15 +171,20 @@ export async function createUpiExpressOrder(
     udf5,
   } = params
 
+  let effectiveClientTxnId = (requestedClientTxnId || '').trim()
+  if (!effectiveClientTxnId || !effectiveClientTxnId.startsWith('PB-') || effectiveClientTxnId.length < 10) {
+    effectiveClientTxnId = generateUniqueClientTxnId('PB')
+  }
+
   const payload: Record<string, string> = {
     key: apiKey,
-    client_txn_id: clientTxnId,
+    client_txn_id: effectiveClientTxnId,
     amount: Number(amount).toFixed(2),
-    p_info: note || `PrintBooth Station ${kioskId || 'PB-001'} Order`,
-    customer_name: customerName,
-    customer_email: customerEmail,
-    customer_mobile: customerMobile,
-    redirect_url: redirectUrl,
+    customer_name: customerName || 'PrintBooth Customer',
+    customer_email: customerEmail || 'customer@example.com',
+    customer_mobile: customerMobile || '9876543210',
+    redirect_url: redirectUrl || 'https://printbooth.co.in/payment',
+    note: String(note || 'PrintBooth Test').slice(0, 25),
   }
 
   const envWebhook = (
@@ -179,8 +196,8 @@ export async function createUpiExpressOrder(
 
   const effectiveWebhookUrl =
     envWebhook ||
-    (typeof webhookUrl === 'string' && webhookUrl.trim() ? webhookUrl.trim() : '') ||
-    (req ? `${req.protocol}://${req.get('host')}/api/upiexpress/webhook` : '')
+    (typeof webhookUrl === 'string' && webhookUrl.startsWith('https://') ? webhookUrl.trim() : '') ||
+    'https://eca6-2401-4900-8967-26d8-80c1-870e-c1d8-175.ngrok-free.app/api/upiexpress/webhook'
 
   if (effectiveWebhookUrl) {
     payload.webhook_url = effectiveWebhookUrl
@@ -189,7 +206,6 @@ export async function createUpiExpressOrder(
   const effectiveMerchantId = merchantid || (process.env.UPIEXPRESS_MERCHANT_ID || '').trim()
   if (effectiveMerchantId) payload.merchantid = effectiveMerchantId
 
-  if (note) payload.note = String(note).slice(0, 25)
   if (udf1) payload.udf1 = String(udf1).slice(0, 25)
   if (udf2) payload.udf2 = String(udf2).slice(0, 25)
   if (udf3) payload.udf3 = String(udf3).slice(0, 25)
@@ -197,50 +213,139 @@ export async function createUpiExpressOrder(
   if (udf5) payload.udf5 = String(udf5).slice(0, 25)
 
   try {
-    const response = await fetch(`${UPIEXPRESS_BASE_URL}/create_order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+    const MAX_ATTEMPTS = 3
+    let lastError = ''
+    let data: any = null
+    let isOk = false
 
-    const data = (await response.json()) as any
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        let response = await fetch(`${UPIEXPRESS_BASE_URL}/create_order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
 
-    const isOk = data?.status === true || data?.success === true
-    if (!isOk) {
-      console.warn('[UPIExpress] create_order API returned non-success:', data?.msg || data?.message)
-      const fallbackDirect = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent('PrintBooth ' + (kioskId || 'Station'))}&am=${Number(amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent(clientTxnId)}`
-      return {
-        success: true,
-        data: {
-          orderId: clientTxnId,
-          paymentUrl: fallbackDirect,
-          upiIntentUrl: fallbackDirect,
-          upiIdHash: '',
-          upiIntent: {},
-          clientTxnId,
-          amount: Number(amount),
-          merchantUpiId,
-          gateway: 'upiexpress',
-        },
+        if (!response.ok) {
+          lastError = `UPI Express HTTP ${response.status}: ${response.statusText}`
+          console.warn(`[UPIExpress] create_order attempt ${attempt}/${MAX_ATTEMPTS} failed with HTTP ${response.status}`)
+          if (attempt < MAX_ATTEMPTS) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 600))
+          }
+          continue
+        }
+
+        data = (await response.json()) as any
+        isOk = data?.status === true || data?.success === true
+
+        // If UPI Express reports that client_txn_id already exists, automatically generate a fresh unique ID and retry
+        if (!isOk) {
+          const errMsg = String(data?.msg || data?.message || '')
+          if (
+            errMsg.toLowerCase().includes('already exists') ||
+            errMsg.toLowerCase().includes('client transaction id')
+          ) {
+            console.warn(`[UPIExpress] Client Transaction ID ${effectiveClientTxnId} already exists. Regenerating fresh unique transaction ID...`)
+            effectiveClientTxnId = generateUniqueClientTxnId('PB')
+            payload.client_txn_id = effectiveClientTxnId
+            payload.p_info = note || `PrintBooth Station ${kioskId || 'PB-001'} Order ${effectiveClientTxnId}`
+
+            response = await fetch(`${UPIEXPRESS_BASE_URL}/create_order`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+            if (response.ok) {
+              data = (await response.json()) as any
+              isOk = data?.status === true || data?.success === true
+            }
+          }
+        }
+
+        if (isOk) {
+          break
+        }
+
+        lastError = data?.msg || data?.message || 'UPI Express rejected order creation'
+        console.warn(`[UPIExpress] create_order attempt ${attempt}/${MAX_ATTEMPTS} non-success response: ${lastError}`)
+
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 600))
+        }
+      } catch (attemptErr: any) {
+        lastError = attemptErr?.message || 'Network connection failed'
+        console.warn(`[UPIExpress] create_order attempt ${attempt}/${MAX_ATTEMPTS} network error: ${lastError}`)
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 600))
+        }
       }
     }
 
-    const rawData = data.data || {}
-    const orderId = rawData.orderid || rawData.order_id || rawData.txn_id || clientTxnId
+    if (!isOk) {
+      const merchantError = `UPI Express Payment Gateway Error: ${lastError || 'Order creation failed after 3 attempts'}`
+      const merchantRecommendation =
+        '1. Verify your UPI Express API Key and Merchant UPI ID in Merchant Settings.\n2. Ensure your UPI Express merchant plan is active and not expired.\n3. Verify your receiving UPI VPA handle is active with your bank.\n4. Once verified, click "Start Printer Again" in Kiosk Status to resume printer operations.'
+
+      if (kioskId) {
+        await markKioskOffline(kioskId, merchantError, {
+          merchantError,
+          merchantRecommendation,
+          errorSource: 'UPIEXPRESS',
+        })
+      }
+
+      return {
+        success: false,
+        kioskOffline: true,
+        merchantError,
+        merchantRecommendation,
+        error: merchantError,
+      }
+    }
+
+    const rawData = data?.data || {}
+    const orderId = rawData.orderid || rawData.order_id || rawData.txn_id || effectiveClientTxnId
     const paymentUrl = rawData.payment_link || rawData.payment_url || ''
-    const upiIntentUrl = rawData.upiintent || ''
+    const rawUpiIntent = String(rawData.upiintent || rawData.upi_intent_url || rawData.upi_intent || '').trim()
+
+    const reqAmount = Number(amount)
+    const apiAmount = Number(rawData.amount || reqAmount)
+    const apiTotal = Number(rawData.total || apiAmount)
+
+    // NEVER modify, rewrite, or alter the provider's upiintent URL (matching test.py).
+    // The exact upiintent returned by UPI Express is used directly for QR code generation.
+    const upiIntentUrl = rawUpiIntent
+    const upiIntentObj: Record<string, any> = typeof rawData.upi_intent === 'object' ? { ...rawData.upi_intent } : {}
+
+    console.log('\n========== AMOUNT CHECK ==========')
+    console.log(`Requested amount: ₹${reqAmount.toFixed(2)}`)
+    console.log(`API amount:       ₹${apiAmount.toFixed(2)}`)
+    console.log(`Convenience fee:  ₹${rawData.convenience_fee || 0}`)
+    console.log(`API total:        ₹${apiTotal.toFixed(2)}`)
+    console.log(`UPI Intent:       ${upiIntentUrl}`)
+    console.log('==================================')
+
+    if (Math.abs(apiTotal - reqAmount) > 0.001) {
+      console.warn(
+        `\n[UPIExpress] Provider total (₹${apiTotal.toFixed(2)}) differed from requested amount (₹${reqAmount.toFixed(2)}).`
+      )
+    }
+
+    if (!upiIntentUrl) {
+      console.warn('[UPIExpress] Warning: API response did not contain upiintent string:', rawData)
+    }
 
     if (isDbConnected()) {
       try {
         await Payment.create({
           paymentId: `UPIE-${Date.now().toString().slice(-8)}`,
           razorpayOrderId: `upie_${orderId}`,
-          orderId: clientTxnId,
-          amount: Number(rawData.total || rawData.amount || amount),
+          orderId: effectiveClientTxnId,
+          amount: reqAmount,
           currency: 'INR',
           status: 'CREATED',
-          description: `UPI Express order ${clientTxnId} for station ${kioskId || 'PB-001'}`,
-          notes: { gateway: 'upiexpress', orderId: clientTxnId, kioskId },
+          description: `UPI Express order ${effectiveClientTxnId} for station ${kioskId || 'PB-001'}`,
+          notes: { gateway: 'upiexpress', orderId: effectiveClientTxnId, kioskId },
         })
       } catch {}
     }
@@ -251,30 +356,34 @@ export async function createUpiExpressOrder(
         orderId,
         paymentUrl,
         upiIntentUrl,
+        upiintent: upiIntentUrl,
         upiIdHash: rawData.upi_id_hash || '',
-        upiIntent: typeof rawData.upi_intent === 'object' ? rawData.upi_intent : {},
-        clientTxnId,
-        amount: Number(rawData.total || rawData.amount || amount),
-        merchantUpiId,
+        upiIntent: upiIntentObj,
+        clientTxnId: effectiveClientTxnId,
+        amount: reqAmount,
         gateway: 'upiexpress',
       },
     }
   } catch (err: any) {
     console.error('[UPIExpress] create_order network error:', err)
-    const fallbackDirect = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent('PrintBooth ' + (kioskId || 'Station'))}&am=${Number(amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent(clientTxnId)}`
+    const merchantError = `UPI Express connection error: ${err.message || 'Unknown network error'}`
+    const merchantRecommendation =
+      '1. Verify server internet connectivity and access to upiexpress.com.\n2. Verify UPI Express portal status.\n3. Click "Start Printer Again" in Kiosk Status once network is restored.'
+
+    if (kioskId) {
+      await markKioskOffline(kioskId, merchantError, {
+        merchantError,
+        merchantRecommendation,
+        errorSource: 'UPIEXPRESS',
+      })
+    }
+
     return {
-      success: true,
-      data: {
-        orderId: clientTxnId,
-        paymentUrl: fallbackDirect,
-        upiIntentUrl: fallbackDirect,
-        upiIdHash: '',
-        upiIntent: {},
-        clientTxnId,
-        amount: Number(amount),
-        merchantUpiId,
-        gateway: 'upiexpress',
-      },
+      success: false,
+      kioskOffline: true,
+      merchantError,
+      merchantRecommendation,
+      error: merchantError,
     }
   }
 }
@@ -320,7 +429,7 @@ upiExpressRouter.post('/create-order', async (req: Request, res: Response) => {
     )
 
     if (!result.success) {
-      return res.status(result.kioskOffline ? 400 : 500).json(result)
+      return res.status(400).json(result)
     }
 
     return res.json(result)
@@ -330,9 +439,79 @@ upiExpressRouter.post('/create-order', async (req: Request, res: Response) => {
   }
 })
 
+export function extractUpiPaymentDetails(payload: any) {
+  const root = payload || {}
+  const data = (root.data && typeof root.data === 'object') ? root.data : root
+  const extra = (data.extraData && typeof data.extraData === 'object') ? data.extraData : {}
+
+  const rawStatus = String(data.status || root.status || extra.status || '').trim().toLowerCase()
+  const isSuccess = rawStatus === 'success'
+
+  const clientTxnId = String(data.client_txn_id || root.client_txn_id || '').trim()
+  const gatewayOrderId = String(data.orderid || data.order_id || root.orderid || '').trim()
+  const gatewayTxnId = String(data.txn_id || root.txn_id || '').trim()
+  const merchantTxnId = String(data.merchant_txnid || root.merchant_txnid || '').trim()
+
+  const bankReferenceNo = String(
+    data.upi_transaction_id ||
+    extra.bankReferenceNo ||
+    data.upi_txn_id ||
+    root.upi_txn_id ||
+    root.upi_transaction_id ||
+    ''
+  ).trim()
+
+  const internalUtr = String(extra.internalUtr || '').trim()
+  const payerName = String(extra.payerName || data.customer_name || root.customer_name || '').trim()
+  const payerHandle = String(extra.payerHandle || '').trim()
+  const payeeIdentifier = String(extra.payeeIdentifier || '').trim()
+  const merchantId = extra.merchantId || null
+  const txnSubType = String(extra.txnSubType || '').trim()
+
+  const amount = Number(data.amount || data.total_amount || extra.amount || root.amount || 0)
+  const convenienceFee = Number(data.convenience_fee || root.convenience_fee || 0)
+  const totalAmount = Number(data.total_amount || data.amount || extra.amount || root.total_amount || amount)
+
+  const customerMobile = String(data.customer_mobile || root.customer_mobile || '').trim()
+  const customerEmail = String(data.customer_email || root.customer_email || '').trim()
+  const customerName = String(data.customer_name || root.customer_name || payerName || '').trim()
+  const note = String(data.note || root.note || '').trim()
+
+  const paymentTimestamp = extra.paymentTimestamp
+    ? new Date(extra.paymentTimestamp)
+    : (data.created_at ? new Date(data.created_at) : new Date())
+
+  return {
+    isSuccess,
+    rawStatus,
+    clientTxnId,
+    gateway: 'upiexpress',
+    gatewayOrderId,
+    gatewayTxnId,
+    merchantTxnId,
+    bankReferenceNo,
+    upiTxnId: bankReferenceNo || gatewayTxnId,
+    internalUtr,
+    payerName,
+    payerHandle,
+    payeeIdentifier,
+    merchantId,
+    txnSubType,
+    amount,
+    convenienceFee,
+    totalAmount,
+    customerMobile,
+    customerEmail,
+    customerName,
+    note,
+    paymentTimestamp,
+    rawResponse: data,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/upiexpress/check-status
-// Body: { clientTxnId, txnDate? }
+// Body: { clientTxnId, txnDate?, kioskId? }
 // ─────────────────────────────────────────────────────────────────────────────
 upiExpressRouter.post('/check-status', async (req: Request, res: Response) => {
   try {
@@ -374,48 +553,97 @@ upiExpressRouter.post('/check-status', async (req: Request, res: Response) => {
       return res.json({ success: false, error: data.msg || data.message || 'Transaction not found', data: data.data ?? {} })
     }
 
-    const txn = data.data || {}
-    const rawStatus = String(txn.status || data.status || '').toLowerCase()
-    const isSuccess = rawStatus === 'success'
+    const details = extractUpiPaymentDetails(data)
+    const effectiveClientTxnId = details.clientTxnId || clientTxnId
 
     // Update DB records if payment succeeded
-    if (isSuccess && isDbConnected()) {
-      await Payment.findOneAndUpdate(
-        { orderId: clientTxnId },
-        {
-          status:    'CAPTURED',
-          capturedAt: new Date(),
-          notes:     { upiTxnId: txn.upi_transaction_id || txn.upi_txn_id, gateway: 'upiexpress' },
+    if (details.isSuccess && effectiveClientTxnId) {
+      if (isDbConnected()) {
+        try {
+          const paymentRecordId = details.upiTxnId ? `UPIE-${details.upiTxnId}` : `UPIE-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+          await Payment.findOneAndUpdate(
+            { orderId: effectiveClientTxnId },
+            {
+              $set: {
+                status:     'CAPTURED',
+                capturedAt: details.paymentTimestamp,
+                method:     'upi',
+                amount:     details.amount || undefined,
+                notes: {
+                  gateway:         'upiexpress',
+                  upiTxnId:        details.upiTxnId,
+                  bankReferenceNo: details.bankReferenceNo,
+                  internalUtr:     details.internalUtr,
+                  payerName:       details.payerName,
+                  payerHandle:     details.payerHandle,
+                  payeeIdentifier: details.payeeIdentifier,
+                  gatewayOrderId:  details.gatewayOrderId,
+                  gatewayTxnId:    details.gatewayTxnId,
+                  merchantTxnId:   details.merchantTxnId,
+                  customerMobile:  details.customerMobile,
+                  customerEmail:   details.customerEmail,
+                  customerName:    details.customerName,
+                  amount:          String(details.amount),
+                },
+              },
+              $setOnInsert: {
+                paymentId: paymentRecordId,
+                orderId: effectiveClientTxnId,
+                amount: details.amount || 0,
+                currency: 'INR',
+                createdAt: new Date(),
+              },
+            },
+            { upsert: true, new: true }
+          )
+
+          await Order.findOneAndUpdate(
+            { $or: [{ orderId: effectiveClientTxnId }, { orderNumber: effectiveClientTxnId }] },
+            {
+              $set: {
+                status: 'PAID',
+                paidAt: details.paymentTimestamp,
+                paymentDetails: details,
+                ...(details.customerMobile ? { customerPhone: details.customerMobile } : {}),
+                ...(details.customerEmail ? { customerEmail: details.customerEmail } : {}),
+                paymentConfirmation: {
+                  status: 'CONFIRMED',
+                  confirmedAt: details.paymentTimestamp,
+                  confirmedBy: 'UPI Express (Auto-Verified)',
+                },
+              },
+            }
+          )
+        } catch (dbErr) {
+          console.warn('[UPIExpress] DB update warning in check-status:', dbErr)
         }
-      )
+      }
 
-      await Order.findOneAndUpdate(
-        { $or: [{ orderId: clientTxnId }, { orderNumber: clientTxnId }] },
-        { status: 'PAID', paidAt: new Date() }
-      )
-    }
+      // Also update in-memory fallbackOrders
+      const fb = fallbackOrders.find((o: any) => o.orderId === effectiveClientTxnId || o.orderNumber === effectiveClientTxnId)
+      if (fb) {
+        fb.status = 'PAID'
+        fb.paidAt = details.paymentTimestamp
+        fb.paymentDetails = details
+        fb.paymentConfirmation = {
+          status: 'CONFIRMED',
+          confirmedAt: details.paymentTimestamp,
+          confirmedBy: 'UPI Express (Auto-Verified)',
+        }
+        if (details.customerMobile) fb.customerPhone = details.customerMobile
+        if (details.customerEmail) fb.customerEmail = details.customerEmail
+      }
 
-    if (isSuccess) {
-      relayPaymentCaptured(clientTxnId, cleanKioskId, {
-        gateway: 'upiexpress',
-        upiTxnId: txn.upi_transaction_id || txn.upi_txn_id,
-        clientTxnId,
-        amount: txn.amount,
-      })
-      triggerSessionPrintOnPayment(clientTxnId, cleanKioskId, {
-        gateway: 'upiexpress',
-        upiTxnId: txn.upi_transaction_id || txn.upi_txn_id,
-        clientTxnId,
-        amount: txn.amount,
-      })
+      relayPaymentCaptured(effectiveClientTxnId, cleanKioskId, details)
+      triggerSessionPrintOnPayment(effectiveClientTxnId, cleanKioskId, details)
     }
 
     res.json({
       success: true,
       data: {
-        ...txn,
-        status: isSuccess ? 'success' : (rawStatus === 'failed' ? 'failed' : 'pending'),
-        upi_txn_id: txn.upi_transaction_id || txn.upi_txn_id || txn.txn_id,
+        ...details.rawResponse,
+        ...details,
+        status: details.isSuccess ? 'success' : (details.rawStatus === 'failed' ? 'failed' : 'pending'),
       },
     })
   } catch (error: any) {
@@ -432,49 +660,136 @@ upiExpressRouter.post('/webhook', async (req: Request, res: Response) => {
     const body = req.body
     console.log('[UPIExpress Webhook] Received:', JSON.stringify(body))
 
-    const { client_txn_id, status, upi_txn_id } = body
+    const details = extractUpiPaymentDetails(body)
+    const { clientTxnId, isSuccess } = details
 
-    if (status === 'success' && client_txn_id && isDbConnected()) {
-      await Payment.findOneAndUpdate(
-        { orderId: client_txn_id },
-        {
-          status:     'CAPTURED',
-          capturedAt: new Date(),
-          notes:      { upiTxnId: upi_txn_id, gateway: 'upiexpress', webhook: true },
+    if (isSuccess && clientTxnId) {
+      if (isDbConnected()) {
+        try {
+          const paymentRecordId = details.upiTxnId ? `UPIE-${details.upiTxnId}` : `UPIE-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+          await Payment.findOneAndUpdate(
+            { orderId: clientTxnId },
+            {
+              $set: {
+                status:     'CAPTURED',
+                capturedAt: details.paymentTimestamp,
+                method:     'upi',
+                amount:     details.amount || undefined,
+                notes: {
+                  gateway:         'upiexpress',
+                  upiTxnId:        details.upiTxnId,
+                  bankReferenceNo: details.bankReferenceNo,
+                  internalUtr:     details.internalUtr,
+                  payerName:       details.payerName,
+                  payerHandle:     details.payerHandle,
+                  payeeIdentifier: details.payeeIdentifier,
+                  gatewayOrderId:  details.gatewayOrderId,
+                  gatewayTxnId:    details.gatewayTxnId,
+                  merchantTxnId:   details.merchantTxnId,
+                  customerMobile:  details.customerMobile,
+                  customerEmail:   details.customerEmail,
+                  customerName:    details.customerName,
+                  amount:          String(details.amount),
+                  webhook:         'true',
+                },
+              },
+              $setOnInsert: {
+                paymentId: paymentRecordId,
+                orderId: clientTxnId,
+                amount: details.amount || 0,
+                currency: 'INR',
+                createdAt: new Date(),
+              },
+            },
+            { upsert: true, new: true }
+          )
+        } catch (payDbErr) {
+          console.warn('[UPIExpress Webhook] Payment record update warning:', payDbErr)
         }
-      )
 
-      await Order.findOneAndUpdate(
-        { $or: [{ orderId: client_txn_id }, { orderNumber: client_txn_id }] },
-        { status: 'PAID', paidAt: new Date() }
-      )
-    }
+        const existingOrder = await Order.findOne({ $or: [{ orderId: clientTxnId }, { orderNumber: clientTxnId }] })
+        if (existingOrder) {
+          await Order.findOneAndUpdate(
+            { _id: existingOrder._id },
+            {
+              $set: {
+                status: 'PAID',
+                paidAt: details.paymentTimestamp,
+                paymentDetails: details,
+                ...(details.customerMobile ? { customerPhone: details.customerMobile } : {}),
+                ...(details.customerEmail ? { customerEmail: details.customerEmail } : {}),
+                paymentConfirmation: {
+                  status: 'CONFIRMED',
+                  confirmedAt: details.paymentTimestamp,
+                  confirmedBy: 'UPI Express Webhook (Auto-Verified)',
+                },
+              },
+            }
+          )
+        } else {
+          await Order.create({
+            orderId: clientTxnId,
+            orderNumber: clientTxnId,
+            kioskId: 'PB-001',
+            fileName: 'UPI_Print_Document.pdf',
+            fileSize: 1024,
+            status: 'PAID',
+            pageCount: Math.max(1, Math.round(details.amount / 2)),
+            copies: 1,
+            colourMode: 'BW',
+            duplex: 'SINGLE',
+            paperSize: 'A4',
+            amount: details.amount,
+            merchantCut: details.amount,
+            currency: 'INR',
+            customerPhone: details.customerMobile,
+            customerEmail: details.customerEmail,
+            customerIp: '192.168.1.4',
+            paymentConfirmation: {
+              status: 'CONFIRMED',
+              confirmedAt: details.paymentTimestamp,
+              confirmedBy: 'UPI Express Webhook (Auto-Verified)',
+            },
+            paymentDetails: details,
+            pickupCode: String(Math.floor(1000 + Math.random() * 9000)),
+            releasePin: String(Math.floor(1000 + Math.random() * 9000)),
+            paidAt: details.paymentTimestamp,
+            createdAt: details.paymentTimestamp,
+          })
+        }
+      }
 
-    if (status === 'success' && client_txn_id) {
+      // Also update in-memory fallbackOrders
+      const fb = fallbackOrders.find((o: any) => o.orderId === clientTxnId || o.orderNumber === clientTxnId)
+      if (fb) {
+        fb.status = 'PAID'
+        fb.paidAt = details.paymentTimestamp
+        fb.paymentDetails = details
+        fb.paymentConfirmation = {
+          status: 'CONFIRMED',
+          confirmedAt: details.paymentTimestamp,
+          confirmedBy: 'UPI Express Webhook (Auto-Verified)',
+        }
+        if (details.customerMobile) fb.customerPhone = details.customerMobile
+        if (details.customerEmail) fb.customerEmail = details.customerEmail
+      }
+
       let targetKioskId: string | undefined
       if (isDbConnected()) {
         try {
-          const o: any = await Order.findOne({ $or: [{ orderId: client_txn_id }, { orderNumber: client_txn_id }] }).lean()
+          const o: any = await Order.findOne({ $or: [{ orderId: clientTxnId }, { orderNumber: clientTxnId }] }).lean()
           if (o?.kioskId) targetKioskId = o.kioskId.trim().toUpperCase()
         } catch {}
       }
-      relayPaymentCaptured(client_txn_id, targetKioskId, {
-        gateway: 'upiexpress',
-        upiTxnId: upi_txn_id,
-        clientTxnId: client_txn_id,
-        webhook: true,
-      })
-      triggerSessionPrintOnPayment(client_txn_id, targetKioskId, {
-        gateway: 'upiexpress',
-        upiTxnId: upi_txn_id,
-        clientTxnId: client_txn_id,
-        webhook: true,
-      })
+      if (!targetKioskId && fb?.kioskId) targetKioskId = fb.kioskId
+
+      relayPaymentCaptured(clientTxnId, targetKioskId, details)
+      triggerSessionPrintOnPayment(clientTxnId, targetKioskId, details)
     }
 
-    res.json({ success: true, received: true })
+    res.json({ success: true, received: true, clientTxnId, isSuccess })
   } catch (error: any) {
-    console.error('[UPIExpress] webhook error:', error)
+    console.error('[UPIExpress Webhook] error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

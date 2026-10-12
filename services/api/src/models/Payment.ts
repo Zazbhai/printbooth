@@ -34,7 +34,13 @@ export interface IPayment extends Document {
 
 const PaymentSchema = new Schema<IPayment>(
   {
-    paymentId: { type: String, required: true, unique: true, index: true },
+    paymentId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+      default: () => 'PAY-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8),
+    },
     razorpayOrderId: { type: String, sparse: true, index: true },
     razorpayPaymentId: { type: String, sparse: true, index: true },
     razorpaySignature: { type: String },

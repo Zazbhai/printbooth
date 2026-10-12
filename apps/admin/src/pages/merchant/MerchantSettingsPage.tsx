@@ -15,6 +15,8 @@ import {
   EyeSlash,
   ShieldCheck,
   Camera,
+  Copy,
+  Warning,
 } from '@phosphor-icons/react'
 import { getMerchantSettings, updateMerchantSettings } from '@/lib/api'
 import { useActiveMerchant } from '@/lib/merchantContext'
@@ -27,7 +29,9 @@ export default function MerchantSettingsPage() {
   const [locating, setLocating] = useState(false)
   const [showSecret, setShowSecret] = useState(false)
   const [photoModalOpen, setPhotoModalOpen] = useState(false)
+  const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null)
   const [locMsg, setLocMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [form, setForm] = useState({
     storeName: activeMerchant?.storeName || 'MIT ADT Campus Print Hub',
     contactPerson: activeMerchant?.name || 'Campus Print Desk Partner',
@@ -113,12 +117,36 @@ export default function MerchantSettingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await updateMerchantSettings(form, activeKioskId)
-    if (refreshMerchants) {
-      await refreshMerchants()
+    setErrorMsg(null)
+
+    // Validate that merchant configured required keys for the selected gateway
+    if (form.paymentGateway === 'upiexpress') {
+      if (!form.upiExpressApiKey.trim()) {
+        setErrorMsg('UPI Express is selected as your payment gateway, but your API Key is not configured. Please enter your UPI Express API Key.')
+        return
+      }
+    } else if (form.paymentGateway === 'razorpay') {
+      const hasSecret = form.razorpayKeySecret.trim() && form.razorpayKeySecret !== '••••••••'
+      if (!form.razorpayKeyId.trim() || (!hasSecret && !(activeMerchant as any)?.razorpayKeySecret)) {
+        setErrorMsg('Razorpay is selected as your payment gateway, but Key ID and Key Secret are not configured. Please enter both Razorpay credentials.')
+        return
+      }
     }
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+
+    try {
+      const res: any = await updateMerchantSettings(form, activeKioskId)
+      if (res && res.error) {
+        setErrorMsg(res.error)
+        return
+      }
+      if (refreshMerchants) {
+        await refreshMerchants()
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to update store settings.')
+    }
   }
 
   const handleSaveModalPhoto = async (newPhotoUrl: string) => {
@@ -149,8 +177,15 @@ export default function MerchantSettingsPage() {
         </button>
       </div>
 
+      {errorMsg && (
+        <div style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid #dc2626', padding: '12px 16px', borderRadius: 'var(--radius-md)', color: '#dc2626', display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 13, marginBottom: 16 }}>
+          <Warning size={20} weight="fill" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
       {saved && (
-        <div style={{ background: 'var(--clr-success-dim)', border: '1px solid var(--clr-success)', padding: '12px 16px', borderRadius: 'var(--radius-md)', color: 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ background: 'var(--clr-success-dim)', border: '1px solid var(--clr-success)', padding: '12px 16px', borderRadius: 'var(--radius-md)', color: 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <CheckCircle size={20} />
           <span>Store profile and alert configurations updated successfully!</span>
         </div>
@@ -463,40 +498,39 @@ export default function MerchantSettingsPage() {
           {/* Credentials Inputs based on selected gateway */}
           {form.paymentGateway === 'upiexpress' ? (
             <div style={{ background: 'rgba(220, 38, 38, 0.04)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid rgba(220, 38, 38, 0.18)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#dc2626' }}>
-                <ShieldCheck size={18} weight="fill" />
-                <span>UPI Express Settlement &amp; API Configuration</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#dc2626' }}>
+                  <ShieldCheck size={18} weight="fill" />
+                  <span>UPI Express Gateway API Configuration</span>
+                </div>
+                {!form.upiExpressApiKey.trim() && (
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 4, background: 'rgba(220, 38, 38, 0.15)', color: '#dc2626' }}>
+                    KEY NOT CONFIGURED
+                  </span>
+                )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Merchant UPI ID / VPA</span>
-                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Direct settlement target</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. printbooth@okaxis"
-                    value={form.upiExpressUpiId}
-                    onChange={e => setForm({ ...form, upiExpressUpiId: e.target.value.trim() })}
-                  />
-                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>All UPI customer payments for Kiosk {activeKioskId} settle directly to this VPA</span>
+              {!form.upiExpressApiKey.trim() && (
+                <div style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.3)', padding: '10px 14px', borderRadius: 8, color: '#dc2626', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Warning size={18} weight="bold" />
+                  <span>API Key is not configured for UPI Express. You must enter your API Key below to accept customer payments on this machine.</span>
                 </div>
+              )}
 
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                 <div className="form-group">
                   <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>UPI Express Custom API Key</span>
-                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Leave blank to use platform gateway</span>
+                    <span>Merchant UPI Express API Key</span>
+                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Direct settlement</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showSecret ? 'text' : 'password'}
                       className="form-input"
-                      placeholder="Custom API Key (or empty for default)"
+                      placeholder="Enter your UPI Express API Key"
                       value={form.upiExpressApiKey}
                       onChange={e => setForm({ ...form, upiExpressApiKey: e.target.value.trim() })}
-                      style={{ paddingRight: 40 }}
+                      style={{ paddingRight: 40, fontFamily: 'var(--font-mono, monospace)', fontSize: 12.5 }}
                     />
                     <button
                       type="button"
@@ -506,16 +540,65 @@ export default function MerchantSettingsPage() {
                       {showSecret ? <EyeSlash size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Optional per-merchant API key provided by your UPI Express merchant console</span>
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>
+                    All customer QR payments for Kiosk {activeKioskId} are dynamically generated via this key and credited directly to your bank account.
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>UPI Express Webhook URL</span>
+                    <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Real-time payment notification</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      readOnly
+                      value={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000/api/upiexpress/webhook' : 'https://api.printbooth.co.in/api/upiexpress/webhook'}
+                      style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 11.5, background: 'rgba(0,0,0,0.03)', color: 'var(--clr-text-2)' }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ whiteSpace: 'nowrap', padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6 }}
+                      onClick={() => {
+                        const url = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000/api/upiexpress/webhook' : 'https://api.printbooth.co.in/api/upiexpress/webhook'
+                        navigator.clipboard.writeText(url)
+                        setCopiedWebhook('upiexpress')
+                        setTimeout(() => setCopiedWebhook(null), 2000)
+                      }}
+                    >
+                      {copiedWebhook === 'upiexpress' ? <CheckCircle size={14} color="#16a34a" weight="fill" /> : <Copy size={14} />}
+                      <span>{copiedWebhook === 'upiexpress' ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>
+                    Paste this into your UPI Express portal. PrintBooth instantly unlocks and starts physical printing when this webhook receives the success JSON.
+                  </span>
                 </div>
               </div>
             </div>
           ) : (
             <div style={{ background: 'rgba(37, 99, 235, 0.04)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid rgba(37, 99, 235, 0.2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#2563eb' }}>
-                <ShieldCheck size={18} weight="fill" />
-                <span>Razorpay API Credentials (Per-Kiosk)</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#2563eb' }}>
+                  <ShieldCheck size={18} weight="fill" />
+                  <span>Razorpay API Credentials (Per-Kiosk)</span>
+                </div>
+                {(!form.razorpayKeyId.trim() || (!form.razorpayKeySecret.trim() && !(activeMerchant as any)?.razorpayKeySecret)) && (
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 4, background: 'rgba(220, 38, 38, 0.15)', color: '#dc2626' }}>
+                    KEYS NOT CONFIGURED
+                  </span>
+                )}
               </div>
+
+              {(!form.razorpayKeyId.trim() || (!form.razorpayKeySecret.trim() && !(activeMerchant as any)?.razorpayKeySecret)) && (
+                <div style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.3)', padding: '10px 14px', borderRadius: 8, color: '#dc2626', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Warning size={18} weight="bold" />
+                  <span>Key ID and Key Secret are not configured for Razorpay. You must enter both credentials below to accept customer payments on this machine.</span>
+                </div>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
                 <div className="form-group">
@@ -529,8 +612,9 @@ export default function MerchantSettingsPage() {
                     placeholder="rzp_live_..."
                     value={form.razorpayKeyId}
                     onChange={e => setForm({ ...form, razorpayKeyId: e.target.value.trim() })}
+                    style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12.5 }}
                   />
-                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Public Key ID passed to Razorpay Checkout on this kiosk</span>
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Public Key ID for Razorpay Checkout on this kiosk</span>
                 </div>
 
                 <div className="form-group">
@@ -545,7 +629,7 @@ export default function MerchantSettingsPage() {
                       placeholder={form.razorpayKeySecret === '••••••••' ? '•••••••• (Configured)' : 'Enter Razorpay Secret'}
                       value={form.razorpayKeySecret}
                       onChange={e => setForm({ ...form, razorpayKeySecret: e.target.value.trim() })}
-                      style={{ paddingRight: 40 }}
+                      style={{ paddingRight: 40, fontFamily: 'var(--font-mono, monospace)', fontSize: 12.5 }}
                     />
                     <button
                       type="button"
@@ -557,6 +641,39 @@ export default function MerchantSettingsPage() {
                   </div>
                   <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>Private API secret used for backend order creation &amp; HMAC-SHA256 signature verification</span>
                 </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: 2 }}>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Razorpay Webhook Callback URL</span>
+                  <span style={{ fontSize: 11, color: 'var(--clr-text-3)' }}>Webhook for payment.captured</span>
+                </label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    readOnly
+                    value={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000/api/razorpay/webhook' : 'https://api.printbooth.co.in/api/razorpay/webhook'}
+                    style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 11.5, background: 'rgba(0,0,0,0.03)', color: 'var(--clr-text-2)' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ whiteSpace: 'nowrap', padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => {
+                      const url = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000/api/razorpay/webhook' : 'https://api.printbooth.co.in/api/razorpay/webhook'
+                      navigator.clipboard.writeText(url)
+                      setCopiedWebhook('razorpay')
+                      setTimeout(() => setCopiedWebhook(null), 2000)
+                    }}
+                  >
+                    {copiedWebhook === 'razorpay' ? <CheckCircle size={14} color="#16a34a" weight="fill" /> : <Copy size={14} />}
+                    <span>{copiedWebhook === 'razorpay' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--clr-text-4)' }}>
+                  Set in your Razorpay Dashboard &rarr; Settings &rarr; Webhooks (event: <code>payment.captured</code>).
+                </span>
               </div>
             </div>
           )}

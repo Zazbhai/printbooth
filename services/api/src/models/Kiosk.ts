@@ -46,6 +46,9 @@ export interface IKiosk extends Document {
   }
   deviceSecret?: string
   lastIp?: string
+  merchantError?: string | null
+  merchantRecommendation?: string | null
+  merchantErrorAt?: Date | null
   lastSeenAt: Date
   createdAt: Date
   updatedAt: Date
@@ -114,6 +117,9 @@ const KioskSchema = new Schema<IKiosk>(
       colorDouble: { type: Number, default: 18.0 },
     },
     lastSeenAt: { type: Date, default: Date.now },
+    merchantError: { type: String, default: null },
+    merchantRecommendation: { type: String, default: null },
+    merchantErrorAt: { type: Date, default: null },
   },
   { timestamps: true }
 )

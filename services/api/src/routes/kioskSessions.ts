@@ -20,13 +20,18 @@ import { cacheGet, cacheSet } from '../redis.js'
 import { dispatchPrintJob, syncJobState, type PrintJobState } from './print.js'
 import { Order } from '../models/Order.js'
 import { Kiosk } from '../models/Kiosk.js'
-import { fallbackKiosks } from '../fallbackData.js'
+import { Merchant } from '../models/Merchant.js'
+import { Payment } from '../models/Payment.js'
+import { fallbackKiosks, fallbackMerchants } from '../fallbackData.js'
 import { isDbConnected } from '../db.js'
 import {
   createUpiExpressOrder,
+  generateUniqueClientTxnId,
   resolveUpiKeyForKiosk,
   resolveMerchantUpiIdForKiosk,
 } from './upiexpress.js'
+import { relayToKiosk } from '../modules/wsRelay.js'
+import { markKioskOffline } from '../modules/kioskLiveness.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -63,6 +68,30 @@ export interface KioskDocumentPreview {
   title?: string
 }
 
+export interface KioskDocumentItem {
+  id?: string
+  fileName: string
+  fileSize?: number
+  fileType?: string
+  pageCount?: number
+  copies?: number
+  colour?: string
+  duplex?: string
+  pages?: string
+  pageRange?: string
+  paperSize?: string
+  scaling?: string
+  pagesPerSheet?: number
+  dpi?: string
+  orientation?: string
+  pageColours?: Record<number, string>
+  pageCopies?: Record<number, number>
+  settings?: any
+  filePath?: string
+  fileUrl?: string
+  previews?: KioskDocumentPreview[]
+}
+
 export interface KioskDocumentData {
   fileName: string
   fileSize: number
@@ -72,6 +101,7 @@ export interface KioskDocumentData {
   fileUrl?: string
   pages?: KioskDocumentPreview[]
   uploadedAt: number
+  files?: KioskDocumentItem[]
 }
 
 export interface KioskPrintSettingsData {
@@ -116,9 +146,16 @@ export interface KioskSession {
   amount?: number
   completedAt?: number
   document?: KioskDocumentData
+  files?: KioskDocumentItem[]
   settings?: KioskPrintSettingsData
   claimSecret?: string   // Client claim secret ensuring only original scanner can resume
   lastPhoneActivityAt?: number // Timestamp of last touch/interaction strictly on user's phone
+  lastActivityAt?: number      // Timestamp of any user activity (phone or kiosk)
+  currentSectionEnteredAt?: number // Timestamp when current section was entered
+  expiredReason?: string       // Reason why session expired (e.g. 'INACTIVITY_TIMEOUT')
+  phoneDisconnected?: boolean  // True when user pressed back or left the connected session on their phone
+  phoneDisconnectedAt?: number // Timestamp when user went back / disconnected
+  phoneDisconnectGraceMs?: number // 5000ms grace period before resetting kiosk back
   // Progress data relayed from web app
   progressData?: Record<string, any>
   upiQrValue?: string
@@ -126,6 +163,10 @@ export interface KioskSession {
   upiIntentUrl?: string
   merchantUpiId?: string
   gateway?: string
+  paymentError?: string
+  merchantError?: string
+  merchantRecommendation?: string
+  qrAmount?: number
 }
 
 export type KioskSessionState =
@@ -140,10 +181,12 @@ export type KioskSessionState =
   | 'PRINTING'
   | 'DONE'
   | 'CANCELLED'
+  | 'EXPIRED'
 
-const SESSION_TTL_SECONDS = 5 * 60  // 5 minutes before auto-rotate
+const SESSION_TTL_SECONDS = 24 * 60 * 60  // Fixed QR code on screen while in QR_READY: valid until customer scans it
 const SESSION_DONE_TTL_SECONDS = 30  // Keep DONE state visible briefly
 const HMAC_SECRET = process.env.KIOSK_SESSION_SECRET || 'pb_kiosk_session_hmac_secret_2024'
+const SECTION_INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes — auto-expire abandoned sessions
 
 // Per-kiosk active session index: kioskId → sessionId
 const activeSessionByKiosk = new Map<string, string>()
@@ -214,6 +257,8 @@ function generateSession(kioskId: string, webBaseUrl: string): KioskSession {
     createdAt: now,
     expiresAt: exp,
     lastPhoneActivityAt: now,
+    lastActivityAt: now,
+    currentSectionEnteredAt: now,
     phase: 'Waiting for user to scan QR',
     phaseStep: 0,
     progressData: { qrUrl },
@@ -241,7 +286,29 @@ function generateSession(kioskId: string, webBaseUrl: string): KioskSession {
 }
 
 function getSession(sessionId: string): KioskSession | null {
-  return sessions.get(sessionId) || null
+  if (!sessionId) return null
+  let s = sessions.get(sessionId)
+  if (s) return s
+
+  // 1. Check if token was provided instead of sessionId
+  if (sessionId.includes('.') || sessionId.length > 50) {
+    try {
+      const { valid, payload } = verifyToken(sessionId)
+      if (valid && payload?.sessionId) {
+        s = sessions.get(payload.sessionId)
+        if (s) return s
+      }
+    } catch {}
+  }
+
+  // 2. Check if kioskId was provided (e.g. PB-001)
+  const activeId = activeSessionByKiosk.get(sessionId.toUpperCase())
+  if (activeId) {
+    s = sessions.get(activeId)
+    if (s) return s
+  }
+
+  return null
 }
 
 function saveSession(session: KioskSession) {
@@ -255,8 +322,8 @@ function getActiveSession(kioskId: string): KioskSession | null {
   if (!id) return null
   const s = getSession(id)
   if (!s) return null
-  // Check if expired
-  if (Date.now() > s.expiresAt && s.state !== 'DONE') {
+  // Check if expired (all non-DONE states strictly expire after expiresAt)
+  if (s.state !== 'DONE' && Date.now() > s.expiresAt) {
     return null
   }
   return s
@@ -284,7 +351,11 @@ kioskSessionsRouter.post('/create', (req: Request, res: Response) => {
     req.body?.kioskId || req.headers['x-kiosk-id'] || 'PB-001'
   ).toUpperCase().trim()
 
-  const webBase = req.body?.webBaseUrl || resolveWebBaseUrl(req)
+  const requestedBase = req.body?.webBaseUrl
+  const envBase = process.env.SITE_URL || process.env.CLIENT_WEB_URL
+  const webBase = (envBase && requestedBase && requestedBase.includes('printbooth.co.in') && !envBase.includes('printbooth.co.in'))
+    ? envBase.replace(/\/+$/, '')
+    : (requestedBase || resolveWebBaseUrl(req))
   const force = Boolean(req.body?.force)
 
   // If an active session is currently underway (e.g. uploading, reviewing, configuring, paying),
@@ -358,30 +429,18 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
     return res.json({ success: true, session: null, hasActiveSession: false })
   }
 
-  // Check 1-minute phone inactivity timeout:
-  // If user hasn't touched their phone for 1 minute (60s) in an active pre-print step,
-  // cancel the session, generate a fresh QR session, and return it immediately.
-  const PHONE_INACTIVITY_MS = 60 * 1000 // 1 minute (60 seconds)
-  const isPrePrintState = session.state !== 'QR_READY' &&
-                          session.state !== 'PRINTING' &&
-                          session.state !== 'DONE' &&
-                          session.state !== 'CANCELLED'
-  const lastPhone = session.lastPhoneActivityAt || session.claimedAt || session.createdAt
-  const isPhoneInactive = isPrePrintState && Boolean(lastPhone) && (Date.now() - lastPhone >= PHONE_INACTIVITY_MS)
+  const webBase = resolveWebBaseUrl(req)
 
-  if (isPhoneInactive) {
-    console.log(`[KioskSession] ⏱️ 1-minute phone inactivity timeout reached for ${session.sessionId} on ${kioskId}. Reverting to QR_READY upload page.`)
-    session.state = 'CANCELLED'
-    session.completedAt = Date.now()
-    saveSession(session)
-
-    const webBase = resolveWebBaseUrl(req)
+  if (session.state === 'CANCELLED') {
     const freshSession = generateSession(kioskId, webBase)
     return res.json({
       success: true,
       hasActiveSession: true,
       isExpired: false,
-      isPhoneInactive: true,
+      isPhoneInactive: false,
+      isPhoneDisconnectedExpired: true,
+      phoneDisconnected: false,
+      phoneGraceRemainingSec: 0,
       session: {
         sessionId: freshSession.sessionId,
         kioskId: freshSession.kioskId,
@@ -394,18 +453,120 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
         createdAt: freshSession.createdAt,
         expiresAt: freshSession.expiresAt,
         lastPhoneActivityAt: freshSession.lastPhoneActivityAt,
+        files: [],
       },
     })
   }
 
-  // Check for expiry (rotate automatically in status response)
-  const isExpired = Date.now() > session.expiresAt && session.state !== 'DONE'
+  const isPrePrintState = session.state !== 'QR_READY' &&
+                          session.state !== 'PRINTING' &&
+                          session.state !== 'DONE'
+
+  // Check phone disconnect timeout (when user went back from their phone):
+  if (isPrePrintState && session.phoneDisconnected && session.phoneDisconnectedAt) {
+    // If a document has already been uploaded or user is in active flow, NEVER disconnect or reset!
+    if (session.document || session.state === 'CONFIRMING' || session.state === 'CONFIGURING' || session.state === 'REVIEWING' || session.state === 'PAYING') {
+      session.phoneDisconnected = false
+      session.phoneDisconnectedAt = undefined
+      saveSession(session)
+    } else {
+      const elapsed = Date.now() - session.phoneDisconnectedAt
+      const graceMs = session.phoneDisconnectGraceMs || 15000
+      if (elapsed >= graceMs) {
+        console.log(`[KioskSession] ⏱️ Phone disconnect grace expired for ${session.sessionId} on ${kioskId}. Refreshing kiosk session back to QR_READY.`)
+        session.state = 'CANCELLED'
+        session.completedAt = Date.now()
+        session.document = undefined
+        saveSession(session)
+
+        const freshSession = generateSession(kioskId, webBase)
+        return res.json({
+          success: true,
+          hasActiveSession: true,
+          isExpired: false,
+          isPhoneInactive: false,
+          isPhoneDisconnectedExpired: true,
+          phoneDisconnected: false,
+          phoneGraceRemainingSec: 0,
+          session: {
+            sessionId: freshSession.sessionId,
+            kioskId: freshSession.kioskId,
+            kioskVariant: freshSession.kioskVariant || getKioskVariantSync(freshSession.kioskId),
+            token: freshSession.token,
+            qrUrl: freshSession.progressData?.qrUrl,
+            state: freshSession.state,
+            phase: freshSession.phase,
+            phaseStep: freshSession.phaseStep,
+            createdAt: freshSession.createdAt,
+            expiresAt: freshSession.expiresAt,
+            lastPhoneActivityAt: freshSession.lastPhoneActivityAt,
+            files: [],
+          },
+        })
+      }
+    }
+  }
+
+  // Check section inactivity timeout:
+  // Auto reset the session if there is no response of user for 5 mins (300 seconds) in each section
+  // (e.g. user completely abandoned session or walked away).
+  // Provides ample time for mobile document browsing, cloud drive downloads, and settings.
+  const lastActivity = Math.max(
+    session.lastActivityAt || 0,
+    session.lastPhoneActivityAt || 0,
+    session.claimedAt || 0,
+    session.currentSectionEnteredAt || 0,
+    session.createdAt || 0
+  )
+  const isInactiveTimeout = isPrePrintState && Boolean(lastActivity) && (Date.now() - lastActivity >= SECTION_INACTIVITY_TIMEOUT_MS)
+
+  if (isInactiveTimeout) {
+    console.log(`[KioskSession] ⏱️ 5-minute inactivity timeout reached for ${session.sessionId} in section ${session.state} on ${kioskId}. Marking previous session as EXPIRED and refreshing kiosk.`)
+    session.state = 'EXPIRED'
+    session.expiredReason = 'INACTIVITY_TIMEOUT'
+    session.completedAt = Date.now()
+    saveSession(session)
+    activeSessionByKiosk.delete(kioskId)
+
+    const webBase = resolveWebBaseUrl(req)
+    const freshSession = generateSession(kioskId, webBase)
+    return res.json({
+      success: true,
+      hasActiveSession: true,
+      isExpired: true,
+      isPhoneInactive: true,
+      isInactiveTimeout: true,
+      session: {
+        sessionId: freshSession.sessionId,
+        kioskId: freshSession.kioskId,
+        kioskVariant: freshSession.kioskVariant || getKioskVariantSync(freshSession.kioskId),
+        token: freshSession.token,
+        qrUrl: freshSession.progressData?.qrUrl,
+        state: freshSession.state,
+        phase: freshSession.phase,
+        phaseStep: freshSession.phaseStep,
+        createdAt: freshSession.createdAt,
+        expiresAt: freshSession.expiresAt,
+        lastPhoneActivityAt: freshSession.lastPhoneActivityAt,
+        lastActivityAt: freshSession.lastActivityAt,
+      },
+    })
+  }
+
+  // Check for expiry (QR_READY sessions are fixed and do not auto-rotate)
+  const isExpired = session.state === 'EXPIRED' || (session.state !== 'QR_READY' && session.state !== 'DONE' && Date.now() > session.expiresAt)
+
+  const phoneGraceRemainingSec = isPrePrintState && session.phoneDisconnected && session.phoneDisconnectedAt
+    ? Math.max(1, Math.ceil(((session.phoneDisconnectGraceMs || 5000) - (Date.now() - session.phoneDisconnectedAt)) / 1000))
+    : 0
 
   res.json({
     success: true,
     hasActiveSession: true,
     isExpired,
     isPhoneInactive: false,
+    phoneDisconnected: isPrePrintState && Boolean(session.phoneDisconnected),
+    phoneGraceRemainingSec,
     session: {
       sessionId: session.sessionId,
       kioskId: session.kioskId,
@@ -426,8 +587,11 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       expiresAt: session.expiresAt,
       claimedAt: session.claimedAt,
       lastPhoneActivityAt: session.lastPhoneActivityAt,
+      phoneDisconnected: isPrePrintState && Boolean(session.phoneDisconnected),
+      phoneGraceRemainingSec,
       completedAt: session.completedAt,
       document: session.document,
+      files: session.files || session.document?.files || [],
       settings: session.settings,
       progressData: session.progressData,
       upiQrValue: session.upiQrValue,
@@ -435,6 +599,10 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       upiIntentUrl: session.upiIntentUrl,
       merchantUpiId: session.merchantUpiId,
       gateway: session.gateway,
+      qrAmount: session.qrAmount,
+      paymentError: session.paymentError,
+      merchantError: session.merchantError,
+      merchantRecommendation: session.merchantRecommendation,
     },
   })
 })
@@ -453,22 +621,86 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
 
   const { valid, payload, error } = verifyToken(token)
   if (!valid || !payload) {
-    return res.status(400).json({ success: false, error: error || 'Invalid token' })
+    const isExpired = error === 'Session expired'
+    return res.status(isExpired ? 410 : 400).json({
+      success: false,
+      error: isExpired ? 'SESSION_EXPIRED' : (error || 'Invalid token'),
+      code: isExpired ? 'SESSION_EXPIRED' : 'INVALID_TOKEN',
+      message: isExpired
+        ? 'This QR code has expired. Please scan the current live QR code on the kiosk screen.'
+        : (error || 'Invalid token'),
+    })
   }
 
   const { sessionId, kioskId } = payload
+
+  // Allow all devices (mobile, tablet, desktop, tester) with a valid token to connect and claim
+  const userAgent = String(req.headers['user-agent'] || '').toLowerCase()
+
+  const currentActiveId = activeSessionByKiosk.get(kioskId)
+
+  // 1. If requested token is not for currentActiveId:
+  if (currentActiveId && currentActiveId !== sessionId) {
+    const currentSession = sessions.get(currentActiveId)
+    const isHardwareBusy = currentSession &&
+      (currentSession.state === 'PRINTING' || currentSession.state === 'PAYING')
+
+    if (isHardwareBusy) {
+      console.warn(`[KioskSession] 🔒 Active print/payment in progress on ${kioskId}. Blocking stale claim.`)
+      return res.status(409).json({
+        success: false,
+        error: 'MACHINE_ALREADY_IN_USE',
+        code: 'MACHINE_ALREADY_IN_USE',
+        message: 'Machine is currently printing or processing payment for another customer. Please wait a moment.',
+        kioskId,
+      })
+    }
+
+    // Machine is free (not printing or paying). Seamlessly adopt the live active session!
+    if (currentSession && currentSession.state !== 'DONE' && Date.now() < currentSession.expiresAt) {
+      console.log(`[KioskSession] 🔄 Adopting current live active session ${currentActiveId} for customer on ${kioskId}`)
+      const assignedSecret = clientClaimToken || currentSession.claimSecret || crypto.randomBytes(16).toString('hex')
+      currentSession.claimSecret = assignedSecret
+      currentSession.lastPhoneActivityAt = Date.now()
+      currentSession.lastActivityAt = Date.now()
+      currentSession.phoneDisconnected = false
+      currentSession.phoneDisconnectedAt = undefined
+      saveSession(currentSession)
+
+      const liveVariant = currentSession.kioskVariant || getKioskVariantSync(kioskId)
+      return res.json({
+        success: true,
+        isOwner: true,
+        sessionId: currentSession.sessionId,
+        kioskId,
+        kioskVariant: liveVariant,
+        variant: liveVariant,
+        state: currentSession.state,
+        claimSecret: assignedSecret,
+        token: currentSession.token,
+        message: 'Session resumed.',
+      })
+    }
+  }
+
   const session = getSession(sessionId)
 
   if (!session) {
-    return res.status(404).json({ success: false, error: 'Session not found. It may have expired.' })
+    return res.status(410).json({
+      success: false,
+      error: 'SESSION_EXPIRED',
+      code: 'SESSION_EXPIRED',
+      message: 'Session not found or expired. Please scan the current QR code on screen.',
+      kioskId,
+    })
   }
 
-  if (session.state === 'DONE') {
+  if (session.state === 'DONE' || session.state === 'CANCELLED') {
     return res.status(410).json({
       success: false,
       error: 'SESSION_COMPLETED',
       code: 'SESSION_COMPLETED',
-      message: 'This print session has already completed. Please scan the new QR code on screen.',
+      message: 'This print session has ended. Please scan the current QR code on screen.',
       kioskId: session.kioskId,
     })
   }
@@ -478,52 +710,64 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
       success: false,
       error: 'SESSION_EXPIRED',
       code: 'SESSION_EXPIRED',
-      message: 'Session has expired. Please scan the new QR code.',
+      message: 'This QR code has expired. Please scan the current live QR code on screen.',
       kioskId: session.kioskId,
     })
   }
 
-  if (session.state !== 'QR_READY') {
-    // Session is already claimed / in-flight!
-    // Check if the current request is coming from the owner who originally claimed it
-    const isOwner = Boolean(
-      session.claimSecret &&
-      clientClaimToken &&
-      session.claimSecret === clientClaimToken
-    )
+  const resolvedVariant = session.kioskVariant || getKioskVariantSync(session.kioskId)
 
-    if (isOwner) {
-      session.lastPhoneActivityAt = Date.now()
-      saveSession(session)
-      return res.json({
-        success: true,
-        isOwner: true,
-        sessionId,
-        kioskId,
+  // 2. Active Session Reconnect / Resume:
+  // If session is already claimed or in progress, allow the user holding the live QR token to resume cleanly.
+  // Only reject if another customer is actively in PAYMENT or PRINTING!
+  if (session.state !== 'QR_READY') {
+    const isLockedPaymentOrPrinting = (session.state === 'PAYING' || session.state === 'PRINTING') &&
+      Boolean(session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken)
+
+    if (isLockedPaymentOrPrinting) {
+      console.warn(`[KioskSession] ⚠️ Access blocked: Machine ${kioskId} (session ${sessionId}) is in active payment or printing.`)
+      return res.status(409).json({
+        success: false,
+        error: 'MACHINE_ALREADY_IN_USE',
+        code: 'MACHINE_ALREADY_IN_USE',
+        message: 'Machine is currently processing payment or printing. Please wait a moment.',
+        kioskId: session.kioskId,
         state: session.state,
-        claimSecret: session.claimSecret,
-        message: 'Session resumed.',
       })
     }
 
-    // Another user or different device is attempting to access an active session!
-    console.warn(`[KioskSession] ⚠️ Access blocked: Machine ${kioskId} (session ${sessionId}) is already in use by another user.`)
-    return res.status(409).json({
-      success: false,
-      error: 'MACHINE_ALREADY_IN_USE',
-      code: 'MACHINE_ALREADY_IN_USE',
-      message: 'Machine already in use',
-      kioskId: session.kioskId,
+    // Pre-payment or matching owner: grant full access & resume
+    const assignedSecret = clientClaimToken || session.claimSecret || crypto.randomBytes(16).toString('hex')
+    session.claimSecret = assignedSecret
+    session.lastPhoneActivityAt = Date.now()
+    session.lastActivityAt = Date.now()
+    session.phoneDisconnected = false
+    session.phoneDisconnectedAt = undefined
+    saveSession(session)
+
+    return res.json({
+      success: true,
+      isOwner: true,
+      sessionId,
+      kioskId,
+      kioskVariant: resolvedVariant,
+      variant: resolvedVariant,
       state: session.state,
+      claimSecret: assignedSecret,
+      token: session.token,
+      message: 'Session resumed.',
     })
   }
 
   // Claim the session for this user
   const assignedSecret = clientClaimToken || crypto.randomBytes(16).toString('hex')
+  const now = Date.now()
   session.claimSecret = assignedSecret
   session.state = 'CLAIMED'
-  session.claimedAt = Date.now()
-  session.lastPhoneActivityAt = Date.now()
+  session.claimedAt = now
+  session.lastPhoneActivityAt = now
+  session.lastActivityAt = now
+  session.currentSectionEnteredAt = now
   session.claimedIp = clientIp
   session.phase = 'User scanning and opening upload page…'
   session.phaseStep = 1
@@ -536,6 +780,8 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
     isOwner: true,
     sessionId,
     kioskId,
+    kioskVariant: resolvedVariant,
+    variant: resolvedVariant,
     claimSecret: assignedSecret,
     message: 'Session claimed. You may now upload your document.',
   })
@@ -551,8 +797,8 @@ kioskSessionsRouter.post('/:sessionId/phone-activity', (req: Request, res: Respo
   const { sessionId } = req.params
   const session = getSession(sessionId)
 
-  if (!session) {
-    return res.status(404).json({ success: false, error: 'Session not found' })
+  if (!session || session.state === 'EXPIRED' || session.state === 'DONE' || session.state === 'CANCELLED') {
+    return res.status(410).json({ success: false, isExpired: true, error: 'Session expired or ended' })
   }
 
   const clientClaimToken = String(
@@ -566,12 +812,112 @@ kioskSessionsRouter.post('/:sessionId/phone-activity', (req: Request, res: Respo
   const backdate = Number(req.body?.backdateMs) || 0
   const now = Date.now() - backdate
   session.lastPhoneActivityAt = now
+  session.lastActivityAt = now
+
+  // If session had pending disconnect countdown, immediately cancel it because phone is active
+  if (session.phoneDisconnected) {
+    session.phoneDisconnected = false
+    session.phoneDisconnectedAt = undefined
+    console.log(`[KioskSession] 📱 Phone re-engaged with session ${sessionId}. 5s countdown cancelled.`)
+  }
+
   saveSession(session)
 
   res.json({
     success: true,
     sessionId,
     lastPhoneActivityAt: now,
+    phoneDisconnected: false,
+  })
+})
+
+/**
+ * POST /api/kiosk-sessions/kiosk/:kioskId/phone-disconnect
+ * Called by the phone web app as a reliable fallback when user leaves or goes back
+ * even if sessionId has not yet been resolved or claimed.
+ */
+kioskSessionsRouter.post('/kiosk/:kioskId/phone-disconnect', (req: Request, res: Response) => {
+  const kioskId = String(req.params.kioskId || '').trim().toUpperCase()
+  const activeId = activeSessionByKiosk.get(kioskId)
+  if (!activeId) {
+    return res.json({ success: true, message: 'No active session' })
+  }
+  const session = getSession(activeId)
+  if (!session) {
+    return res.json({ success: true, message: 'Session not found' })
+  }
+  if (session.state === 'PRINTING' || session.state === 'DONE' || session.document || session.state === 'CONFIRMING' || session.state === 'CONFIGURING' || session.state === 'REVIEWING' || session.state === 'PAYING') {
+    return res.json({ success: true, ignored: true, state: session.state })
+  }
+
+  const now = Date.now()
+  session.phoneDisconnected = true
+  session.phoneDisconnectedAt = now
+  session.phoneDisconnectGraceMs = 15000
+  saveSession(session)
+
+  console.log(`[KioskSession] 📱 Phone went back / left kiosk ${kioskId} (session ${session.sessionId}). 15s countdown started.`)
+
+  try {
+    relayToKiosk(kioskId, {
+      type: 'PHONE_DISCONNECTED',
+      kioskId,
+      sessionId: session.sessionId,
+      payload: { graceMs: 15000 },
+    } as any)
+  } catch {}
+
+  res.json({
+    success: true,
+    kioskId,
+    sessionId: session.sessionId,
+    phoneDisconnected: true,
+    phoneDisconnectedAt: now,
+    graceRemainingMs: 15000,
+  })
+})
+
+/**
+ * POST /api/kiosk-sessions/:sessionId/phone-disconnect
+ * Called by the phone web app when user goes back or leaves an active session.
+ * Starts a 15-second countdown on the kiosk screen before resetting back to idle.
+ */
+kioskSessionsRouter.post('/:sessionId/phone-disconnect', (req: Request, res: Response) => {
+  const { sessionId } = req.params
+  const session = getSession(sessionId)
+
+  if (!session) {
+    return res.status(404).json({ success: false, error: 'Session not found' })
+  }
+
+  // If already printing, done, or document is active, don't interrupt
+  if (session.state === 'PRINTING' || session.state === 'DONE' || session.document || session.state === 'CONFIRMING' || session.state === 'CONFIGURING' || session.state === 'REVIEWING' || session.state === 'PAYING') {
+    return res.json({ success: true, ignored: true, state: session.state })
+  }
+
+  const now = Date.now()
+  session.phoneDisconnected = true
+  session.phoneDisconnectedAt = now
+  session.phoneDisconnectGraceMs = 15000
+  saveSession(session)
+
+  console.log(`[KioskSession] 📱 Phone went back / left session ${sessionId}. 15s countdown started.`)
+
+  try {
+    relayToKiosk(session.kioskId, {
+      type: 'PHONE_DISCONNECTED',
+      kioskId: session.kioskId,
+      sessionId,
+      payload: { graceMs: 15000 },
+    } as any)
+  } catch {}
+
+  res.json({
+    success: true,
+    sessionId,
+    phoneDisconnected: true,
+    phoneDisconnectedAt: now,
+    graceRemainingMs: 15000,
   })
 })
 
@@ -580,19 +926,27 @@ kioskSessionsRouter.post('/:sessionId/phone-activity', (req: Request, res: Respo
  * Called by the web app to push progress updates to the kiosk display.
  * Supports states: UPLOADING, CONFIGURING, PAYING, OTP_READY, PRINTING, DONE
  */
-kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) => {
+kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Response) => {
   const { sessionId } = req.params
   const session = getSession(sessionId)
 
-  if (!session) {
-    return res.status(404).json({ success: false, error: 'Session not found' })
+  if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || session.state === 'EXPIRED' || Date.now() > session.expiresAt) {
+    return res.status(410).json({
+      success: false,
+      isExpired: true,
+      error: 'SESSION_EXPIRED',
+      code: 'SESSION_EXPIRED',
+      message: 'This print session has expired due to inactivity. Please scan the current live QR code on the kiosk screen.',
+    })
   }
 
   const clientClaimToken = String(
     req.body?.clientClaimToken || req.headers['x-client-claim-token'] || ''
   ).trim()
 
-  if (session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken) {
+  const isPrePayment = session.state !== 'PAYING' && session.state !== 'PRINTING'
+
+  if (session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken && !isPrePayment) {
     return res.status(409).json({
       success: false,
       error: 'MACHINE_ALREADY_IN_USE',
@@ -601,8 +955,16 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
     })
   }
 
-  // Update last phone activity strictly for phone requests
-  session.lastPhoneActivityAt = Date.now()
+  if (!session.claimSecret || isPrePayment) {
+    if (clientClaimToken) session.claimSecret = clientClaimToken
+  }
+
+  // Update activity timestamps
+  const now = Date.now()
+  session.lastPhoneActivityAt = now
+  session.lastActivityAt = now
+  session.phoneDisconnected = false
+  session.phoneDisconnectedAt = undefined
 
   const {
     state,
@@ -617,6 +979,7 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
     amount,
     progressData,
     settings,
+    files,
   } = req.body
 
   // Validate state transitions
@@ -625,6 +988,9 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
   ]
 
   if (state && VALID_STATES.includes(state as KioskSessionState)) {
+    if (session.state !== state) {
+      session.currentSectionEnteredAt = now
+    }
     session.state = state as KioskSessionState
   }
 
@@ -635,22 +1001,80 @@ kioskSessionsRouter.post('/:sessionId/progress', (req: Request, res: Response) =
   if (fileName) session.fileName = fileName
   if (typeof totalPages === 'number') session.totalPages = totalPages
   if (typeof copies === 'number') session.copies = copies
+  else if (settings && typeof settings.copies === 'number') session.copies = settings.copies
   if (colourMode) session.colourMode = colourMode
-  if (typeof amount === 'number') session.amount = amount
+  else if (settings && typeof settings.colour === 'string') session.colourMode = settings.colour
+  const newAmount = typeof amount === 'number'
+    ? amount
+    : (settings && typeof settings.totalAmount === 'number' ? settings.totalAmount : undefined)
+
+  if (typeof newAmount === 'number' && typeof session.qrAmount === 'number' && Math.abs(session.qrAmount - newAmount) > 0.25) {
+    session.upiQrValue = ''
+    session.upiIntentUrl = ''
+    session.paymentUrl = ''
+    session.qrAmount = undefined
+  }
+
+  if (typeof newAmount === 'number') {
+    session.amount = newAmount
+  }
+
+  // If user navigated back from Payment to configure or review, invalidate any previously generated QR code
+  // so that when they proceed to Pay again, a fresh QR code with the exact updated amount is created.
+  if (state && ['UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING'].includes(state as string)) {
+    session.upiQrValue = ''
+    session.upiIntentUrl = ''
+    session.paymentUrl = ''
+    session.qrAmount = undefined
+  }
+
   if (progressData) session.progressData = { ...session.progressData, ...progressData }
   if (settings && typeof settings === 'object') {
     session.settings = { ...session.settings, ...settings }
+  }
+
+  if (files && Array.isArray(files) && files.length > 0) {
+    session.files = files
+    if (session.document) {
+      session.document.files = files
+    }
+  }
+
+  // If session document is not yet initialized but progress ping has document metadata, synthesize doc
+  if (!session.document && (fileName || session.fileName)) {
+    session.document = {
+      fileName: fileName || session.fileName || 'Document.pdf',
+      fileSize: 0,
+      fileType: 'pdf',
+      pageCount: typeof totalPages === 'number' ? totalPages : (session.totalPages || 1),
+      filePath: '',
+      pages: [],
+      uploadedAt: Date.now(),
+      files: session.files || (files && Array.isArray(files) ? files : []),
+    }
   }
 
   if (state === 'DONE') {
     session.completedAt = Date.now()
   }
 
+  // Auto-generate UPI Express payment QR code as soon as state moves to PAYING (if not yet generated or amount updated)
+  if (session.state === 'PAYING') {
+    const isQrCurrent = Boolean(session.upiQrValue) && typeof session.qrAmount === 'number' && typeof session.amount === 'number' && Math.abs(session.qrAmount - session.amount) <= 0.25
+    if (!isQrCurrent) {
+      try {
+        await initiatePaymentForSession(session, req, typeof amount === 'number' ? amount : session.amount)
+      } catch (payErr) {
+        console.warn(`[KioskSession] Auto payment initialization warning:`, payErr)
+      }
+    }
+  }
+
   saveSession(session)
 
   console.log(`[KioskSession] ↑ Progress ${sessionId}: state=${session.state} phase="${session.phase}"`)
 
-  res.json({ success: true, state: session.state })
+  res.json({ success: true, state: session.state, upiQrValue: session.upiQrValue })
 })
 
 /**
@@ -677,21 +1101,32 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   const { sessionId } = req.params
   const session = getSession(sessionId)
 
-  if (!session) {
-    return res.status(404).json({ success: false, error: 'Session not found or expired' })
+  if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || session.state === 'EXPIRED' || Date.now() > session.expiresAt) {
+    return res.status(410).json({
+      success: false,
+      error: 'SESSION_EXPIRED',
+      code: 'SESSION_EXPIRED',
+      message: 'This print session has expired or ended. Please scan the current live QR code on the kiosk screen.',
+    })
   }
 
   const clientClaimToken = String(
     req.body?.clientClaimToken || req.headers['x-client-claim-token'] || ''
   ).trim()
 
-  if (session.claimSecret && (!clientClaimToken || session.claimSecret !== clientClaimToken)) {
+  const isPrePayment = session.state !== 'PAYING' && session.state !== 'PRINTING'
+
+  if (session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken && !isPrePayment) {
     return res.status(409).json({
       success: false,
       error: 'MACHINE_ALREADY_IN_USE',
       code: 'MACHINE_ALREADY_IN_USE',
       message: 'Machine is already in use by another customer.',
     })
+  }
+
+  if (!session.claimSecret || isPrePayment) {
+    session.claimSecret = clientClaimToken || session.claimSecret || crypto.randomBytes(16).toString('hex')
   }
 
   const file = req.file
@@ -705,10 +1140,42 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     try {
       const raw = typeof req.body.previews === 'string' ? JSON.parse(req.body.previews) : req.body.previews
       if (Array.isArray(raw)) {
-        previews = raw.slice(0, 6).map((p: any, idx: number) => ({
+        previews = raw.slice(0, 10).map((p: any, idx: number) => ({
           pageNumber: Number(p.pageNumber) || idx + 1,
-          url: typeof p.url === 'string' ? (p.url.length > 250000 ? p.url.slice(0, 250000) : p.url) : '',
+          url: typeof p.url === 'string' ? p.url : '',
           title: String(p.title || `Page ${idx + 1}`),
+        }))
+      }
+    } catch {}
+  }
+
+  let filesList: KioskDocumentItem[] = []
+  if (req.body.files) {
+    try {
+      const rawFiles = typeof req.body.files === 'string' ? JSON.parse(req.body.files) : req.body.files
+      if (Array.isArray(rawFiles)) {
+        filesList = rawFiles.map((f: any) => ({
+          id: f.id,
+          fileName: String(f.fileName || 'Document'),
+          fileSize: Number(f.fileSize) || 0,
+          fileType: String(f.fileType || 'pdf'),
+          pageCount: Number(f.pageCount) || 1,
+          copies: Number(f.copies || f.settings?.copies) || 1,
+          colour: f.colour || f.settings?.colour || 'BW',
+          duplex: f.duplex || f.settings?.duplex || 'SINGLE',
+          pages: f.pages || f.pageRange || f.settings?.pages || 'ALL',
+          pageRange: f.pageRange || f.pages || f.settings?.pageRange || 'ALL',
+          paperSize: f.paperSize || f.settings?.paperSize || 'A4',
+          scaling: f.scaling || f.settings?.scaling || 'FIT',
+          pagesPerSheet: Number(f.pagesPerSheet || f.settings?.pagesPerSheet) || 1,
+          dpi: f.dpi || f.settings?.dpi || '600',
+          orientation: f.orientation || f.settings?.orientation || 'AUTO',
+          pageColours: f.pageColours || f.settings?.pageColours,
+          pageCopies: f.pageCopies || f.settings?.pageCopies,
+          settings: f.settings,
+          filePath: f.filePath,
+          fileUrl: f.fileUrl,
+          previews: Array.isArray(f.previews) ? f.previews : undefined,
         }))
       }
     } catch {}
@@ -717,6 +1184,15 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   const pageCount = Math.max(1, !isNaN(rawPageCount) && rawPageCount > 0 ? rawPageCount : (previews.length || 1))
   const filePath = file?.path || ''
   const fileUrl = file ? `/api/kiosk-sessions/${sessionId}/file` : undefined
+
+  // Auto-generate preview from uploaded image file if previews array was empty
+  if (previews.length === 0 && file && /\.(png|jpe?g|webp|gif|bmp)$/i.test(fileName)) {
+    previews = [{
+      pageNumber: 1,
+      url: `/api/kiosk-sessions/${sessionId}/file`,
+      title: fileName,
+    }]
+  }
 
   const docData: KioskDocumentData = {
     fileName,
@@ -727,28 +1203,173 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     fileUrl,
     pages: previews,
     uploadedAt: Date.now(),
+    ...(filesList.length > 0 ? { files: filesList } : {}),
   }
 
   session.document = docData
   session.fileName = fileName
   session.totalPages = pageCount
+  if (filesList.length > 0) {
+    session.files = filesList
+  }
   session.copies = session.copies || 1
   session.colourMode = session.colourMode || 'BW'
-  session.lastPhoneActivityAt = Date.now()
+  const now = Date.now()
+  session.lastPhoneActivityAt = now
+  session.lastActivityAt = now
+  session.currentSectionEnteredAt = now
+  session.phoneDisconnected = false
+  session.phoneDisconnectedAt = undefined
   session.state = 'CONFIRMING'
   session.phase = 'Document uploaded. Review document on mobile.'
   session.phaseStep = 2
 
   saveSession(session)
 
-  console.log(`[KioskSession] 📄 Document "${fileName}" (${pageCount} pages) uploaded for session ${sessionId} on ${session.kioskId}`)
+  console.log(`[KioskSession] 📄 Document "${fileName}" (${pageCount} pages, ${filesList.length} files) uploaded for session ${sessionId} on ${session.kioskId}`)
+
+  try {
+    relayToKiosk(session.kioskId, {
+      type: 'SESSION_STATE_CHANGED',
+      kioskId: session.kioskId,
+      sessionId: session.sessionId,
+      payload: {
+        state: 'CONFIRMING',
+        phase: session.phase,
+        document: session.document,
+        files: session.files,
+        totalPages: pageCount,
+        fileName,
+      },
+    } as any)
+  } catch {}
 
   res.json({
     success: true,
     sessionId,
     state: session.state,
+    phase: session.phase,
+    nextStep: 'settings',
     document: session.document,
+    files: session.files,
     message: 'Document successfully transferred to kiosk screen.',
+  })
+})
+
+/**
+ * POST /api/kiosk-sessions/:sessionId/next-phase
+ * POST /api/kiosk-sessions/:sessionId/advance
+ * Deterministic next-phase transition endpoint.
+ * Immediately advances session state (e.g. to CONFIRMING or CONFIGURING)
+ * and relays document metadata and previews to the kiosk display.
+ */
+kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], async (req: Request, res: Response) => {
+  const { sessionId } = req.params
+  const session = getSession(sessionId)
+
+  if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || session.state === 'EXPIRED') {
+    return res.status(410).json({ success: false, error: 'SESSION_EXPIRED', message: 'Session expired or not found' })
+  }
+
+  const {
+    targetState,
+    fileName,
+    fileSize,
+    fileType,
+    pageCount,
+    totalPages,
+    previews,
+    files,
+    settings,
+  } = req.body
+
+  const now = Date.now()
+  session.lastPhoneActivityAt = now
+  session.lastActivityAt = now
+  session.phoneDisconnected = false
+  session.phoneDisconnectedAt = undefined
+  session.currentSectionEnteredAt = now
+
+  const nextState: KioskSessionState = (targetState as KioskSessionState) || 'CONFIRMING'
+  session.state = nextState
+
+  if (nextState === 'CONFIRMING') {
+    session.phase = 'Document uploaded. Review document on mobile.'
+    session.phaseStep = 2
+  } else if (nextState === 'CONFIGURING') {
+    session.phase = 'Print settings on mobile.'
+    session.phaseStep = 3
+  } else if (nextState === 'REVIEWING') {
+    session.phase = 'Reviewing order on mobile.'
+    session.phaseStep = 4
+  } else if (nextState === 'PAYING') {
+    session.phase = 'Scan UPI QR on kiosk display to pay'
+    session.phaseStep = 5
+  }
+
+  if (fileName) session.fileName = fileName
+  const resolvedPages = Math.max(1, Number(pageCount || totalPages) || session.totalPages || 1)
+  session.totalPages = resolvedPages
+
+  if (files && Array.isArray(files) && files.length > 0) {
+    session.files = files
+  }
+
+  if (settings && typeof settings === 'object') {
+    session.settings = { ...session.settings, ...settings }
+  }
+
+  let formattedPreviews: KioskDocumentPreview[] = []
+  if (Array.isArray(previews)) {
+    formattedPreviews = previews.slice(0, 10).map((p: any, idx: number) => ({
+      pageNumber: Number(p.pageNumber) || idx + 1,
+      url: typeof p.url === 'string' ? p.url : '',
+      title: String(p.title || `Page ${idx + 1}`),
+    }))
+  }
+
+  // Synthesize or update session.document so kiosk display immediately detects it
+  session.document = {
+    fileName: fileName || session.fileName || 'Document.pdf',
+    fileSize: Number(fileSize) || session.document?.fileSize || 0,
+    fileType: fileType || session.document?.fileType || 'pdf',
+    pageCount: resolvedPages,
+    filePath: session.document?.filePath || '',
+    fileUrl: session.document?.fileUrl || '',
+    pages: formattedPreviews.length > 0 ? formattedPreviews : (session.document?.pages || []),
+    uploadedAt: session.document?.uploadedAt || now,
+    files: session.files || session.document?.files || [],
+  }
+
+  saveSession(session)
+
+  try {
+    relayToKiosk(session.kioskId, {
+      type: 'SESSION_STATE_CHANGED',
+      kioskId: session.kioskId,
+      sessionId: session.sessionId,
+      payload: {
+        state: session.state,
+        phase: session.phase,
+        document: session.document,
+        files: session.files,
+        totalPages: session.totalPages,
+        fileName: session.fileName,
+      },
+    } as any)
+  } catch {}
+
+  console.log(`[KioskSession] 🚀 Next-phase advanced ${session.sessionId} on ${session.kioskId} -> ${session.state} ("${session.phase}")`)
+
+  res.json({
+    success: true,
+    sessionId: session.sessionId,
+    state: session.state,
+    phase: session.phase,
+    nextStep: nextState === 'CONFIRMING' || nextState === 'CONFIGURING' ? 'settings' : (nextState === 'PAYING' ? 'payment' : 'review'),
+    document: session.document,
+    files: session.files,
+    session,
   })
 })
 
@@ -818,9 +1439,29 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
     pageCustomizations: pageCustomizations || {},
   }
 
+  if (Array.isArray(req.body.files) && req.body.files.length > 0) {
+    session.files = req.body.files
+    if (session.document) {
+      session.document.files = req.body.files
+    }
+  }
+
   session.copies = session.settings.copies
   session.colourMode = session.settings.colour
   session.amount = session.settings.totalAmount
+
+  if (typeof session.qrAmount === 'number' && session.qrAmount !== computedTotal) {
+    session.upiQrValue = ''
+    session.upiIntentUrl = ''
+    session.paymentUrl = ''
+    session.qrAmount = undefined
+  }
+  if (nextState !== 'PAYING') {
+    session.upiQrValue = ''
+    session.upiIntentUrl = ''
+    session.paymentUrl = ''
+    session.qrAmount = undefined
+  }
 
   if (nextState && ['CONFIRMING', 'CONFIGURING', 'REVIEWING', 'PAYING'].includes(nextState)) {
     session.state = nextState as KioskSessionState
@@ -837,6 +1478,13 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
     session.phase = 'Configuring print settings on mobile'
     session.phaseStep = 3
   }
+
+  const settingsNow = Date.now()
+  session.lastPhoneActivityAt = settingsNow
+  session.lastActivityAt = settingsNow
+  session.currentSectionEnteredAt = settingsNow
+  session.phoneDisconnected = false
+  session.phoneDisconnectedAt = undefined
 
   saveSession(session)
   res.json({ success: true, session })
@@ -896,9 +1544,9 @@ kioskSessionsRouter.post('/:sessionId/state', (req: Request, res: Response) => {
  */
 export async function syncSessionToOrder(session: KioskSession) {
   try {
-    if (!session || !session.sessionId) return
-    const orderId = session.orderId || `ORD-${session.sessionId.slice(-6)}`
-    const orderNumber = `PB-2026-${orderId.replace(/[^0-9]/g, '').slice(-4) || Math.floor(1000 + Math.random() * 9000)}`
+    const orderId = session.orderId || generateUniqueClientTxnId('PB')
+    session.orderId = orderId
+    const orderNumber = orderId
     const fileName = session.document?.fileName || session.fileName || 'Kiosk_Document.pdf'
     const fileSize = session.document?.fileSize || 0
     const pageCount = session.document?.pageCount || session.totalPages || 1
@@ -936,6 +1584,11 @@ export async function syncSessionToOrder(session: KioskSession) {
             releasePin: session.otp,
             otp: session.otp,
             customerIp: session.claimedIp || '127.0.0.1',
+            files: session.files || session.document?.files,
+            printSettings: {
+              ...(session.settings || {}),
+              files: session.files || session.document?.files,
+            },
             paidAt: session.state === 'PAYING' ? undefined : new Date(),
             completedAt: session.state === 'DONE' ? new Date() : undefined,
             paymentConfirmation: {
@@ -956,67 +1609,350 @@ export async function syncSessionToOrder(session: KioskSession) {
   }
 }
 
+async function resolveGatewayForKiosk(kioskId: string): Promise<{
+  gateway: 'upiexpress' | 'razorpay'
+  upiExpressApiKey: string
+  razorpayKeyId: string
+  razorpayKeySecret: string
+}> {
+  const cleanId = kioskId.trim().toUpperCase()
+  let kiosk: any = null
+  let merchant: any = null
+
+  if (isDbConnected()) {
+    try {
+      kiosk = await Kiosk.findOne({ kioskId: cleanId }).lean()
+      merchant = await Merchant.findOne({ kioskId: cleanId }).lean()
+      if (!merchant && kiosk?.merchantId) {
+        merchant = await Merchant.findOne({ merchantId: kiosk.merchantId }).lean()
+      }
+    } catch {}
+  }
+
+  if (!kiosk) {
+    kiosk = fallbackKiosks.find((k: any) => (k.kioskId || k.id) === cleanId)
+  }
+  if (!merchant) {
+    merchant = fallbackMerchants.find((m: any) => m.kioskId === cleanId || (kiosk?.merchantId && m.merchantId === kiosk.merchantId))
+  }
+
+  const gateway = (kiosk?.paymentGateway || merchant?.paymentGateway || 'upiexpress') as 'upiexpress' | 'razorpay'
+  const upiExpressApiKey = kiosk?.upiExpressApiKey || merchant?.upiExpressApiKey || (process.env.UPIEXPRESS_API_KEY || '').trim()
+  const razorpayKeyId = kiosk?.razorpayKeyId || merchant?.razorpayKeyId || ''
+  const razorpayKeySecret = kiosk?.razorpayKeySecret || merchant?.razorpayKeySecret || ''
+
+  return {
+    gateway,
+    upiExpressApiKey,
+    razorpayKeyId,
+    razorpayKeySecret,
+  }
+}
+
+/**
+ * Helper to initiate payment on a kiosk session (Razorpay link or UPI Express dynamic order).
+ */
+export async function initiatePaymentForSession(
+  session: KioskSession,
+  req?: Request,
+  amount?: number
+): Promise<void> {
+  // Amount determination: Use fresh amount if provided, or existing session amount, with minimum 2
+  const reqAmount = typeof amount === 'number' && amount > 0 ? amount : undefined
+  const existingAmount = typeof session.amount === 'number' && session.amount > 0 ? session.amount : undefined
+  const effectiveAmount = reqAmount || existingAmount || 2
+
+  // An active QR is valid only if it was explicitly generated for this exact amount
+  const isQrCurrentForAmount =
+    Boolean(session.upiQrValue) &&
+    typeof session.qrAmount === 'number' &&
+    Math.abs(session.qrAmount - effectiveAmount) <= 0.25
+
+  session.amount = effectiveAmount
+
+  // If session already has an active, valid UPI QR for this exact amount, reuse it without hitting gateway again!
+  if (isQrCurrentForAmount && session.upiIntentUrl && session.orderId) {
+    console.log(`[KioskSession] Reusing active dynamic UPI QR for session ${session.sessionId} (order ${session.orderId}) for ₹${effectiveAmount}`)
+    session.state = 'PAYING'
+    session.phase = `Scan QR code on kiosk display to pay ₹${effectiveAmount.toFixed(2)}`
+    session.phaseStep = 4
+    saveSession(session)
+    syncSessionToOrder(session)
+    return
+  }
+
+  // Amount has changed (or no valid QR exists): generate a brand new order with updated amount
+  console.log(`[KioskSession] Amount changed or QR missing. Generating fresh order for session ${session.sessionId}: ₹${effectiveAmount} (previous qrAmount: ₹${session.qrAmount ?? 'none'})`)
+  session.qrAmount = effectiveAmount
+  session.upiQrValue = ''
+  session.upiIntentUrl = ''
+  session.paymentUrl = ''
+  session.paymentError = undefined
+
+  // Generate a guaranteed globally unique order ID (matching UPI Express format: PB- + 20 hex chars)
+  const orderId = generateUniqueClientTxnId('PB')
+  const otp = session.otp || Math.floor(1000 + Math.random() * 9000).toString()
+
+  session.orderId = orderId
+  session.otp = otp
+
+  session.state = 'PAYING'
+  session.phase = `Scan QR code on kiosk display to pay ₹${effectiveAmount.toFixed(2)}`
+  session.phaseStep = 4
+
+  const gwInfo = await resolveGatewayForKiosk(session.kioskId)
+  session.gateway = gwInfo.gateway
+
+  if (gwInfo.gateway === 'razorpay') {
+    // ── RAZORPAY DYNAMIC PAYMENT ORDER / LINK ──
+    const keyId = gwInfo.razorpayKeyId
+    const keySecret = gwInfo.razorpayKeySecret
+
+    if (!keyId || !keySecret) {
+      const err = `Razorpay credentials are not configured for Station ${session.kioskId}. Please contact the merchant.`
+      const rec = '1. Enter Razorpay Key ID & Key Secret in Merchant Settings.\n2. Ensure API permissions are enabled.\n3. Click "Start Printer Again" in Kiosk Status.'
+      session.paymentError = err
+      session.merchantError = err
+      session.merchantRecommendation = rec
+      session.upiQrValue = ''
+      session.upiIntentUrl = ''
+      session.paymentUrl = ''
+      session.qrAmount = undefined
+      console.warn(`[KioskSession] Razorpay credentials missing for kiosk ${session.kioskId}`)
+      await markKioskOffline(session.kioskId, err, {
+        merchantError: err,
+        merchantRecommendation: rec,
+        errorSource: 'RAZORPAY',
+      })
+    } else {
+      session.paymentError = undefined
+      session.merchantError = undefined
+      session.merchantRecommendation = undefined
+      let link: any = null
+      let lastErr = ''
+      const MAX_ATTEMPTS = 3
+
+      try {
+        const RazorpayModule: any = await import('razorpay')
+        const Razorpay = RazorpayModule.default ?? RazorpayModule
+        const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret })
+        const amountPaise = Math.round(effectiveAmount * 100)
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          try {
+            link = await rzp.paymentLink.create({
+              amount: amountPaise,
+              currency: 'INR',
+              accept_partial: false,
+              reference_id: orderId,
+              description: `PrintBooth Station ${session.kioskId} - Order ${orderId}`,
+              customer: {
+                name: 'Kiosk Customer',
+                email: 'kiosk@printbooth.co.in',
+                contact: '9999999999',
+              },
+              notify: { sms: false, email: false },
+              notes: {
+                orderId,
+                kioskId: session.kioskId,
+              },
+            })
+            if (link?.short_url) {
+              break
+            }
+          } catch (rErr: any) {
+            lastErr = rErr?.message || 'Razorpay order creation failed'
+            console.warn(`[KioskSession] Razorpay attempt ${attempt}/${MAX_ATTEMPTS} failed: ${lastErr}`)
+            if (attempt < MAX_ATTEMPTS) {
+              await new Promise((resolve) => setTimeout(resolve, attempt * 600))
+            }
+          }
+        }
+
+        if (link?.short_url) {
+          session.paymentUrl = link.short_url
+          session.upiQrValue = link.short_url
+          session.upiIntentUrl = link.short_url
+          session.qrAmount = effectiveAmount
+          session.paymentError = undefined
+          session.merchantError = undefined
+          session.merchantRecommendation = undefined
+
+          if (isDbConnected()) {
+            try {
+              await Payment.create({
+                paymentId: `PAY-${Date.now().toString().slice(-8)}`,
+                razorpayOrderId: link.id,
+                orderId,
+                amount: effectiveAmount,
+                currency: 'INR',
+                status: 'CREATED',
+                description: `Razorpay payment link for ${orderId}`,
+                notes: { gateway: 'razorpay', orderId, kioskId: session.kioskId },
+              })
+            } catch {}
+          }
+        } else {
+          const merchantError = `Razorpay Payment Gateway Error: ${lastErr || 'Order creation failed after 3 attempts'}`
+          const merchantRecommendation =
+            '1. Verify Razorpay Key ID and Key Secret in Merchant Settings.\n2. Ensure your Razorpay account is in Live Mode and KYC is active.\n3. Verify API Key permissions include Order Creation.\n4. Once verified, click "Start Printer Again" in Kiosk Status to resume printer operations.'
+
+          session.upiQrValue = ''
+          session.upiIntentUrl = ''
+          session.paymentUrl = ''
+          session.qrAmount = undefined
+          session.paymentError = merchantError
+          session.merchantError = merchantError
+          session.merchantRecommendation = merchantRecommendation
+
+          await markKioskOffline(session.kioskId, merchantError, {
+            merchantError,
+            merchantRecommendation,
+            errorSource: 'RAZORPAY',
+          })
+        }
+      } catch (err: any) {
+        session.upiQrValue = ''
+        session.upiIntentUrl = ''
+        session.paymentUrl = ''
+        session.qrAmount = undefined
+        const merchantError = `Razorpay Exception: ${err?.message || 'Failed to initialize payment order.'}`
+        const merchantRecommendation =
+          '1. Verify Razorpay credentials in Merchant Settings.\n2. Check network connectivity.\n3. Click "Start Printer Again" in Kiosk Status.'
+        session.paymentError = merchantError
+        session.merchantError = merchantError
+        session.merchantRecommendation = merchantRecommendation
+        console.warn(`[KioskSession] Error generating Razorpay payment link for ${session.kioskId}:`, err)
+        await markKioskOffline(session.kioskId, merchantError, {
+          merchantError,
+          merchantRecommendation,
+          errorSource: 'RAZORPAY',
+        })
+      }
+    }
+  } else {
+    // ── UPI EXPRESS DYNAMIC ORDER & DYNAMIC QR ──
+    if (!gwInfo.upiExpressApiKey) {
+      const err = `UPI Express API Key is not configured for Station ${session.kioskId}. Please contact the merchant.`
+      const rec = '1. Go to Merchant Settings.\n2. Enter your UPI Express API Key and UPI VPA ID.\n3. Save settings and click "Start Printer Again" in Kiosk Status.'
+      session.paymentError = err
+      session.merchantError = err
+      session.merchantRecommendation = rec
+      session.upiQrValue = ''
+      session.upiIntentUrl = ''
+      session.paymentUrl = ''
+      session.qrAmount = undefined
+      console.warn(`[KioskSession] UPI Express API key missing for kiosk ${session.kioskId}`)
+      await markKioskOffline(session.kioskId, err, {
+        merchantError: err,
+        merchantRecommendation: rec,
+        errorSource: 'UPIEXPRESS',
+      })
+    } else {
+      session.paymentError = undefined
+      session.merchantError = undefined
+      session.merchantRecommendation = undefined
+      try {
+        const upiResult = await createUpiExpressOrder(
+          {
+            apiKey: gwInfo.upiExpressApiKey,
+            kioskId: session.kioskId,
+            clientTxnId: orderId,
+            amount: effectiveAmount,
+            customerName: 'Kiosk Customer',
+            customerEmail: 'kiosk@printbooth.co.in',
+            customerMobile: '9999999999',
+            note: `PrintBooth Station ${session.kioskId} - ${orderId}`,
+            skipReachabilityCheck: true,
+          },
+          req
+        )
+
+        if (upiResult.success && upiResult.data && upiResult.data.upiIntentUrl) {
+          session.upiQrValue = upiResult.data.upiIntentUrl
+          session.upiIntentUrl = upiResult.data.upiIntentUrl
+          session.paymentUrl = upiResult.data.paymentUrl || ''
+          session.orderId = upiResult.data.clientTxnId || orderId
+          session.qrAmount = effectiveAmount
+          session.paymentError = undefined
+          session.merchantError = undefined
+          session.merchantRecommendation = undefined
+        } else {
+          session.upiQrValue = ''
+          session.upiIntentUrl = ''
+          session.qrAmount = undefined
+          session.paymentError = upiResult.merchantError || upiResult.error || `Payment gateway credentials are not configured properly for Station ${session.kioskId}.`
+          session.merchantError = upiResult.merchantError
+          session.merchantRecommendation = upiResult.merchantRecommendation
+          console.warn(`[KioskSession] UPI Express order creation could not obtain upiintent:`, upiResult.error)
+        }
+      } catch (err: any) {
+        session.upiQrValue = ''
+        session.upiIntentUrl = ''
+        session.qrAmount = undefined
+        const merchantError = `UPI Express Exception: ${err?.message || 'Failed to initialize UPI Express payment order.'}`
+        const merchantRecommendation =
+          '1. Verify UPI Express credentials in Merchant Settings.\n2. Ensure UPI Express plan is active.\n3. Click "Start Printer Again" in Kiosk Status.'
+        session.paymentError = merchantError
+        session.merchantError = merchantError
+        session.merchantRecommendation = merchantRecommendation
+        console.warn(`[KioskSession] Error generating UPI Express QR for ${session.kioskId}:`, err)
+        await markKioskOffline(session.kioskId, merchantError, {
+          merchantError,
+          merchantRecommendation,
+          errorSource: 'UPIEXPRESS',
+        })
+      }
+    }
+  }
+
+  saveSession(session)
+  syncSessionToOrder(session)
+}
+
 /**
  * POST /api/kiosk-sessions/:sessionId/pay
  * Called by kiosk touchscreen when moving to or completing payment.
  */
 kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) => {
   const { sessionId } = req.params
-  const session = getSession(sessionId)
+  let session = getSession(sessionId)
+
+  if (!session) {
+    const fallbackKioskId = String(
+      req.body?.kioskId ||
+      (sessionId.startsWith('init-') ? sessionId.replace('init-', '') : sessionId) ||
+      'PB-001'
+    ).toUpperCase().trim()
+
+    session = getActiveSession(fallbackKioskId)
+    if (!session && fallbackKioskId) {
+      session = generateSession(fallbackKioskId, resolveWebBaseUrl(req))
+    }
+  }
+
   if (!session) {
     return res.status(404).json({ success: false, error: 'Session not found' })
   }
 
-  const { amount } = req.body
-  const orderId = session.orderId || `ORD-${Date.now().toString().slice(-6)}`
-  const otp = session.otp || Math.floor(1000 + Math.random() * 9000).toString()
-
-  session.orderId = orderId
-  session.otp = otp
-  if (typeof amount === 'number' && amount > 0) session.amount = amount
-  session.state = 'PAYING'
-  session.phase = 'Scan UPI QR code on kiosk display to pay'
-  session.phaseStep = 4
-
-  // Dynamically resolve merchant UPI Express API key and generate real order & dynamic QR
-  try {
-    const effectiveAmount = typeof session.amount === 'number' && session.amount > 0 ? session.amount : 2
-    const upiResult = await createUpiExpressOrder(
-      {
-        kioskId: session.kioskId,
-        clientTxnId: orderId,
-        amount: effectiveAmount,
-        customerName: 'Kiosk Customer',
-        customerEmail: 'kiosk@printbooth.co.in',
-        customerMobile: '9999999999',
-        note: `PrintBooth Station ${session.kioskId} - ${orderId}`,
-        skipReachabilityCheck: true,
-      },
-      req
-    )
-
-    if (upiResult.success && upiResult.data) {
-      session.upiQrValue = upiResult.data.upiIntentUrl || upiResult.data.paymentUrl
-      session.paymentUrl = upiResult.data.paymentUrl
-      session.upiIntentUrl = upiResult.data.upiIntentUrl
-      session.merchantUpiId = upiResult.data.merchantUpiId
-      session.gateway = 'upiexpress'
-    } else {
-      const fallbackVpa = await resolveMerchantUpiIdForKiosk(session.kioskId)
-      session.merchantUpiId = fallbackVpa
-      session.upiQrValue = `upi://pay?pa=${encodeURIComponent(fallbackVpa)}&pn=${encodeURIComponent('PrintBooth ' + session.kioskId)}&am=${effectiveAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(orderId)}`
-      session.gateway = 'upiexpress'
-    }
-  } catch (err) {
-    console.warn('[KioskSession] Error generating UPI Express QR:', err)
+  if (session.state === 'DONE' || session.state === 'CANCELLED' || Date.now() > session.expiresAt) {
+    return res.status(410).json({
+      success: false,
+      error: 'SESSION_EXPIRED',
+      code: 'SESSION_EXPIRED',
+      message: 'This print session has expired or ended. Please scan the current live QR code on the kiosk screen.',
+    })
   }
 
-  saveSession(session)
-  syncSessionToOrder(session)
+  const { amount } = req.body
+  await initiatePaymentForSession(session, req, amount)
+
   res.json({
     success: true,
-    orderId,
-    otp,
+    orderId: session.orderId,
+    otp: session.otp,
+    amount: session.amount,
+    gateway: session.gateway,
     upiQrValue: session.upiQrValue,
     paymentUrl: session.paymentUrl,
     upiIntentUrl: session.upiIntentUrl,
@@ -1038,44 +1974,111 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
 
   const orderId = session.orderId || `ORD-${Date.now().toString().slice(-6)}`
   session.orderId = orderId
+
+  const files = session.files && session.files.length > 0 ? session.files : (session.document?.files || [])
+  const isMultiFile = Array.isArray(files) && files.length > 1
+
+  const allCandidateFileNames = [
+    ...(session.fileName ? [session.fileName] : []),
+    ...(session.document?.fileName ? [session.document.fileName] : []),
+    ...files.map((f: any) => f.fileName || ''),
+  ]
+  const isPptSession = allCandidateFileNames.some(fn => /\.(pptx?|ppsx?)$/i.test(fn))
+  const isDocxSession = allCandidateFileNames.some(fn => /\.(docx?|doc)$/i.test(fn))
+
   session.state = 'PRINTING'
-  session.phase = 'Printing document on Brother hardware…'
+  session.phase = isPptSession
+    ? 'Payment confirmed! Processing PPT into print PDF…'
+    : isDocxSession
+    ? 'Payment confirmed! Processing DOCX into print PDF…'
+    : 'Payment confirmed! Printing document on Brother hardware…'
   session.phaseStep = 5
 
-  const fileName = session.document?.fileName || session.fileName || 'PrintBooth_Document.pdf'
-  const filePath = session.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
-  const copies = session.settings?.copies || session.copies || 1
-  const colourMode = session.settings?.colour || session.colourMode || 'BW'
-  const duplex = session.settings?.duplex || 'SINGLE'
-  const pageRange = session.settings?.pageRange || 'ALL'
-  const totalPages = session.document?.pageCount || session.totalPages || 1
+  if (isMultiFile) {
+    console.log(`[KioskSession] 🖨️ Multi-file print execution triggered for session ${sessionId} (${files.length} files)`)
+    for (let idx = 0; idx < files.length; idx++) {
+      const f = files[idx]
+      const subOrderId = `${orderId}_sub_${idx + 1}`
+      const fileSettings = f.settings || {}
+      const fCopies = Math.max(1, Number(fileSettings.copies || f.copies || session.settings?.copies || 1))
+      const fColour = String(fileSettings.colour || f.colour || session.settings?.colour || 'BW').toUpperCase()
+      const fDuplex = String(fileSettings.duplex || f.duplex || session.settings?.duplex || 'SINGLE').toUpperCase()
+      const fPageRange = String(fileSettings.pages || fileSettings.pageRange || f.pageRange || f.pages || session.settings?.pageRange || 'ALL').trim()
+      const fPaperSize = String(fileSettings.paperSize || f.paperSize || session.settings?.paperSize || 'A4').trim()
+      const fScaling = String(fileSettings.scaling || f.scaling || 'FIT').trim()
+      const fPagesPerSheet = Number(fileSettings.pagesPerSheet || f.pagesPerSheet || 1)
+      const fOrientation = String(fileSettings.orientation || f.orientation || 'AUTO').toUpperCase().trim()
+      const fTotalPages = Math.max(1, Number(f.pageCount || 1))
 
-  const jobState: PrintJobState = {
-    orderId,
-    fileName,
-    filePath,
-    copies,
-    colourMode,
-    pageRange,
-    duplex,
-    paperSize: session.settings?.paperSize || 'A4',
-    status: 'PRINTING',
-    printedPages: 0,
-    totalPages,
-    percent: 0,
-    startedAt: Date.now(),
-    kioskId: session.kioskId,
+      const subJobState: PrintJobState = {
+        orderId: subOrderId,
+        masterOrderId: orderId,
+        fileIndex: idx + 1,
+        totalFiles: files.length,
+        fileName: f.fileName || `Document_${idx + 1}.pdf`,
+        filePath: f.filePath || session.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf'),
+        copies: fCopies,
+        colourMode: fColour === 'COLOUR' ? 'COLOUR' : 'BW',
+        pageRange: fPageRange,
+        duplex: fDuplex,
+        paperSize: fPaperSize,
+        scaling: fScaling,
+        pagesPerSheet: fPagesPerSheet,
+        orientation: fOrientation,
+        dpi: fileSettings.dpi || f.dpi || '600',
+        pageColours: fileSettings.pageColours || f.pageColours,
+        pageCopies: fileSettings.pageCopies || f.pageCopies,
+        status: 'PRINTING',
+        printedPages: 0,
+        totalPages: fTotalPages,
+        percent: 0,
+        startedAt: Date.now(),
+        kioskId: session.kioskId,
+      }
+
+      syncJobState(subJobState)
+      try {
+        dispatchPrintJob(subJobState)
+      } catch (err: any) {
+        console.error(`[KioskSession] Error dispatching sub print job ${subOrderId}:`, err)
+      }
+    }
+  } else {
+    const fileName = session.document?.fileName || session.fileName || 'PrintBooth_Document.pdf'
+    const filePath = session.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
+    const copies = session.settings?.copies || session.copies || 1
+    const colourMode = session.settings?.colour || session.colourMode || 'BW'
+    const duplex = session.settings?.duplex || 'SINGLE'
+    const pageRange = session.settings?.pageRange || 'ALL'
+    const totalPages = session.document?.pageCount || session.totalPages || 1
+
+    const jobState: PrintJobState = {
+      orderId,
+      fileName,
+      filePath,
+      copies,
+      colourMode,
+      pageRange,
+      duplex,
+      paperSize: session.settings?.paperSize || 'A4',
+      status: 'PRINTING',
+      printedPages: 0,
+      totalPages,
+      percent: 0,
+      startedAt: Date.now(),
+      kioskId: session.kioskId,
+    }
+
+    syncJobState(jobState)
+    try {
+      dispatchPrintJob(jobState)
+    } catch (err: any) {
+      console.error(`[KioskSession] Error dispatching print job for ${sessionId}:`, err)
+    }
   }
 
-  syncJobState(jobState)
   saveSession(session)
   syncSessionToOrder(session)
-
-  try {
-    dispatchPrintJob(jobState)
-  } catch (err: any) {
-    console.error(`[KioskSession] Error dispatching print job for ${sessionId}:`, err)
-  }
 
   res.json({ success: true, orderId, state: session.state, message: 'Print job dispatched to printer' })
 })
@@ -1126,10 +2129,24 @@ kioskSessionsRouter.get('/:sessionId/status', (req: Request, res: Response) => {
   const session = getSession(sessionId)
 
   if (!session) {
-    return res.status(404).json({ success: false, error: 'Session not found or expired' })
+    return res.status(404).json({ success: false, isExpired: true, error: 'Session not found or expired' })
   }
 
-  const isExpired = Date.now() > session.expiresAt && session.state !== 'DONE'
+  const isPrePrintState = session.state !== 'PRINTING' && session.state !== 'DONE' && session.state !== 'CANCELLED' && session.state !== 'EXPIRED'
+  const lastActivity = session.lastActivityAt || session.lastPhoneActivityAt || session.claimedAt || session.createdAt
+  const isInactiveTimeout = isPrePrintState && Boolean(lastActivity) && (Date.now() - lastActivity >= SECTION_INACTIVITY_TIMEOUT_MS)
+
+  if (isInactiveTimeout && session.state !== 'EXPIRED') {
+    session.state = 'EXPIRED'
+    session.expiredReason = 'INACTIVITY_TIMEOUT'
+    session.completedAt = Date.now()
+    saveSession(session)
+    if (session.kioskId) {
+      activeSessionByKiosk.delete(session.kioskId)
+    }
+  }
+
+  const isExpired = session.state === 'EXPIRED' || (session.state !== 'QR_READY' && session.state !== 'DONE' && Date.now() > session.expiresAt)
 
   res.json({
     success: true,
@@ -1138,8 +2155,10 @@ kioskSessionsRouter.get('/:sessionId/status', (req: Request, res: Response) => {
     phase: session.phase,
     phaseStep: session.phaseStep,
     isExpired,
+    expiredReason: session.expiredReason,
     expiresAt: session.expiresAt,
     document: session.document,
+    files: session.files || session.document?.files || [],
     settings: session.settings,
     otp: session.otp,
     orderId: session.orderId,
@@ -1149,6 +2168,50 @@ kioskSessionsRouter.get('/:sessionId/status', (req: Request, res: Response) => {
     merchantUpiId: session.merchantUpiId,
     gateway: session.gateway,
   })
+})
+
+/**
+ * POST /api/kiosk-sessions/:sessionId/expire
+ * Explicitly expires a session (e.g. when 1-minute inactivity timeout fires on kiosk or phone).
+ */
+kioskSessionsRouter.post('/:sessionId/expire', (req: Request, res: Response) => {
+  const { sessionId } = req.params
+  const session = getSession(sessionId)
+
+  if (session) {
+    session.state = 'EXPIRED'
+    session.expiredReason = req.body?.reason || 'INACTIVITY_TIMEOUT'
+    session.completedAt = Date.now()
+    saveSession(session)
+    if (session.kioskId) {
+      activeSessionByKiosk.delete(session.kioskId)
+    }
+    console.log(`[KioskSession] ⏱️ Session ${sessionId} marked as EXPIRED (reason: ${session.expiredReason})`)
+  }
+
+  res.json({ success: true, state: 'EXPIRED' })
+})
+
+/**
+ * POST /api/kiosk-sessions/:sessionId/activity
+ * Records user activity (from kiosk touchscreen or phone interaction).
+ */
+kioskSessionsRouter.post('/:sessionId/activity', (req: Request, res: Response) => {
+  const { sessionId } = req.params
+  const session = getSession(sessionId)
+
+  if (session && session.state !== 'DONE' && session.state !== 'EXPIRED') {
+    const now = Date.now()
+    session.lastActivityAt = now
+    if (req.body?.source === 'phone') {
+      session.lastPhoneActivityAt = now
+      session.phoneDisconnected = false
+    }
+    saveSession(session)
+    return res.json({ success: true, lastActivityAt: now })
+  }
+
+  res.json({ success: false, isExpired: true, error: 'Session not active' })
 })
 
 /**
@@ -1286,46 +2349,113 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
 
   const effectiveOrderId = orderId || targetSession.orderId || `ORD-${Date.now().toString().slice(-6)}`
   targetSession.orderId = effectiveOrderId
+
+  const files = targetSession.files && targetSession.files.length > 0 ? targetSession.files : (targetSession.document?.files || [])
+  const isMultiFile = Array.isArray(files) && files.length > 1
+
+  const allCandidateFileNames = [
+    ...(targetSession.fileName ? [targetSession.fileName] : []),
+    ...(targetSession.document?.fileName ? [targetSession.document.fileName] : []),
+    ...files.map((f: any) => f.fileName || ''),
+  ]
+  const isPptSession = allCandidateFileNames.some(fn => /\.(pptx?|ppsx?)$/i.test(fn))
+  const isDocxSession = allCandidateFileNames.some(fn => /\.(docx?|doc)$/i.test(fn))
+
   targetSession.state = 'PRINTING'
-  targetSession.phase = 'Payment confirmed! Printing document on Brother hardware…'
+  targetSession.phase = isPptSession
+    ? 'Payment confirmed! Processing PPT into print PDF…'
+    : isDocxSession
+    ? 'Payment confirmed! Processing DOCX into print PDF…'
+    : 'Payment confirmed! Printing document on Brother hardware…'
   targetSession.phaseStep = 5
 
-  const fileName = targetSession.document?.fileName || targetSession.fileName || 'PrintBooth_Document.pdf'
-  const filePath = targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
-  const copies = targetSession.settings?.copies || targetSession.copies || 1
-  const colourMode = targetSession.settings?.colour || targetSession.colourMode || 'BW'
-  const duplex = targetSession.settings?.duplex || 'SINGLE'
-  const pageRange = targetSession.settings?.pageRange || 'ALL'
-  const totalPages = targetSession.document?.pageCount || targetSession.totalPages || 1
+  if (isMultiFile) {
+    console.log(`[KioskSession] 🖨️ AUTO-DISPATCHING MULTI-FILE PRINT on payment confirmed: session ${targetSession.sessionId} on kiosk ${targetSession.kioskId} (${files.length} files)`)
+    for (let idx = 0; idx < files.length; idx++) {
+      const f = files[idx]
+      const subOrderId = `${effectiveOrderId}_sub_${idx + 1}`
+      const fileSettings = f.settings || {}
+      const fCopies = Math.max(1, Number(fileSettings.copies || f.copies || targetSession.settings?.copies || 1))
+      const fColour = String(fileSettings.colour || f.colour || targetSession.settings?.colour || 'BW').toUpperCase()
+      const fDuplex = String(fileSettings.duplex || f.duplex || targetSession.settings?.duplex || 'SINGLE').toUpperCase()
+      const fPageRange = String(fileSettings.pages || fileSettings.pageRange || f.pageRange || f.pages || targetSession.settings?.pageRange || 'ALL').trim()
+      const fPaperSize = String(fileSettings.paperSize || f.paperSize || targetSession.settings?.paperSize || 'A4').trim()
+      const fScaling = String(fileSettings.scaling || f.scaling || 'FIT').trim()
+      const fPagesPerSheet = Number(fileSettings.pagesPerSheet || f.pagesPerSheet || 1)
+      const fOrientation = String(fileSettings.orientation || f.orientation || 'AUTO').toUpperCase().trim()
+      const fTotalPages = Math.max(1, Number(f.pageCount || 1))
 
-  const jobState: PrintJobState = {
-    orderId: effectiveOrderId,
-    fileName,
-    filePath,
-    copies,
-    colourMode,
-    pageRange,
-    duplex,
-    paperSize: targetSession.settings?.paperSize || 'A4',
-    status: 'PRINTING',
-    printedPages: 0,
-    totalPages,
-    percent: 0,
-    startedAt: Date.now(),
-    kioskId: targetSession.kioskId,
+      const subJobState: PrintJobState = {
+        orderId: subOrderId,
+        masterOrderId: effectiveOrderId,
+        fileIndex: idx + 1,
+        totalFiles: files.length,
+        fileName: f.fileName || `Document_${idx + 1}.pdf`,
+        filePath: f.filePath || targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf'),
+        copies: fCopies,
+        colourMode: fColour === 'COLOUR' ? 'COLOUR' : 'BW',
+        pageRange: fPageRange,
+        duplex: fDuplex,
+        paperSize: fPaperSize,
+        scaling: fScaling,
+        pagesPerSheet: fPagesPerSheet,
+        orientation: fOrientation,
+        dpi: fileSettings.dpi || f.dpi || '600',
+        pageColours: fileSettings.pageColours || f.pageColours,
+        pageCopies: fileSettings.pageCopies || f.pageCopies,
+        status: 'PRINTING',
+        printedPages: 0,
+        totalPages: fTotalPages,
+        percent: 0,
+        startedAt: Date.now(),
+        kioskId: targetSession.kioskId,
+      }
+
+      syncJobState(subJobState)
+      try {
+        dispatchPrintJob(subJobState)
+      } catch (err: any) {
+        console.error(`[KioskSession] Error dispatching sub print job ${subOrderId}:`, err)
+      }
+    }
+  } else {
+    const fileName = targetSession.document?.fileName || targetSession.fileName || 'PrintBooth_Document.pdf'
+    const filePath = targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
+    const copies = targetSession.settings?.copies || targetSession.copies || 1
+    const colourMode = targetSession.settings?.colour || targetSession.colourMode || 'BW'
+    const duplex = targetSession.settings?.duplex || 'SINGLE'
+    const pageRange = targetSession.settings?.pageRange || 'ALL'
+    const totalPages = targetSession.document?.pageCount || targetSession.totalPages || 1
+
+    const jobState: PrintJobState = {
+      orderId: effectiveOrderId,
+      fileName,
+      filePath,
+      copies,
+      colourMode,
+      pageRange,
+      duplex,
+      paperSize: targetSession.settings?.paperSize || 'A4',
+      status: 'PRINTING',
+      printedPages: 0,
+      totalPages,
+      percent: 0,
+      startedAt: Date.now(),
+      kioskId: targetSession.kioskId,
+    }
+
+    syncJobState(jobState)
+    try {
+      dispatchPrintJob(jobState)
+    } catch (err: any) {
+      console.error(`[KioskSession] Error in dispatchPrintJob for session ${targetSession.sessionId}:`, err)
+    }
   }
 
-  syncJobState(jobState)
   saveSession(targetSession)
   syncSessionToOrder(targetSession)
 
   console.log(`[KioskSession] 🖨️ AUTO-DISPATCHING PRINT on payment confirmed: session ${targetSession.sessionId} on kiosk ${targetSession.kioskId} (order ${effectiveOrderId})`)
-
-  try {
-    dispatchPrintJob(jobState)
-  } catch (err: any) {
-    console.error(`[KioskSession] Error in dispatchPrintJob for session ${targetSession.sessionId}:`, err)
-  }
 
   return true
 }

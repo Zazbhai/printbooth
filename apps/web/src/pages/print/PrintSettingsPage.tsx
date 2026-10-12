@@ -136,7 +136,8 @@ export default function PrintSettingsPage() {
   const legacyFileName = sessionStorage.getItem('pb_file_name') || ''
   const displayFileName = activeFile?.fileName || legacyFileName
 
-  const kioskVariant = getKioskVariant()
+  const currentKioskId = (typeof window !== 'undefined' ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id')) : '') || ''
+  const kioskVariant = getKioskVariant(currentKioskId)
   const isLite = kioskVariant === 'lite'
 
   // Start with colour card active for pro, pages for lite
@@ -207,21 +208,9 @@ export default function PrintSettingsPage() {
     return selectedPagesList.length * Math.max(1, settings.copies)
   }, [selectedPagesList, settings.pageCopies, settings.copies])
 
-  const isCustomColour = selectedPagesList.length > 1 && Boolean(settings.pageColours && Object.keys(settings.pageColours).length > 0)
-
   const colourCardValue = useMemo(() => {
-    if (isCustomColour && settings.pageColours) {
-      let col = 0
-      let mono = 0
-      selectedPagesList.forEach(p => {
-        const mode = settings.pageColours?.[String(p)] ?? settings.colour ?? 'BW'
-        if (mode === 'COLOUR') col++
-        else mono++
-      })
-      return `Custom (${col} Col, ${mono} B&W)`
-    }
     return settings.colour === 'BW' ? `B&W · ₹${prices.BW_SINGLE}/pg` : `Colour · ₹${prices.COLOUR_SINGLE}/pg`
-  }, [isCustomColour, settings.pageColours, settings.colour, selectedPagesList, prices])
+  }, [settings.colour, prices])
 
   const totalSheets = activeFile
     ? calcFileTotalSheets(activeFile)
@@ -247,9 +236,32 @@ export default function PrintSettingsPage() {
         colourMode: settings.colour,
         duplex: settings.duplex,
         amount: grandTotal,
+        files: files.map(f => ({
+          id: f.id,
+          fileName: f.fileName,
+          fileSize: f.fileSize,
+          fileType: f.fileType,
+          pageCount: f.pageCount || 1,
+          copies: f.settings?.copies || settings.copies || 1,
+          colour: f.settings?.colour || settings.colour || 'BW',
+          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
+          pages: f.settings?.pages || 'ALL',
+          pageRange: f.settings?.pages || 'ALL',
+          paperSize: f.settings?.paperSize || 'A4',
+          scaling: f.settings?.scaling || 'FIT',
+          pagesPerSheet: f.settings?.pagesPerSheet || 1,
+          orientation: f.settings?.orientation || 'AUTO',
+          dpi: f.settings?.dpi || '600',
+          margins: f.settings?.margins || 'STANDARD',
+          contrastMode: f.settings?.contrastMode || 'BALANCED',
+          pageBorder: Boolean(f.settings?.pageBorder),
+          pageCopies: f.settings?.pageCopies,
+          pageColours: f.settings?.pageColours,
+          settings: f.settings,
+        })),
       })
     }
-  }, [displayFileName, pageCount, settings.copies, settings.colour, settings.duplex, grandTotal])
+  }, [displayFileName, pageCount, settings.copies, settings.colour, settings.duplex, grandTotal, files])
 
   // Carousel Cards with interactive in-card editing
   const ALL_CARDS: CarouselCard[] = [
@@ -332,9 +344,9 @@ export default function PrintSettingsPage() {
         <CustomColourControl
           selectedPages={selectedPagesList}
           globalColour={settings.colour}
-          pageColours={settings.pageColours}
-          onGlobalColourChange={(newVal) => patchSettings({ colour: newVal })}
-          onPageColoursChange={(newMap) => patchSettings({ pageColours: newMap })}
+          pageColours={undefined}
+          onGlobalColourChange={(newVal) => patchSettings({ colour: newVal, pageColours: undefined })}
+          onPageColoursChange={() => patchSettings({ pageColours: undefined })}
         />
       ),
     },
@@ -344,6 +356,13 @@ export default function PrintSettingsPage() {
   const CARDS: CarouselCard[] = isLite
     ? ALL_CARDS.filter(c => c.id !== 'spending')
     : ALL_CARDS
+
+  // Ensure activeCardId is always present in current cards
+  useEffect(() => {
+    if (!CARDS.some(c => c.id === activeCardId)) {
+      setActiveCardId(isLite ? 'gxuri' : 'spending')
+    }
+  }, [isLite, CARDS, activeCardId])
 
   function handleContinue() {
     // Persist all per-file settings + grand total
@@ -359,30 +378,44 @@ export default function PrintSettingsPage() {
     sessionStorage.setItem('pb_total_price', String(grandTotal))
 
     if (kioskSession.isKioskSession()) {
-      kioskSession.reportPaying({
+      const readyFiles = getAllFiles().filter(f => f.status === 'ready')
+      kioskSession.reportReviewing({
         fileName: displayFileName,
         totalPages: pageCount,
         copies: settings.copies,
         colourMode: settings.colour,
-        duplex: settings.duplex,
         amount: grandTotal,
+        files: readyFiles.map(f => ({
+          id: f.id,
+          fileName: f.fileName,
+          fileSize: f.fileSize,
+          fileType: f.fileType,
+          pageCount: f.pageCount || 1,
+          copies: f.settings?.copies || settings.copies || 1,
+          colour: f.settings?.colour || settings.colour || 'BW',
+          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
+          pages: f.settings?.pages || 'ALL',
+          pageRange: f.settings?.pages || 'ALL',
+          paperSize: f.settings?.paperSize || 'A4',
+          scaling: f.settings?.scaling || 'FIT',
+          pagesPerSheet: f.settings?.pagesPerSheet || 1,
+          orientation: f.settings?.orientation || 'AUTO',
+          dpi: f.settings?.dpi || '600',
+          margins: f.settings?.margins || 'STANDARD',
+          contrastMode: f.settings?.contrastMode || 'BALANCED',
+          pageBorder: Boolean(f.settings?.pageBorder),
+          pageCopies: f.settings?.pageCopies,
+          pageColours: f.settings?.pageColours,
+          settings: f.settings,
+        })),
       })
-      sessionStorage.setItem('pb_print_step', 'payment')
-      if (flow?.goToStep) {
-        flow.goToStep('payment')
-      } else {
-        navigate('/print/payment')
-      }
-      return
     }
 
-    sessionStorage.setItem('pb_confirm_mode', 'final')
-    sessionStorage.setItem('pb_print_step', 'confirm')
-
+    sessionStorage.setItem('pb_print_step', 'review')
     if (flow?.goToStep) {
-      flow.goToStep('confirm')
+      flow.goToStep('review')
     } else {
-      navigate('/print/confirm')
+      navigate('/print/review')
     }
   }
 
@@ -395,7 +428,7 @@ export default function PrintSettingsPage() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
-            padding: '6px 14px',
+            padding: '5px 12px',
             borderRadius: 999,
             background: 'rgba(22, 163, 74, 0.08)',
             border: '1px solid rgba(22, 163, 74, 0.22)',
@@ -404,8 +437,8 @@ export default function PrintSettingsPage() {
             fontWeight: 700,
             marginBottom: 10,
           }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 6px #16a34a' }} />
-            <span>Mirrored on Kiosk Display ({flow?.printerId || 'Station'}) • Zero-Touch</span>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 6px #16a34a' }} />
+            <span>Connected to {kioskName || 'Kiosk'}</span>
           </div>
         )}
         <h1 className="clean-title">Print Settings</h1>
@@ -467,21 +500,6 @@ export default function PrintSettingsPage() {
             <MapPin size={13} className="subtitle-icon" />
             <span>{kioskName}</span>
           </span>
-          {isLite && (
-            <>
-              <span className="subtitle-separator">·</span>
-              <span className="subtitle-item pb-lite-tag" style={{
-                background: 'rgba(100, 116, 139, 0.1)',
-                color: '#475569',
-                padding: '2px 8px',
-                borderRadius: 999,
-                fontSize: 11,
-                fontWeight: 700,
-              }}>
-                PrintBooth Lite · B&amp;W Only
-              </span>
-            </>
-          )}
         </div>
       </div>
 
@@ -499,7 +517,7 @@ export default function PrintSettingsPage() {
               onChange={(newId) => {
                 setActiveFile(newId)
                 setActiveId(newId)
-                setActiveCardId('spending')
+                setActiveCardId(isLite ? 'gxuri' : 'spending')
               }}
               trackColor="rgba(15, 23, 42, 0.05)"
               thumbColor="#dc2626"
@@ -622,7 +640,7 @@ export default function PrintSettingsPage() {
           id="settings-continue"
           type="button"
         >
-          <span>{kioskSession.isKioskSession() ? `Proceed to Pay ₹${grandTotal.toFixed(2)}` : 'Review Order'}</span>
+          <span>Review Order</span>
           <ArrowRight size={16} className="btn-arrow btn-arrow--right" />
         </ShinyButton>
       </div>

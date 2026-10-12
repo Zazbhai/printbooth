@@ -109,24 +109,6 @@ adminRouter.get('/dashboard', cacheMiddleware({ ttlSeconds: 15, keyPrefix: 'admi
     const period = ['1D', '1W', '1M', '1Y', 'ALL', 'OVERALL'].includes(rawPeriod) ? rawPeriod : 'ALL'
     const livePrinter = await getRealPrinterHardwareStatus()
 
-    // Baseline network seeds representing university campus network expansion
-    const baselineDaily = { users: 38, prints: 480, revenue: 1950, orders: 42 }
-    const baselineMonthly = { users: 480, prints: 6200, revenue: 24800, orders: 540 }
-    const baselineOverall = { users: 1840, prints: 24650, revenue: 98600, orders: 2150 }
-
-    const seedUsers = [
-      { id: 'USR-8921', identifier: '+91 98234 56789', phone: '+91 98234 56789', email: 'rahul.s@mitadt.edu.in', ip: '192.168.1.45', totalOrders: 18, totalPages: 142, totalSpent: 426, bwPages: 114, colorPages: 28, kiosksUsed: ['PB-001'], lastActive: new Date(Date.now() - 25 * 60000).toISOString(), isDaily: true, isMonthly: true, isOverall: true, tier: 'Power User' },
-      { id: 'USR-7734', identifier: '+91 97652 11234', phone: '+91 97652 11234', email: 'sneha.deshmukh@gmail.com', ip: '192.168.1.99', totalOrders: 9, totalPages: 48, totalSpent: 164, bwPages: 36, colorPages: 12, kiosksUsed: ['PB-001', 'PB-002'], lastActive: new Date(Date.now() - 75 * 60000).toISOString(), isDaily: true, isMonthly: true, isOverall: true, tier: 'Frequent' },
-      { id: 'USR-6102', identifier: '+91 99230 44521', phone: '+91 99230 44521', email: 'aarav.mehta@mit.edu', ip: '192.168.1.112', totalOrders: 14, totalPages: 96, totalSpent: 288, bwPages: 84, colorPages: 12, kiosksUsed: ['PB-001'], lastActive: new Date(Date.now() - 140 * 60000).toISOString(), isDaily: true, isMonthly: true, isOverall: true, tier: 'Power User' },
-      { id: 'USR-5589', identifier: '+91 98901 33214', phone: '+91 98901 33214', email: 'priya.j@engineering.ac.in', ip: '192.168.1.78', totalOrders: 5, totalPages: 32, totalSpent: 118, bwPages: 22, colorPages: 10, kiosksUsed: ['PB-002'], lastActive: new Date(Date.now() - 360 * 60000).toISOString(), isDaily: true, isMonthly: true, isOverall: true, tier: 'Frequent' },
-      { id: 'USR-4412', identifier: '+91 94220 88710', phone: '+91 94220 88710', email: 'anand.patil@mitadt.edu.in', ip: '192.168.1.204', totalOrders: 11, totalPages: 88, totalSpent: 264, bwPages: 76, colorPages: 12, kiosksUsed: ['PB-001'], lastActive: new Date(Date.now() - 24 * 3600000).toISOString(), isDaily: false, isMonthly: true, isOverall: true, tier: 'Frequent' },
-      { id: 'USR-3891', identifier: '+91 91580 22390', phone: '+91 91580 22390', email: 'rohit.kulkarni@gmail.com', ip: '192.168.1.135', totalOrders: 6, totalPages: 24, totalSpent: 62, bwPages: 22, colorPages: 2, kiosksUsed: ['PB-002'], lastActive: new Date(Date.now() - 3 * 86400000).toISOString(), isDaily: false, isMonthly: true, isOverall: true, tier: 'Standard' },
-      { id: 'USR-2904', identifier: '+91 98224 77123', phone: '+91 98224 77123', email: 'divya.sharma@campus.edu', ip: '192.168.1.160', totalOrders: 8, totalPages: 56, totalSpent: 172, bwPages: 44, colorPages: 12, kiosksUsed: ['PB-001', 'PB-002'], lastActive: new Date(Date.now() - 6 * 86400000).toISOString(), isDaily: false, isMonthly: true, isOverall: true, tier: 'Frequent' },
-      { id: 'USR-1823', identifier: '+91 97640 55198', phone: '+91 97640 55198', email: 'vikas.jadhav@outlook.com', ip: '192.168.1.188', totalOrders: 4, totalPages: 18, totalSpent: 44, bwPages: 16, colorPages: 2, kiosksUsed: ['PB-001'], lastActive: new Date(Date.now() - 12 * 86400000).toISOString(), isDaily: false, isMonthly: true, isOverall: true, tier: 'Standard' },
-      { id: 'USR-1102', identifier: '+91 98811 66321', phone: '+91 98811 66321', email: 'pooja.more@mit.edu', ip: '192.168.1.215', totalOrders: 15, totalPages: 110, totalSpent: 350, bwPages: 90, colorPages: 20, kiosksUsed: ['PB-001'], lastActive: new Date(Date.now() - 18 * 86400000).toISOString(), isDaily: false, isMonthly: true, isOverall: true, tier: 'Power User' },
-      { id: 'USR-0945', identifier: '+91 99700 88412', phone: '+91 99700 88412', email: 'saurabh.kale@gmail.com', ip: '192.168.1.240', totalOrders: 3, totalPages: 12, totalSpent: 28, bwPages: 12, colorPages: 0, kiosksUsed: ['PB-002'], lastActive: new Date(Date.now() - 25 * 86400000).toISOString(), isDaily: false, isMonthly: true, isOverall: true, tier: 'Standard' },
-    ]
-
     // Fetch MongoDB live records if connected
     let kiosks: any[] = []
     let orders: any[] = []
@@ -182,150 +164,175 @@ adminRouter.get('/dashboard', cacheMiddleware({ ttlSeconds: 15, keyPrefix: 'admi
         o.orderNumber || o.orderId || 'guest_user'
     }
 
-    // Dynamic Live Calculations
-    const liveDailyPrints = dailyDbOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
-    const liveDailyRev = dailyDbOrders.reduce((s: number, o: any) => s + (o.amount || 0), 0)
-    const liveDailyUsers = new Set(dailyDbOrders.map(getCustomerKey)).size
+    // Build real metrics directly and strictly from database orders
+    const buildCohortMetrics = (cohortOrders: any[], label: string, badge: string) => {
+      const prints = cohortOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
+      const revenue = cohortOrders.reduce((s: number, o: any) => s + (o.amount || 0), 0)
+      const users = new Set(cohortOrders.map(getCustomerKey).filter((k) => k !== 'guest_user')).size || (cohortOrders.length > 0 ? cohortOrders.length : 0)
+      const arpu = users > 0 ? Math.round(revenue / users) : 0
+      const pagesPerUser = users > 0 ? (prints / users).toFixed(1) : '0.0'
 
-    const liveMonthlyPrints = monthlyDbOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
-    const liveMonthlyRev = monthlyDbOrders.reduce((s: number, o: any) => s + (o.amount || 0), 0)
-    const liveMonthlyUsers = new Set(monthlyDbOrders.map(getCustomerKey)).size
-
-    const liveOverallPrints = overallDbOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
-    const liveOverallRev = overallDbOrders.reduce((s: number, o: any) => s + (o.amount || 0), 0)
-    const liveOverallUsers = new Set(overallDbOrders.map(getCustomerKey)).size
-
-    // Combined Institutional Totals (Live records combined with verified baseline expansion)
-    const dailyUsersTotal = baselineDaily.users + liveDailyUsers
-    const dailyPrintsTotal = baselineDaily.prints + liveDailyPrints
-    const dailyRevenueTotal = baselineDaily.revenue + liveDailyRev
-
-    const monthlyUsersTotal = baselineMonthly.users + liveMonthlyUsers
-    const monthlyPrintsTotal = baselineMonthly.prints + liveMonthlyPrints
-    const monthlyRevenueTotal = baselineMonthly.revenue + liveMonthlyRev
-
-    const overallUsersTotal = baselineOverall.users + liveOverallUsers
-    const overallPrintsTotal = baselineOverall.prints + liveOverallPrints
-    const overallRevenueTotal = baselineOverall.revenue + liveOverallRev
-
-    // Comprehensive IPO & Investor Metrics
-    const ipoMetrics = {
-      daily: {
-        timeframe: 'Daily (24h)',
-        badge: 'TODAY',
-        users: dailyUsersTotal,
-        prints: dailyPrintsTotal,
-        revenue: dailyRevenueTotal,
-        revenueFormatted: `₹${dailyRevenueTotal.toLocaleString('en-IN')}`,
-        arpu: Math.round(dailyRevenueTotal / (dailyUsersTotal || 1)),
-        pagesPerUser: (dailyPrintsTotal / (dailyUsersTotal || 1)).toFixed(1),
+      return {
+        timeframe: label,
+        badge,
+        users,
+        prints,
+        revenue,
+        revenueFormatted: `₹${revenue.toLocaleString('en-IN')}`,
+        arpu,
+        pagesPerUser,
         activeMachinesCombined: activeKiosksCount,
         totalMachinesCombined: totalKiosksCount,
-        growth: '+14.8% DoD',
-      },
-      monthly: {
-        timeframe: 'Monthly (30D)',
-        badge: 'MTD',
-        users: monthlyUsersTotal,
-        prints: monthlyPrintsTotal,
-        revenue: monthlyRevenueTotal,
-        revenueFormatted: `₹${monthlyRevenueTotal.toLocaleString('en-IN')}`,
-        arpu: Math.round(monthlyRevenueTotal / (monthlyUsersTotal || 1)),
-        pagesPerUser: (monthlyPrintsTotal / (monthlyUsersTotal || 1)).toFixed(1),
-        activeMachinesCombined: activeKiosksCount,
-        totalMachinesCombined: totalKiosksCount,
-        growth: '+38.2% MoM',
-      },
-      overall: {
-        timeframe: 'Overall (All-Time)',
-        badge: 'COMPANY IPO',
-        users: overallUsersTotal,
-        prints: overallPrintsTotal,
-        revenue: overallRevenueTotal,
-        revenueFormatted: `₹${overallRevenueTotal.toLocaleString('en-IN')}`,
-        arpu: Math.round(overallRevenueTotal / (overallUsersTotal || 1)),
-        pagesPerUser: (overallPrintsTotal / (overallUsersTotal || 1)).toFixed(1),
-        activeMachinesCombined: activeKiosksCount,
-        totalMachinesCombined: totalKiosksCount,
-        growth: '+184.6% YoY',
-      },
+        growth: `${cohortOrders.length} orders recorded`,
+      }
     }
 
-    // Determine active period metrics
+    const ipoMetrics = {
+      daily: buildCohortMetrics(dailyDbOrders, 'Daily (24h)', 'TODAY'),
+      weekly: buildCohortMetrics(weeklyDbOrders, 'Weekly (7D)', '7 DAYS'),
+      monthly: buildCohortMetrics(monthlyDbOrders, 'Monthly (30D)', 'MTD'),
+      overall: buildCohortMetrics(overallDbOrders, 'Overall (All-Time)', 'ALL-TIME'),
+    }
+
+    // Active period selection
     let selectedCohort = ipoMetrics.overall
     let periodOrders = overallDbOrders
     if (period === '1D') {
       selectedCohort = ipoMetrics.daily
       periodOrders = dailyDbOrders
+    } else if (period === '1W') {
+      selectedCohort = ipoMetrics.weekly
+      periodOrders = weeklyDbOrders
     } else if (period === '1M') {
       selectedCohort = ipoMetrics.monthly
       periodOrders = monthlyDbOrders
-    } else if (period === '1W') {
-      selectedCohort = {
-        timeframe: 'Weekly (7D)',
-        badge: '7 DAYS',
-        users: Math.round(monthlyUsersTotal * 0.28),
-        prints: Math.round(monthlyPrintsTotal * 0.26),
-        revenue: Math.round(monthlyRevenueTotal * 0.27),
-        revenueFormatted: `₹${Math.round(monthlyRevenueTotal * 0.27).toLocaleString('en-IN')}`,
-        arpu: Math.round((monthlyRevenueTotal * 0.27) / (Math.round(monthlyUsersTotal * 0.28) || 1)),
-        pagesPerUser: ((monthlyPrintsTotal * 0.26) / (Math.round(monthlyUsersTotal * 0.28) || 1)).toFixed(1),
-        activeMachinesCombined: activeKiosksCount,
-        totalMachinesCombined: totalKiosksCount,
-        growth: '+22.4% WoW',
-      }
-      periodOrders = weeklyDbOrders
     }
 
-    // Formats distribution
+    // Formats distribution directly from actual orders in this period
     const bwOrders = periodOrders.filter((o: any) => o.colourMode === 'BW')
     const colorOrders = periodOrders.filter((o: any) => o.colourMode === 'COLOUR')
-    const bwPrints = Math.round(selectedCohort.prints * 0.82) + bwOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
-    const colorPrints = Math.round(selectedCohort.prints * 0.18) + colorOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
+    const bwPrints = bwOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
+    const colorPrints = colorOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
 
-    // Throughput Chart Data based on selected period
+    // Throughput Chart Data aggregated strictly from real orders by timestamp
     let hourlyThroughput: any[] = []
     if (period === '1D') {
-      const hours = ['6 AM', '8 AM', '10 AM', '12 PM', '2 PM', '4 PM', '6 PM', '8 PM']
-      const step = selectedCohort.revenue / hours.length
-      hourlyThroughput = hours.map((h, i) => ({
+      const hourSlots = ['6 AM', '8 AM', '10 AM', '12 PM', '2 PM', '4 PM', '6 PM', '8 PM', '10 PM']
+      const buckets: Record<string, { revenue: number; prints: number }> = {}
+      hourSlots.forEach((h) => { buckets[h] = { revenue: 0, prints: 0 } })
+
+      periodOrders.forEach((o: any) => {
+        const d = new Date(o.createdAt || Date.now())
+        const h = d.getHours()
+        let slot = '6 AM'
+        if (h >= 22) slot = '10 PM'
+        else if (h >= 20) slot = '8 PM'
+        else if (h >= 18) slot = '6 PM'
+        else if (h >= 16) slot = '4 PM'
+        else if (h >= 14) slot = '2 PM'
+        else if (h >= 12) slot = '12 PM'
+        else if (h >= 10) slot = '10 AM'
+        else if (h >= 8) slot = '8 AM'
+        buckets[slot].revenue += (o.amount || 0)
+        buckets[slot].prints += (o.pageCount || 1) * (o.copies || 1)
+      })
+
+      hourlyThroughput = hourSlots.map((h) => ({
         time: h,
-        revenue: Math.round(step * (0.4 + (i % 4) * 0.35)),
-        prints: Math.round((selectedCohort.prints / hours.length) * (0.5 + (i % 3) * 0.4)),
-        benchmark: Math.round(step * 0.8),
+        revenue: Math.round(buckets[h].revenue),
+        prints: buckets[h].prints,
+        benchmark: 0,
       }))
-    } else if (period === '1M' || period === '1W') {
-      const days = ['Day 1-5', 'Day 6-10', 'Day 11-15', 'Day 16-20', 'Day 21-25', 'Day 26-30']
-      const step = selectedCohort.revenue / days.length
-      hourlyThroughput = days.map((d, i) => ({
-        time: d,
-        revenue: Math.round(step * (0.7 + (i % 3) * 0.3)),
-        prints: Math.round((selectedCohort.prints / days.length) * (0.8 + (i % 2) * 0.25)),
-        benchmark: Math.round(step * 0.85),
+    } else if (period === '1W') {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      const dayBuckets: Record<string, { revenue: number; prints: number }> = {}
+      const orderedLabels: string[] = []
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 86400000)
+        const label = `${days[d.getDay()]} ${d.getDate()}`
+        orderedLabels.push(label)
+        dayBuckets[label] = { revenue: 0, prints: 0 }
+      }
+
+      periodOrders.forEach((o: any) => {
+        const d = new Date(o.createdAt || Date.now())
+        const label = `${days[d.getDay()]} ${d.getDate()}`
+        if (dayBuckets[label]) {
+          dayBuckets[label].revenue += (o.amount || 0)
+          dayBuckets[label].prints += (o.pageCount || 1) * (o.copies || 1)
+        }
+      })
+
+      hourlyThroughput = orderedLabels.map((l) => ({
+        time: l,
+        revenue: Math.round(dayBuckets[l].revenue),
+        prints: dayBuckets[l].prints,
+        benchmark: 0,
+      }))
+    } else if (period === '1M') {
+      const intervals = ['Day 1-5', 'Day 6-10', 'Day 11-15', 'Day 16-20', 'Day 21-25', 'Day 26-30']
+      const buckets: Record<string, { revenue: number; prints: number }> = {}
+      intervals.forEach((i) => { buckets[i] = { revenue: 0, prints: 0 } })
+
+      periodOrders.forEach((o: any) => {
+        const d = new Date(o.createdAt || Date.now())
+        const dayOfMonth = d.getDate()
+        let slot = 'Day 1-5'
+        if (dayOfMonth > 25) slot = 'Day 26-30'
+        else if (dayOfMonth > 20) slot = 'Day 21-25'
+        else if (dayOfMonth > 15) slot = 'Day 16-20'
+        else if (dayOfMonth > 10) slot = 'Day 11-15'
+        else if (dayOfMonth > 5) slot = 'Day 6-10'
+        buckets[slot].revenue += (o.amount || 0)
+        buckets[slot].prints += (o.pageCount || 1) * (o.copies || 1)
+      })
+
+      hourlyThroughput = intervals.map((i) => ({
+        time: i,
+        revenue: Math.round(buckets[i].revenue),
+        prints: buckets[i].prints,
+        benchmark: 0,
       }))
     } else {
-      // Overall / All-Time IPO progression
-      const periods = ['Q1 Launch', 'Q2 Expansion', 'Q3 Campus Rollout', 'Q4 Scale', 'Current Live']
-      const mults = [0.08, 0.16, 0.28, 0.44, 0.65]
-      hourlyThroughput = periods.map((p, i) => ({
-        time: p,
-        revenue: Math.round(selectedCohort.revenue * mults[i]),
-        prints: Math.round(selectedCohort.prints * mults[i]),
-        benchmark: Math.round(selectedCohort.revenue * mults[i] * 0.9),
+      const monthBuckets: Record<string, { revenue: number; prints: number }> = {}
+      const monthLabels: string[] = []
+      periodOrders.forEach((o: any) => {
+        const d = new Date(o.createdAt || Date.now())
+        const m = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        if (!monthBuckets[m]) {
+          monthBuckets[m] = { revenue: 0, prints: 0 }
+          monthLabels.push(m)
+        }
+        monthBuckets[m].revenue += (o.amount || 0)
+        monthBuckets[m].prints += (o.pageCount || 1) * (o.copies || 1)
+      })
+
+      if (monthLabels.length === 0) {
+        const cur = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        monthLabels.push(cur)
+        monthBuckets[cur] = { revenue: 0, prints: 0 }
+      }
+
+      hourlyThroughput = monthLabels.map((m) => ({
+        time: m,
+        revenue: Math.round(monthBuckets[m].revenue),
+        prints: monthBuckets[m].prints,
+        benchmark: 0,
       }))
     }
 
-    // Merge live user records with seed users for User Directory
-    const userDirectory = [...seedUsers]
+    // Build User Directory strictly from real database orders (ZERO mock or seed users)
+    const userDirectoryMap = new Map<string, any>()
     orders.forEach((o: any, idx: number) => {
       const key = getCustomerKey(o)
-      const existing = userDirectory.find((u) => u.identifier === key || u.phone === o.customerPhone || u.email === o.customerEmail)
+      if (!key) return
       const pages = (o.pageCount || 1) * (o.copies || 1)
       const amt = o.amount || 0
       const isBw = o.colourMode === 'BW'
       const isDaily = new Date(o.createdAt) >= oneDayAgo
       const isMonthly = new Date(o.createdAt) >= thirtyDaysAgo
 
+      const existing = userDirectoryMap.get(key)
       if (existing) {
         existing.totalOrders += 1
         existing.totalPages += pages
@@ -340,10 +347,10 @@ adminRouter.get('/dashboard', cacheMiddleware({ ttlSeconds: 15, keyPrefix: 'admi
         }
         if (isDaily) existing.isDaily = true
         if (isMonthly) existing.isMonthly = true
-      } else if (key && key !== 'guest_user') {
-        userDirectory.unshift({
-          id: `USR-${9000 + idx}`,
-          identifier: o.customerPhone || o.customerEmail || (o.customerIp ? `IP •••${o.customerIp.slice(-4)}` : `User #${idx + 1}`),
+      } else {
+        userDirectoryMap.set(key, {
+          id: `USR-${(1000 + idx)}`,
+          identifier: o.customerPhone || o.customerEmail || (o.customerIp ? `IP •••${o.customerIp.slice(-4)}` : `Customer #${idx + 1}`),
           phone: o.customerPhone || '',
           email: o.customerEmail || '',
           ip: o.customerIp || '',
@@ -357,23 +364,32 @@ adminRouter.get('/dashboard', cacheMiddleware({ ttlSeconds: 15, keyPrefix: 'admi
           isDaily,
           isMonthly,
           isOverall: true,
-          tier: pages > 15 ? 'Power User' : 'Frequent',
+          tier: pages > 10 ? 'Power User' : 'Standard',
         })
       }
     })
 
-    // Format kiosks for UI
-    const formattedKiosks = liveKiosks.map((k: any) => ({
-      id: k.kioskId || k.id,
-      location: k.location || 'Pune Campus',
-      printer: k.printerModel || 'Brother DCP-T420W Printer USB',
-      paper: k.paperLevel ?? 0,
-      toner: k.tonerLevel ?? 0,
-      status: k.status,
-      queue: k.queueCount || 0,
-      todayPages: k.todayPages || (k.status === 'ONLINE' ? Math.round(selectedCohort.prints / totalKiosksCount) : 0),
-      todayRevenue: k.todayRevenue || (k.status === 'ONLINE' ? Math.round(selectedCohort.revenue / totalKiosksCount) : 0),
-    }))
+    const userDirectory = Array.from(userDirectoryMap.values())
+
+    // Format kiosks with real order counts for today
+    const formattedKiosks = liveKiosks.map((k: any) => {
+      const kid = k.kioskId || k.id
+      const kioskDailyOrders = dailyDbOrders.filter((o: any) => o.kioskId === kid)
+      const realTodayPages = kioskDailyOrders.reduce((s: number, o: any) => s + (o.pageCount || 1) * (o.copies || 1), 0)
+      const realTodayRev = kioskDailyOrders.reduce((s: number, o: any) => s + (o.amount || 0), 0)
+
+      return {
+        id: kid,
+        location: k.location || 'Pune Campus',
+        printer: k.printerModel || 'Brother Industries, Ltd HL-L5210DW series',
+        paper: k.paperLevel ?? 0,
+        toner: k.tonerLevel ?? 0,
+        status: k.status,
+        queue: k.queueCount || 0,
+        todayPages: realTodayPages,
+        todayRevenue: realTodayRev,
+      }
+    })
 
     res.json({
       success: true,
@@ -1093,6 +1109,29 @@ adminRouter.put('/merchants/:id', async (req: Request, res: Response) => {
     if (upiExpressUpiId !== undefined) updates.upiExpressUpiId = String(upiExpressUpiId).trim()
     if (razorpayKeyId !== undefined) updates.razorpayKeyId = String(razorpayKeyId).trim()
     if (razorpayKeySecret !== undefined) updates.razorpayKeySecret = String(razorpayKeySecret).trim()
+
+    // Validation: if gateway is specified, ensure credentials exist
+    if (updates.paymentGateway === 'upiexpress') {
+      const existingM: any = isDbConnected() ? await Merchant.findOne({ merchantId: id }).lean() : fallbackMerchants.find(m => m.merchantId === id)
+      const effectiveKey = updates.upiExpressApiKey !== undefined ? updates.upiExpressApiKey : existingM?.upiExpressApiKey
+      if (!effectiveKey || !effectiveKey.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'UPI Express API Key is not configured for this merchant. Please provide the UPI Express API Key.',
+        })
+      }
+    } else if (updates.paymentGateway === 'razorpay') {
+      const existingM: any = isDbConnected() ? await Merchant.findOne({ merchantId: id }).lean() : fallbackMerchants.find(m => m.merchantId === id)
+      const effectiveKeyId = updates.razorpayKeyId !== undefined ? updates.razorpayKeyId : existingM?.razorpayKeyId
+      const effectiveSecret = updates.razorpayKeySecret !== undefined ? updates.razorpayKeySecret : existingM?.razorpayKeySecret
+      if (!effectiveKeyId || !effectiveKeyId.trim() || !effectiveSecret || !effectiveSecret.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Razorpay Key ID and Key Secret are not configured for this merchant. Please provide both Razorpay credentials.',
+        })
+      }
+    }
+
     if (req.body.kioskVariant !== undefined || req.body.variant !== undefined) {
       const v = req.body.kioskVariant !== undefined ? req.body.kioskVariant : req.body.variant
       updates.kioskVariant = String(v).toLowerCase().includes('lite') ? 'lite' : 'pro'

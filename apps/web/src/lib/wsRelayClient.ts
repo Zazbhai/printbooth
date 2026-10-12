@@ -24,7 +24,6 @@ class WsRelayClient {
   public isConnecting = false
   private reconnectTimer: any = null
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 10
   private isExplicitlyClosed = false
 
   public isConnected = false
@@ -39,17 +38,31 @@ class WsRelayClient {
       }
       this.config.sessionId = sess
 
-      // Gracefully close active WebSocket connection on page unload/refresh
+      // Gracefully close active WebSocket connection on true page unload
       const handleUnload = () => {
         if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
-          this.isExplicitlyClosed = true
           try {
             this.ws.close(1000, 'Page navigating')
           } catch {}
         }
       }
       window.addEventListener('beforeunload', handleUnload)
-      window.addEventListener('pagehide', handleUnload)
+
+      // When browser page is restored (e.g. from bfcache or returning from mobile UPI app / going back)
+      const handleRestore = () => {
+        this.isExplicitlyClosed = false
+        if (!this.isConnected && !this.isConnecting) {
+          console.log('[WSS Relay Client] 🔄 Page restored/visible — re-establishing connection')
+          this.reconnectAttempts = 0
+          this.connect()
+        }
+      }
+      window.addEventListener('pageshow', handleRestore)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          handleRestore()
+        }
+      })
     }
   }
 
@@ -117,12 +130,7 @@ class WsRelayClient {
   }
 
   private scheduleReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.warn('[WSS Relay Client] Max reconnect attempts reached.')
-      return
-    }
-
-    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000)
+    const delay = Math.min(1000 * Math.pow(1.5, Math.min(this.reconnectAttempts, 8)), 10000)
     this.reconnectAttempts++
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = setTimeout(() => {

@@ -89,7 +89,7 @@ export const FALLBACK_KIOSKS = [
     qrCodeUrl: getKioskPrintUrl('PB-001'),
     paymentGateway: 'upiexpress',
     upiExpressApiKey: '',
-    upiExpressUpiId: 'printbooth@okaxis',
+    upiExpressUpiId: '',
     razorpayKeyId: '',
     pricing: { bwSingle: 2.0, bwDouble: 3.5, colorSingle: 10.0, colorDouble: 18.0 },
   },
@@ -105,7 +105,8 @@ export const FALLBACK_MERCHANTS = [
     kioskId: 'PB-001',
     kioskPhotoUrl: 'https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=600&q=80',
     paymentGateway: 'upiexpress',
-    upiExpressUpiId: 'printbooth@okaxis',
+    upiExpressApiKey: '',
+    upiExpressUpiId: '',
     bankName: 'State Bank of India',
     bankAccountLast4: '0001',
     status: 'ACTIVE',
@@ -115,27 +116,18 @@ export const FALLBACK_MERCHANTS = [
 export const FALLBACK_ADMIN_DASHBOARD = {
   summary: {
     period: '1D',
-    todayPrints: 142,
-    todayRevenue: '₹284.00',
+    todayPrints: 0,
+    todayRevenue: '₹0.00',
     activeKiosks: '1 / 1 active',
     activeKiosksCount: 1,
     totalKiosksCount: 1,
     fleetHealth: '100%',
     pendingAlertsCount: 0,
   },
-  hourlyThroughput: [
-    { time: '6 AM', revenue: 12, benchmark: 10 },
-    { time: '8 AM', revenue: 38, benchmark: 25 },
-    { time: '10 AM', revenue: 64, benchmark: 50 },
-    { time: '12 PM', revenue: 82, benchmark: 70 },
-    { time: '2 PM', revenue: 95, benchmark: 80 },
-    { time: '4 PM', revenue: 140, benchmark: 110 },
-    { time: '6 PM', revenue: 180, benchmark: 150 },
-    { time: '8 PM', revenue: 284, benchmark: 220 },
-  ],
+  hourlyThroughput: [],
   printFormats: [
-    { name: 'Standard B&W', value: 118, color: 'var(--chart-1)' },
-    { name: 'Full Color HD', value: 24, color: 'var(--chart-2)' },
+    { name: 'Standard B&W', value: 0, color: 'var(--chart-1)' },
+    { name: 'Full Color HD', value: 0, color: 'var(--chart-2)' },
   ],
   kiosks: FALLBACK_KIOSKS,
   alerts: [],
@@ -932,12 +924,24 @@ export async function getMerchantOrders(kioskId = 'ALL', forceRefresh = false) {
 }
 
 export async function confirmMerchantOrder(orderId: string, kioskId?: string) {
-  const res = await api.post(`/merchant/orders/${orderId}/confirm`, { kioskId })
+  for (const key of apiCache.keys()) {
+    if (key.startsWith('merchant:orders') || key.startsWith('merchant:dashboard') || key.startsWith('merchant:transactions')) {
+      apiCache.delete(key)
+    }
+  }
+  const cleanId = encodeURIComponent(String(orderId || '').trim())
+  const res = await api.post(`/merchant/orders/${cleanId}/confirm`, { kioskId, orderId })
   return res.data
 }
 
 export async function rejectMerchantOrder(orderId: string, kioskId?: string) {
-  const res = await api.post(`/merchant/orders/${orderId}/reject`, { kioskId })
+  for (const key of apiCache.keys()) {
+    if (key.startsWith('merchant:orders') || key.startsWith('merchant:dashboard') || key.startsWith('merchant:transactions')) {
+      apiCache.delete(key)
+    }
+  }
+  const cleanId = encodeURIComponent(String(orderId || '').trim())
+  const res = await api.post(`/merchant/orders/${cleanId}/reject`, { kioskId, orderId })
   return res.data
 }
 
@@ -1205,6 +1209,11 @@ export async function getMerchantPrinters(kioskId = 'PB-001', rescan = false) {
 
 export async function selectMerchantPrinter(kioskId: string, printerName: string) {
   const res = await api.post('/merchant/printer/select', { kioskId, printerName })
+  return res.data
+}
+
+export async function resumeMerchantPrinter(kioskId = 'PB-001') {
+  const res = await api.post(`/merchant/kiosks/${kioskId}/resume`, { kioskId })
   return res.data
 }
 

@@ -97,6 +97,9 @@ export async function sendPrintJob(params: {
   contrastMode?: string
   pageBorder?: boolean
   releasePin?: string
+  masterOrderId?: string
+  fileIndex?: number
+  totalFiles?: number
   /** JSON object: page-number → colour override e.g. {"1":"BW","3":"COLOUR"} */
   pageColours?: Record<string, string>
   /** JSON object: page-number → copy count e.g. {"1":2,"4":3} */
@@ -111,6 +114,15 @@ export async function sendPrintJob(params: {
       formData.append('fileName', params.fileName)
     }
     formData.append('orderId', params.orderId)
+    if (params.masterOrderId) {
+      formData.append('masterOrderId', params.masterOrderId)
+    }
+    if (params.fileIndex !== undefined) {
+      formData.append('fileIndex', String(params.fileIndex))
+    }
+    if (params.totalFiles !== undefined) {
+      formData.append('totalFiles', String(params.totalFiles))
+    }
     if (params.kioskId) {
       formData.append('kioskId', params.kioskId)
     }
@@ -248,11 +260,22 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
   }
   const hashParams = hashSearch ? new URLSearchParams(hashSearch) : null
 
+  const urlOffline = urlParams?.get('offline') === '1' || urlParams?.get('error') === '1' || urlParams?.get('status') === 'offline'
+  if (urlOffline) {
+    return {
+      isAvailable: false,
+      reason: 'PRINTER OFFLINE',
+      detail: `Station ${((kioskId || 'PB-001') as string).trim().toUpperCase()} is currently offline. Please choose another station.`,
+      kioskName: 'PrintBooth Station',
+      printerName: 'Laser Print Engine',
+    }
+  }
+
   const urlTest = urlParams?.get('test') === '1' || urlParams?.get('mock') === '1' || urlParams?.get('online') === '1' ||
     hashParams?.get('test') === '1' || hashParams?.get('mock') === '1' || hashParams?.get('online') === '1'
   const envTest = (import.meta.env.VITE_PRINT_MODE || '').toLowerCase() === 'test'
   const sessionTest = typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('pb_print_mode') || '').toLowerCase() === 'test'
-  const isClientTestMode = envTest || sessionTest || Boolean(urlTest)
+  const isClientTestMode = (envTest || sessionTest || Boolean(urlTest)) && !urlOffline
 
   if (isClientTestMode) {
     return {
@@ -270,7 +293,7 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
   try {
     const kiosk = await getKioskDetails(targetKioskId)
     if (kiosk) {
-      if (kiosk.isTestMode || (kiosk.hardwareDetails as any)?.isTestMode) {
+      if ((kiosk.isTestMode || (kiosk.hardwareDetails as any)?.isTestMode) && !urlOffline) {
         return {
           isAvailable: true,
           reason: '',
@@ -281,9 +304,9 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
       }
 
       const isMaintenance = String(kiosk.status || '').toUpperCase() === 'MAINTENANCE'
-      const isKioskOffline = String(kiosk.status || '').toUpperCase() === 'OFFLINE'
+      const isKioskOffline = String(kiosk.status || '').toUpperCase() !== 'ONLINE'
       const pStatus = String(kiosk.printerStatus || '').toUpperCase()
-      const isPrinterProblem = pStatus === 'ERROR' || pStatus === 'OFFLINE' || pStatus === 'PAPER_JAM' || pStatus === 'PAPER_EMPTY'
+      const isPrinterProblem = pStatus === 'ERROR' || pStatus === 'OFFLINE' || pStatus === 'PAPER_JAM' || pStatus === 'PAPER_EMPTY' || pStatus === 'STOPPED' || pStatus === 'DISCONNECTED' || pStatus === 'PAUSED'
       const isUsbDisconnected = (kiosk as any).usbConnected === false
 
       if (isMaintenance) {
@@ -299,20 +322,20 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
       if (isUsbDisconnected) {
         return {
           isAvailable: false,
-          reason: 'Printer is disconnected via USB',
-          detail: `The physical printer at station ${kiosk.kioskId || targetKioskId} is not detected on the USB bus. Please ensure the USB cable is plugged in and printer power is ON.`,
+          reason: 'Printer Disconnected',
+          detail: `The physical printer at station ${kiosk.kioskId || targetKioskId} is disconnected. Please visit another station.`,
           kioskName: kiosk.name,
           printerName: kiosk.printerModel || kiosk.printer || 'Laser Print Engine',
         }
       }
 
-      const isHwUnavailable = Boolean(kiosk.hardwareDetails && (kiosk.hardwareDetails.isAvailable === false || kiosk.hardwareDetails.isOnline === false))
+      const isHwUnavailable = Boolean(kiosk.hardwareDetails && (kiosk.hardwareDetails.isAvailable === false || kiosk.hardwareDetails.isOnline === false || kiosk.hardwareDetails.error))
 
       if (isKioskOffline || isPrinterProblem || isHwUnavailable) {
         return {
           isAvailable: false,
-          reason: 'PRINTER OFFLINE',
-          detail: `Station ${kiosk.kioskId || targetKioskId} is currently offline. Printing will resume automatically once the station powers on.`,
+          reason: pStatus === 'PAPER_JAM' ? 'PAPER JAM' : (pStatus === 'PAPER_EMPTY' ? 'OUT OF PAPER' : 'PRINTER OFFLINE'),
+          detail: `Station ${kiosk.name || kiosk.kioskId || targetKioskId} is currently offline. Please choose another station.`,
           kioskName: kiosk.name,
           printerName: kiosk.printerModel || kiosk.printer,
         }
@@ -342,7 +365,13 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
   // 2. Fallback to live detected hardware via backend detector endpoint
   try {
     const detectRes = await detectConnectedPrinter(preferredPrinter, targetKioskId)
-    const isTest = isClientTestMode || Boolean((detectRes as any)?.isTestMode) || detectRes?.mode === 'test'
+    const isSimulator =
+      Boolean(detectRes?.selectedPrinter?.includes('Simulator') ||
+      detectRes?.selectedPrinter?.includes('Virtual') ||
+      detectRes?.details?.is_virtual ||
+      detectRes?.details?.connection_type === 'TEST_SIMULATION' ||
+      (detectRes as any)?.driver?.includes('Simulator'))
+    const isTest = isClientTestMode || isSimulator || Boolean((detectRes as any)?.isTestMode) || detectRes?.mode === 'test'
 
     if (isTest) {
       return {

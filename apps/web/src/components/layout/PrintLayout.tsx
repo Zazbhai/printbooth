@@ -12,6 +12,7 @@ import GhostFibers from '../ui/GhostFibers'
 import { ClearDocumentModal } from '../ui/ClearDocumentModal'
 import { clearUploadedDoc } from '../../lib/documentStore'
 import { clearAllFiles, hasAnyReadyFile } from '../../lib/multiFileStore'
+import { kioskSession } from '../../lib/kioskSession'
 import { PrintFlowContext, type PrintStep } from '../../pages/print/PrintFlowContext'
 import { MerchantHelpMascot } from '../ui/MerchantHelpMascot'
 import './PrintLayout.css'
@@ -54,8 +55,7 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
     }
 
     if (activeStep === 'payment') {
-      sessionStorage.setItem('pb_confirm_mode', 'final')
-      printFlow.goToStep('confirm')
+      printFlow.goToStep('review')
       return
     }
 
@@ -86,7 +86,10 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
       return
     }
 
-    // If on upload, go back to home page '/'
+    // If on upload, go back to home page '/' and notify kiosk session
+    if (kioskSession.isKioskSession()) {
+      kioskSession.notifyPhoneBackOrExit()
+    }
     navigate('/')
   }
 

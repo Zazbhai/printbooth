@@ -113,7 +113,7 @@ class CupsPrinterController:
           - media: 'A4' | 'Letter' | 'Legal'
         """
         is_color = colour_mode.upper() in ["COLOUR", "COLOR"]
-        is_duplex = duplex.upper() in ["DUPLEX", "DOUBLE", "TWO-SIDED"]
+        is_duplex = duplex if isinstance(duplex, bool) else str(duplex).strip().upper() in ["DUPLEX", "DOUBLE", "TWO-SIDED", "2-SIDED", "TWO_SIDED", "TRUE", "1"]
 
         options: Dict[str, str] = {
             "copies": str(max(1, copies)),
@@ -137,8 +137,14 @@ class CupsPrinterController:
         # Duplex / Double-sided Configuration
         if is_duplex:
             options["sides"] = "two-sided-long-edge"
+            options["Duplex"] = "DuplexNoTumble"
+            options["BRDuplex"] = "DuplexNoTumble"
+            options["JCLDuplex"] = "DuplexNoTumble"
         else:
             options["sides"] = "one-sided"
+            options["Duplex"] = "None"
+            options["BRDuplex"] = "None"
+            options["JCLDuplex"] = "None"
 
         # Auto-scaling to fit page printable margins
         if fit_to_page:

@@ -13,7 +13,6 @@ import {
   MagnifyingGlass,
   CheckCircle,
   X,
-  Sliders,
   QrCode,
   Lightning,
 } from '@phosphor-icons/react'
@@ -51,59 +50,6 @@ interface AdvertisementItem {
   clicksCount?: number
   createdAt?: string
 }
-
-const PRESET_BANNERS = [
-  {
-    title: 'Red Bull Campus Rush',
-    advertiser: 'Red Bull India',
-    mediaUrl: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?auto=format&fit=crop&w=1600&q=80',
-    headline: 'Fuel Your Late Night Study Sessions',
-    tagline: '20% off with Student ID at Central Cafeteria',
-    badgeText: 'CAMPUS SPONSOR',
-    accentColor: '#dc2626',
-    motionType: 'DRIFT' as const,
-  },
-  {
-    title: 'Spotify Student Premium',
-    advertiser: 'Spotify India',
-    mediaUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1600&q=80',
-    headline: 'Exam Lo-Fi Beats & Ad-Free Music',
-    tagline: 'Spotify Premium at ₹59/month with college email',
-    badgeText: 'STUDENT PERK',
-    accentColor: '#10b981',
-    motionType: 'FLOAT' as const,
-  },
-  {
-    title: 'MIT ADT Annual Hackathon',
-    advertiser: 'Tech Fest Committee',
-    mediaUrl: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1600&q=80',
-    headline: '36-Hour National Hackathon • ₹2.5L Prize Pool',
-    tagline: 'Free cloud computing credits for all participants',
-    badgeText: 'CAMPUS EVENT',
-    accentColor: '#f59e0b',
-    motionType: 'KEN_BURNS' as const,
-  },
-  {
-    title: 'Campus Coffee Lounge',
-    advertiser: 'Ground Floor Reading Hall Cafe',
-    mediaUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1600&q=80',
-    headline: 'Freshly Brewed Cappuccinos & Croissants',
-    tagline: 'Flat ₹30 off on any pastry with every print receipt',
-    badgeText: 'STORE SPECIAL',
-    accentColor: '#ea580c',
-    motionType: 'PULSE' as const,
-  },
-  {
-    title: 'PrintBooth FastPass Cloud',
-    advertiser: 'PrintBooth Logistics',
-    mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1600&q=80',
-    headline: 'Print in 10 Seconds Flat Directly From Phone',
-    tagline: 'Zero queue, instant wireless payment, auto document retrieval',
-    badgeText: 'PRINTBOOTH PROMO',
-    accentColor: '#dc2626',
-    motionType: 'DRIFT' as const,
-  },
-]
 
 export default function AdvertisementsPage() {
   const [ads, setAds] = useState<AdvertisementItem[]>([])
@@ -172,7 +118,7 @@ export default function AdvertisementsPage() {
       title: '',
       advertiser: '',
       mediaType: 'IMAGE',
-      mediaUrl: PRESET_BANNERS[0].mediaUrl,
+      mediaUrl: '',
       headline: '',
       tagline: '',
       callToAction: 'Scan to Claim Offer',
@@ -211,25 +157,10 @@ export default function AdvertisementsPage() {
     setShowModal(true)
   }
 
-  // Select preset banner
-  const handleSelectPreset = (preset: typeof PRESET_BANNERS[0]) => {
-    setFormData((prev) => ({
-      ...prev,
-      title: preset.title,
-      advertiser: preset.advertiser,
-      mediaUrl: preset.mediaUrl,
-      headline: preset.headline,
-      tagline: preset.tagline,
-      badgeText: preset.badgeText,
-      accentColor: preset.accentColor,
-      motionType: preset.motionType,
-    }))
-  }
-
   // Submit form
   const handleSaveAd = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.title || !formData.advertiser || !formData.mediaUrl) {
+    if (!formData.title.trim() || !formData.advertiser.trim() || !formData.mediaUrl.trim()) {
       alert('Please fill in campaign title, advertiser name, and banner image URL.')
       return
     }
@@ -244,7 +175,7 @@ export default function AdvertisementsPage() {
         notify(`Campaign "${formData.title}" launched and syncing to kiosks!`)
       }
       setShowModal(false)
-      loadData()
+      await loadData()
     } catch (err: any) {
       alert(`Error saving campaign: ${err.message || 'Server error'}`)
     }
@@ -253,12 +184,16 @@ export default function AdvertisementsPage() {
   // Toggle active/paused
   const handleToggleStatus = async (ad: AdvertisementItem) => {
     const id = ad.campaignId || ad._id || ad.id
+    const nextStatus = ad.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
+    // Optimistic update
+    setAds((prev) => prev.map((a) => ((a.campaignId || a._id || a.id) === id ? { ...a, status: nextStatus } : a)))
     try {
       await toggleAdvertisementStatus(id!)
-      notify(`Campaign "${ad.title}" ${ad.status === 'ACTIVE' ? 'paused' : 'activated'}!`)
+      notify(`Campaign "${ad.title}" ${nextStatus === 'ACTIVE' ? 'activated' : 'paused'}!`)
       loadData()
     } catch (err: any) {
       alert(`Failed to toggle status: ${err.message}`)
+      loadData()
     }
   }
 
@@ -266,12 +201,15 @@ export default function AdvertisementsPage() {
   const handleDeleteAd = async (ad: AdvertisementItem) => {
     if (!confirm(`Are you sure you want to delete campaign "${ad.title}"?`)) return
     const id = ad.campaignId || ad._id || ad.id
+    // Optimistic update
+    setAds((prev) => prev.filter((a) => (a.campaignId || a._id || a.id) !== id))
     try {
       await deleteAdvertisement(id!)
       notify(`Campaign "${ad.title}" deleted.`)
       loadData()
     } catch (err: any) {
       alert(`Failed to delete: ${err.message}`)
+      loadData()
     }
   }
 
@@ -394,33 +332,6 @@ export default function AdvertisementsPage() {
         </div>
       </div>
 
-      {/* ─── Preset Library Quick-Picker ─── */}
-      <div className="ads-preset-strip">
-        <div className="ads-preset-title">
-          <Sparkle size={16} color="#dc2626" weight="fill" />
-          <span>Curated Brand &amp; Campus Campaign Presets (1-Click Launch)</span>
-        </div>
-        <div className="ads-preset-cards">
-          {PRESET_BANNERS.map((preset, idx) => (
-            <div
-              key={idx}
-              className="ads-preset-card"
-              style={{ backgroundImage: `url(${preset.mediaUrl})` }}
-              onClick={() => {
-                handleOpenCreate()
-                handleSelectPreset(preset)
-              }}
-              title="Click to launch this campaign template"
-            >
-              <div className="ads-preset-content">
-                <span className="ads-preset-sponsor">{preset.advertiser}</span>
-                <div className="ads-preset-name">{preset.title}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ─── Filter & Search Toolbar ─── */}
       <div className="ads-toolbar">
         <div className="ads-search-box">
@@ -532,7 +443,7 @@ export default function AdvertisementsPage() {
                     <div style={{ fontSize: 12, color: '#64748b' }}>By {ad.advertiser}</div>
                   </div>
 
-                  <div className="ads-card-metrics-strip">
+                  <div className="ads-card-metrics-strip" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                     <div>
                       <div className="ads-mini-metric-num">{ad.impressionsCount || 0}</div>
                       <div className="ads-mini-metric-lbl">Impressions</div>
@@ -540,10 +451,6 @@ export default function AdvertisementsPage() {
                     <div>
                       <div className="ads-mini-metric-num">{ad.clicksCount || 0}</div>
                       <div className="ads-mini-metric-lbl">QR Scans</div>
-                    </div>
-                    <div>
-                      <div className="ads-mini-metric-num">{Math.round((ad.opacity ?? 0.22) * 100)}%</div>
-                      <div className="ads-mini-metric-lbl">Bg Opacity</div>
                     </div>
                   </div>
 
@@ -613,34 +520,14 @@ export default function AdvertisementsPage() {
 
             <form onSubmit={handleSaveAd}>
               <div className="ads-modal-body">
-                {/* Preset Banner Quick-Select */}
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8 }}>
-                    Quick-Fill With Preset Sponsor Template:
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {PRESET_BANNERS.map((p, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        className="ads-btn"
-                        style={{ fontSize: 11.5, padding: '4px 10px' }}
-                        onClick={() => handleSelectPreset(p)}
-                      >
-                        <Sparkle size={12} weight="fill" color={p.accentColor} />
-                        <span>{p.advertiser}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
+                {/* Campaign Basics */}
                 <div className="ads-form-row">
                   <div className="ads-form-group">
                     <label className="ads-form-label">Campaign Title *</label>
                     <input
                       type="text"
                       className="ads-form-input"
-                      placeholder="e.g. Red Bull Campus Energy Rush"
+                      placeholder="e.g. Domino's Campus Special Offer"
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       required
@@ -652,7 +539,7 @@ export default function AdvertisementsPage() {
                     <input
                       type="text"
                       className="ads-form-input"
-                      placeholder="e.g. Red Bull India / MIT Cafe"
+                      placeholder="e.g. Domino's Pizza India"
                       value={formData.advertiser}
                       onChange={(e) => setFormData({ ...formData, advertiser: e.target.value })}
                       required
@@ -660,21 +547,36 @@ export default function AdvertisementsPage() {
                   </div>
                 </div>
 
+                {/* Banner Media URL with Live Preview */}
                 <div className="ads-form-group">
                   <label className="ads-form-label">Banner Image URL *</label>
                   <input
                     type="url"
                     className="ads-form-input"
-                    placeholder="https://images.unsplash.com/..."
+                    placeholder="https://example.com/banner-image.jpg"
                     value={formData.mediaUrl}
                     onChange={(e) => setFormData({ ...formData, mediaUrl: e.target.value })}
                     required
                   />
+                  {formData.mediaUrl && (
+                    <div style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', height: 110, background: '#0f172a', border: '1px solid #e2e8f0', position: 'relative' }}>
+                      <img
+                        src={formData.mediaUrl}
+                        alt="Banner Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
+                        onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
+                      />
+                      <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(15,23,42,0.75)', color: '#fff', fontSize: 10.5, padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                        Live Banner Preview
+                      </div>
+                    </div>
+                  )}
                 </div>
 
+                {/* Headline & Offer Details */}
                 <div className="ads-form-row">
                   <div className="ads-form-group">
-                    <label className="ads-form-label">Punchy Headline</label>
+                    <label className="ads-form-label">Punchy Headline (Optional)</label>
                     <input
                       type="text"
                       className="ads-form-input"
@@ -685,24 +587,56 @@ export default function AdvertisementsPage() {
                   </div>
 
                   <div className="ads-form-group">
-                    <label className="ads-form-label">Supporting Tagline / Offer</label>
+                    <label className="ads-form-label">Supporting Offer / Tagline (Optional)</label>
                     <input
                       type="text"
                       className="ads-form-input"
-                      placeholder="e.g. 20% off with Student ID at campus store"
+                      placeholder="e.g. 20% off with Student ID at campus counter"
                       value={formData.tagline}
                       onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
                     />
                   </div>
                 </div>
 
+                {/* Target Terminal & Status */}
                 <div className="ads-form-row">
                   <div className="ads-form-group">
-                    <label className="ads-form-label">Sponsor Badge Text</label>
+                    <label className="ads-form-label">Target Terminals</label>
+                    <select
+                      className="ads-form-select"
+                      value={formData.targetKiosks[0] || 'ALL'}
+                      onChange={(e) => setFormData({ ...formData, targetKiosks: [e.target.value] })}
+                    >
+                      <option value="ALL">All Kiosks Fleet (All Stations)</option>
+                      {kiosks.map((k) => (
+                        <option key={k.kioskId || k.id} value={k.kioskId || k.id}>
+                          Only {k.kioskId || k.id} ({k.name || 'Station'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="ads-form-group">
+                    <label className="ads-form-label">Campaign Status</label>
+                    <select
+                      className="ads-form-select"
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    >
+                      <option value="ACTIVE">Active (Live on Kiosks)</option>
+                      <option value="PAUSED">Paused (Hidden)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Badge Text & Brand Accent Color */}
+                <div className="ads-form-row">
+                  <div className="ads-form-group">
+                    <label className="ads-form-label">Sponsor Badge Text (Optional)</label>
                     <input
                       type="text"
                       className="ads-form-input"
-                      placeholder="e.g. CAMPUS SPONSOR / 50% OFF"
+                      placeholder="e.g. SPONSORED / 20% OFF / CAMPUS PERK"
                       value={formData.badgeText}
                       onChange={(e) => setFormData({ ...formData, badgeText: e.target.value })}
                     />
@@ -724,80 +658,6 @@ export default function AdvertisementsPage() {
                         onChange={(e) => setFormData({ ...formData, accentColor: e.target.value })}
                         style={{ flex: 1, fontFamily: 'monospace' }}
                       />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Motion Engine Settings */}
-                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Sliders size={16} color="#dc2626" />
-                    <span>Hardware Motion &amp; Display Optimization</span>
-                  </div>
-
-                  <div className="ads-form-row">
-                    <div className="ads-form-group">
-                      <label className="ads-form-label">Motion Animation Style</label>
-                      <select
-                        className="ads-form-select"
-                        value={formData.motionType}
-                        onChange={(e) => setFormData({ ...formData, motionType: e.target.value as any })}
-                      >
-                        <option value="DRIFT">Continuous Diagonal Drift (Ken Burns Slow Pan)</option>
-                        <option value="FLOAT">Atmospheric Levitation Float (Subtle Pulse)</option>
-                        <option value="KEN_BURNS">Deep Cinematic Zoom &amp; Pan</option>
-                        <option value="MARQUEE">Dynamic Lower Ticker Stream</option>
-                        <option value="PULSE">Soft Breathing Atmospheric Glow</option>
-                      </select>
-                    </div>
-
-                    <div className="ads-form-group">
-                      <label className="ads-form-label">Motion Speed</label>
-                      <select
-                        className="ads-form-select"
-                        value={formData.motionSpeed}
-                        onChange={(e) => setFormData({ ...formData, motionSpeed: e.target.value as any })}
-                      >
-                        <option value="SLOW">Slow (Recommended for Smooth Pi 60fps)</option>
-                        <option value="NORMAL">Normal</option>
-                        <option value="FAST">Fast (Dynamic &amp; Energetic)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="ads-form-row" style={{ marginTop: 14 }}>
-                    <div className="ads-form-group">
-                      <label className="ads-form-label">
-                        Background Opacity: {Math.round(formData.opacity * 100)}%
-                      </label>
-                      <input
-                        type="range"
-                        min="0.08"
-                        max="0.55"
-                        step="0.02"
-                        value={formData.opacity}
-                        onChange={(e) => setFormData({ ...formData, opacity: parseFloat(e.target.value) })}
-                        style={{ width: '100%', accentColor: '#dc2626', cursor: 'pointer' }}
-                      />
-                      <span style={{ fontSize: 11, color: '#64748b' }}>
-                        Low opacity ensures high contrast for kiosk buttons and PIN pads.
-                      </span>
-                    </div>
-
-                    <div className="ads-form-group">
-                      <label className="ads-form-label">Target Terminals</label>
-                      <select
-                        className="ads-form-select"
-                        value={formData.targetKiosks[0] || 'ALL'}
-                        onChange={(e) => setFormData({ ...formData, targetKiosks: [e.target.value] })}
-                      >
-                        <option value="ALL">All Kiosks Fleet (Station PB-001 + All)</option>
-                        {kiosks.map((k) => (
-                          <option key={k.kioskId || k.id} value={k.kioskId || k.id}>
-                            Only {k.kioskId || k.id} ({k.name || 'Station'})
-                          </option>
-                        ))}
-                      </select>
                     </div>
                   </div>
                 </div>

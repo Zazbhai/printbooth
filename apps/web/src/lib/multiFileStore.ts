@@ -345,7 +345,7 @@ export function getReadyFiles(): ManagedFile[] {
 }
 
 export function hasAnyReadyFile(): boolean {
-  if (managedFiles.some(f => f.status === 'ready')) return true
+  if (managedFiles.length > 0) return true
   if (typeof window !== 'undefined') {
     const raw = sessionStorage.getItem('pb_files')
     if (raw) {
@@ -433,13 +433,17 @@ export function setKioskPricing(pricing?: Partial<KioskPricing> | null) {
 
 let activeKioskVariant: 'pro' | 'lite' = 'pro'
 
-export function setKioskVariant(variant?: 'pro' | 'lite' | string | null) {
+export function setKioskVariant(variant?: 'pro' | 'lite' | string | null, kioskId?: string) {
   if (!variant) return
   const normalized: 'pro' | 'lite' = String(variant).toLowerCase().includes('lite') ? 'lite' : 'pro'
   activeKioskVariant = normalized
+  const cleanId = (kioskId || (typeof window !== 'undefined' ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id')) : '') || '').trim().toUpperCase()
   try {
     sessionStorage.setItem('pb_kiosk_variant', normalized)
-    localStorage.setItem('pb_kiosk_variant', normalized)
+    if (cleanId) {
+      sessionStorage.setItem(`pb_kiosk_variant_${cleanId}`, normalized)
+      localStorage.setItem(`pb_kiosk_variant_${cleanId}`, normalized)
+    }
   } catch {}
   // If variant is lite, enforce pure B&W across all loaded documents
   if (normalized === 'lite') {
@@ -451,9 +455,26 @@ export function setKioskVariant(variant?: 'pro' | 'lite' | string | null) {
   notifyChange()
 }
 
-export function getKioskVariant(): 'pro' | 'lite' {
+export function getKioskVariant(kioskId?: string): 'pro' | 'lite' {
+  const cleanId = (kioskId || (typeof window !== 'undefined' ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id')) : '') || '').trim().toUpperCase()
+  // Default PB-001 strictly to 'pro' unless explicitly marked lite for PB-001
+  if (cleanId === 'PB-001') {
+    try {
+      const scoped = sessionStorage.getItem(`pb_kiosk_variant_${cleanId}`) || localStorage.getItem(`pb_kiosk_variant_${cleanId}`)
+      if (scoped) {
+        return String(scoped).toLowerCase().includes('lite') ? 'lite' : 'pro'
+      }
+    } catch {}
+    return 'pro'
+  }
   try {
-    const saved = sessionStorage.getItem('pb_kiosk_variant') || localStorage.getItem('pb_kiosk_variant')
+    if (cleanId) {
+      const scoped = sessionStorage.getItem(`pb_kiosk_variant_${cleanId}`) || localStorage.getItem(`pb_kiosk_variant_${cleanId}`)
+      if (scoped) {
+        return String(scoped).toLowerCase().includes('lite') ? 'lite' : 'pro'
+      }
+    }
+    const saved = sessionStorage.getItem('pb_kiosk_variant')
     if (saved) {
       return String(saved).toLowerCase().includes('lite') ? 'lite' : 'pro'
     }

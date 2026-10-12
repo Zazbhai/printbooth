@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from '@phosphor-icons/react'
 import { getLiveKiosks } from '@/lib/api'
+import { kioskSession } from '@/lib/kioskSession'
 import { useUserLocation } from '@/hooks/useUserLocation'
 import { MascotUnavailable } from './MascotUnavailable'
 import { Skeleton, KioskStationBoneyardFallback } from '../../components/ui/PrintBoneyardSkeleton'
@@ -209,16 +210,19 @@ export default function SelectKioskPage() {
     localStorage.setItem('pb_kiosk_name', kiosk.name)
 
     const hasFiles = Boolean(sessionStorage.getItem('pb_file_name')) || Boolean(sessionStorage.getItem('pb_files'))
+    const hasSession = kioskSession.isKioskSession()
 
     if (flow) {
       flow.setPrinterId(targetId, kiosk.name)
       if (hasFiles) {
         flow.goToStep('settings')
-      } else {
+      } else if (hasSession) {
         flow.goToStep('upload')
+      } else {
+        routerNavigate(`/print?id=${encodeURIComponent(targetId)}`, { replace: true })
       }
     } else {
-      routerNavigate('/print', { replace: true })
+      routerNavigate(`/print?id=${encodeURIComponent(targetId)}`, { replace: true })
     }
   }
 

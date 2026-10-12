@@ -21,7 +21,7 @@ import { Merchant } from '../models/Merchant.js'
 import { fallbackKiosks, fallbackMerchants } from '../fallbackData.js'
 import { cacheSet, cacheGet } from '../redis.js'
 import { isKioskOnline as isDeviceGatewayOnline } from './deviceGateway.js'
-import { isKioskRelayConnected, broadcastToAdmins } from './wsRelay.js'
+import { isKioskRelayConnected, broadcastToAdmins, broadcastToKioskUsers } from './wsRelay.js'
 
 // SLA window for considering a heartbeat "fresh" (in milliseconds)
 const HEARTBEAT_FRESHNESS_MS = 60 * 1000 // 60 seconds
@@ -33,6 +33,12 @@ export interface KioskReachabilityResult {
   via?: 'ws_relay' | 'device_gateway' | 'heartbeat' | 'simulation' | 'none'
   kioskId: string
   merchantId?: string
+}
+
+export interface MarkKioskOfflineOptions {
+  merchantError?: string
+  merchantRecommendation?: string
+  errorSource?: 'UPIEXPRESS' | 'RAZORPAY' | 'HARDWARE' | string
 }
 
 /**
@@ -74,7 +80,9 @@ export async function isKioskPiReachable(rawKioskId?: string): Promise<KioskReac
         if (kDoc.status === 'OFFLINE' || kDoc.printerStatus === 'OFFLINE') {
           return {
             isReachable: false,
-            reason: `Station ${kioskId} is marked OFFLINE in system.`,
+            reason: kDoc.merchantError
+              ? `Station ${kioskId} printer is offline due to payment gateway error: ${kDoc.merchantError}`
+              : `Station ${kioskId} is marked OFFLINE in system.`,
             via: 'none',
             kioskId,
           }
@@ -113,9 +121,26 @@ export async function isKioskPiReachable(rawKioskId?: string): Promise<KioskReac
 /**
  * Marks a kiosk and its printer as OFFLINE across MongoDB, Redis, and sends notifications.
  */
-export async function markKioskOffline(rawKioskId: string, reason = 'Hardware powered off or lost internet connection'): Promise<void> {
+export async function markKioskOffline(
+  rawKioskId: string,
+  reason = 'Hardware powered off or lost internet connection',
+  options?: MarkKioskOfflineOptions
+): Promise<void> {
   const kioskId = rawKioskId.trim().toUpperCase()
   console.warn(`[Kiosk Liveness] 🚨 Marking Kiosk ${kioskId} as OFFLINE. Reason: ${reason}`)
+
+  const now = new Date()
+  const setFields: Record<string, any> = {
+    status: 'OFFLINE',
+    printerStatus: 'OFFLINE',
+    lastSeenAt: null,
+  }
+
+  if (options?.merchantError !== undefined) {
+    setFields.merchantError = options.merchantError
+    setFields.merchantRecommendation = options.merchantRecommendation || null
+    setFields.merchantErrorAt = now
+  }
 
   // 1. Update MongoDB Kiosk record
   let merchantId = 'M-001'
@@ -123,13 +148,7 @@ export async function markKioskOffline(rawKioskId: string, reason = 'Hardware po
     try {
       const updated: any = await Kiosk.findOneAndUpdate(
         { kioskId },
-        {
-          $set: {
-            status: 'OFFLINE',
-            printerStatus: 'OFFLINE',
-            lastSeenAt: null,
-          },
-        },
+        { $set: setFields },
         { new: true }
       ).lean()
       if (updated?.merchantId) {
@@ -158,6 +177,11 @@ export async function markKioskOffline(rawKioskId: string, reason = 'Hardware po
   if (fb) {
     fb.status = 'OFFLINE'
     fb.printerStatus = 'OFFLINE'
+    if (options?.merchantError !== undefined) {
+      fb.merchantError = options.merchantError
+      fb.merchantRecommendation = options.merchantRecommendation || null
+      fb.merchantErrorAt = now
+    }
     if (fb.merchantId) merchantId = fb.merchantId
   }
 
@@ -166,7 +190,7 @@ export async function markKioskOffline(rawKioskId: string, reason = 'Hardware po
     try {
       const recentAlert = await Alert.findOne({
         kioskId,
-        type: 'KIOSK_OFFLINE',
+        type: options?.merchantError ? 'PAYMENT_GATEWAY_ERROR' : 'KIOSK_OFFLINE',
         acknowledged: false,
         createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) },
       })
@@ -175,9 +199,11 @@ export async function markKioskOffline(rawKioskId: string, reason = 'Hardware po
         await Alert.create({
           alertId: `ALT-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
           kioskId,
-          type: 'KIOSK_OFFLINE',
+          type: options?.merchantError ? 'PAYMENT_GATEWAY_ERROR' : 'KIOSK_OFFLINE',
           severity: 'CRITICAL',
-          message: `Station ${kioskId} is Offline: Raspberry Pi controller is powered off or disconnected. Customers cannot print. Kindly check power and network cables.`,
+          message: options?.merchantError
+            ? `Station ${kioskId} Payment Gateway Error: ${options.merchantError}. Action required: ${options.merchantRecommendation || 'Check merchant settings.'}`
+            : `Station ${kioskId} is Offline: Raspberry Pi controller is powered off or disconnected. Customers cannot print. Kindly check power and network cables.`,
           acknowledged: false,
         })
       }
@@ -192,20 +218,23 @@ export async function markKioskOffline(rawKioskId: string, reason = 'Hardware po
       const recentNotif = await Notification.findOne({
         targetKioskId: kioskId,
         type: 'ALERT',
-        title: { $regex: /Machine Offline/i },
-        createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) },
+        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) },
       })
 
       if (!recentNotif) {
         await Notification.create({
           notificationId: `NOTIF-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
-          title: `⚠️ Machine Offline: Station ${kioskId} is Powered Off`,
-          message: `Your PrintBooth machine (${kioskId}) has lost connection to the server. Customers cannot print. Kindly check the power switch, Raspberry Pi power cable, and shop Wi-Fi / Ethernet connection immediately.`,
+          title: options?.merchantError
+            ? `⚠️ Payment Gateway Error: Printer Marked Offline (${kioskId})`
+            : `⚠️ Machine Offline: Station ${kioskId} is Powered Off`,
+          message: options?.merchantError
+            ? `Payment API failed after 3 attempts on ${kioskId}. Error: ${options.merchantError}. Recommendation: ${options.merchantRecommendation || 'Please check Merchant Settings.'} You can restart the printer anytime from Kiosk Status.`
+            : `Your PrintBooth machine (${kioskId}) has lost connection to the server. Customers cannot print. Kindly check the power switch, Raspberry Pi power cable, and shop Wi-Fi / Ethernet connection immediately.`,
           type: 'ALERT',
           target: merchantId,
           targetMerchantId: merchantId,
           targetKioskId: kioskId,
-          createdBy: 'Hardware Watchdog',
+          createdBy: 'Payment & Hardware Watchdog',
           readBy: [],
         })
       }
@@ -214,16 +243,112 @@ export async function markKioskOffline(rawKioskId: string, reason = 'Hardware po
     }
   }
 
-  // 6. Broadcast via WebSocket to Admins and Merchant portal
+  // 6. Broadcast via WebSocket to Admins, Merchant portal, and Kiosk touchscreen
+  const broadcastPayload = {
+    kioskId,
+    reason,
+    status: 'OFFLINE',
+    printerStatus: 'OFFLINE',
+    merchantError: options?.merchantError || null,
+    merchantRecommendation: options?.merchantRecommendation || null,
+    timestamp: Date.now(),
+  }
+
   try {
-    broadcastToAdmins('KIOSK_OFFLINE', {
-      kioskId,
-      reason,
-      status: 'OFFLINE',
-      printerStatus: 'OFFLINE',
-      timestamp: Date.now(),
-    })
+    broadcastToAdmins('KIOSK_OFFLINE', broadcastPayload)
   } catch {}
+
+  try {
+    broadcastToKioskUsers(kioskId, 'KIOSK_OFFLINE', broadcastPayload)
+  } catch {}
+}
+
+/**
+ * Resumes and restarts a kiosk's printer back online from Kiosk Status.
+ * Clears any pending merchant payment errors and sets printer status back to READY.
+ */
+export async function resumeKioskPrinter(rawKioskId: string): Promise<{ success: boolean; message: string; kiosk: any }> {
+  const kioskId = rawKioskId.trim().toUpperCase()
+  console.log(`[Kiosk Liveness] 🔄 Resuming printer for Kiosk ${kioskId}...`)
+  const now = new Date()
+
+  let updatedDoc: any = null
+  if (isDbConnected()) {
+    try {
+      updatedDoc = await Kiosk.findOneAndUpdate(
+        { kioskId },
+        {
+          $set: {
+            status: 'ONLINE',
+            printerStatus: 'READY',
+            lastSeenAt: now,
+            merchantError: null,
+            merchantRecommendation: null,
+            merchantErrorAt: null,
+          },
+        },
+        { new: true }
+      ).lean()
+
+      // Auto-acknowledge alerts
+      await Alert.updateMany(
+        { kioskId, acknowledged: false },
+        { $set: { acknowledged: true, acknowledgedAt: now } }
+      )
+
+      // Delete error notifications
+      await Notification.deleteMany({
+        targetKioskId: kioskId,
+        $or: [
+          { title: { $regex: /Payment Gateway Error|Machine Offline/i } },
+          { message: { $regex: /Payment API failed|lost connection/i } },
+        ],
+      }).catch(() => {})
+    } catch (err: any) {
+      console.warn(`[Kiosk Liveness] Failed to resume Kiosk in DB:`, err.message)
+    }
+  }
+
+  // Update Redis cache
+  try {
+    await cacheSet(`kiosk:${kioskId}:status`, 'ONLINE', 60)
+    await cacheSet(`device:${kioskId}:status`, 'ONLINE', 60)
+  } catch {}
+
+  // Update fallback in-memory records
+  const fb = fallbackKiosks.find((k) => (k.kioskId || k.id) === kioskId)
+  if (fb) {
+    fb.status = 'ONLINE'
+    fb.printerStatus = 'READY'
+    fb.lastSeenAt = now
+    fb.merchantError = null
+    fb.merchantRecommendation = null
+    fb.merchantErrorAt = null
+  }
+
+  // Broadcast recovery to Admins, Merchant Dashboard, and Kiosk Touchscreen
+  const payload = {
+    kioskId,
+    status: 'ONLINE',
+    printerStatus: 'READY',
+    merchantError: null,
+    merchantRecommendation: null,
+    timestamp: Date.now(),
+  }
+
+  try {
+    broadcastToAdmins('KIOSK_ONLINE', payload)
+  } catch {}
+
+  try {
+    broadcastToKioskUsers(kioskId, 'KIOSK_ONLINE', payload)
+  } catch {}
+
+  return {
+    success: true,
+    message: `Printer for station ${kioskId} resumed and brought back online successfully.`,
+    kiosk: updatedDoc || fb,
+  }
 }
 
 /**
@@ -257,8 +382,22 @@ export async function recordKioskHeartbeat(
     pStat === 'STOPPED' ||
     pStat === 'DISCONNECTED'
 
-  const onlineStatus = isPrinterOffline ? 'OFFLINE' : 'ONLINE'
-  const printerStatus = isPrinterOffline ? (pStat || 'OFFLINE') : 'READY'
+  let hasMerchantError = false
+  if (isDbConnected()) {
+    try {
+      const existing: any = await Kiosk.findOne({ kioskId }).select('merchantError').lean()
+      if (existing?.merchantError) {
+        hasMerchantError = true
+      }
+    } catch {}
+  }
+  const fb = fallbackKiosks.find((k) => (k.kioskId || k.id) === kioskId)
+  if (fb?.merchantError) {
+    hasMerchantError = true
+  }
+
+  const onlineStatus = (isPrinterOffline || hasMerchantError) ? 'OFFLINE' : 'ONLINE'
+  const printerStatus = hasMerchantError ? 'OFFLINE' : (isPrinterOffline ? (pStat || 'OFFLINE') : 'READY')
 
   if (isDbConnected()) {
     try {
@@ -316,7 +455,6 @@ export async function recordKioskHeartbeat(
   } catch {}
 
   // Update fallback in-memory records
-  const fb = fallbackKiosks.find((k) => (k.kioskId || k.id) === kioskId)
   if (fb) {
     fb.status = onlineStatus as any
     fb.printerStatus = printerStatus as any

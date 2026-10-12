@@ -27,10 +27,26 @@ const webProcess = spawn(npmCmd, ['run', 'dev', '--workspace=apps/web'], {
   shell: true,
 })
 
+// 3. Start Admin Console (Port 5174)
+const adminProcess = spawn(npmCmd, ['run', 'dev', '--workspace=apps/admin'], {
+  cwd: ROOT,
+  stdio: 'inherit',
+  shell: true,
+})
+
+// 4. Start Kiosk Display Screen (Port 5175)
+const kioskProcess = spawn(npmCmd, ['run', 'dev', '--workspace=kiosk/ui'], {
+  cwd: ROOT,
+  stdio: 'inherit',
+  shell: true,
+})
+
 function shutdown() {
   console.log('\nShutting down PrintBooth dev servers...')
-  apiProcess.kill()
-  webProcess.kill()
+  try { apiProcess.kill() } catch {}
+  try { webProcess.kill() } catch {}
+  try { adminProcess.kill() } catch {}
+  try { kioskProcess.kill() } catch {}
   process.exit(0)
 }
 

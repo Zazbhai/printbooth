@@ -8,6 +8,7 @@ export interface PrinterErrorOverlayProps {
   title?: string
   reason?: string
   detail?: string
+  recommendation?: string
   kioskName?: string
   printerName?: string
   isChecking?: boolean
@@ -20,6 +21,7 @@ export const PrinterErrorOverlay: React.FC<PrinterErrorOverlayProps> = ({
   isOpen,
   title,
   detail,
+  recommendation,
   onFindKiosk,
 }) => {
   // Manage body class to hide navbar and back button when offline overlay is active
@@ -87,6 +89,29 @@ export const PrinterErrorOverlay: React.FC<PrinterErrorOverlayProps> = ({
             <p className="p-a" style={{ marginTop: '16px', fontSize: '1.05rem', opacity: 0.92, fontWeight: 500, maxWidth: '480px' }}>
               {detail}
             </p>
+          )}
+
+          {recommendation && (
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '14px 18px',
+                borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.12)',
+                border: '1px solid rgba(255, 255, 255, 0.28)',
+                color: '#ffffff',
+                fontSize: '0.88rem',
+                lineHeight: 1.5,
+                maxWidth: '480px',
+                textAlign: 'left',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', opacity: 0.9 }}>
+                Merchant Guidance
+              </div>
+              <div style={{ opacity: 0.95, whiteSpace: 'pre-line' }}>{recommendation}</div>
+            </div>
           )}
 
           {onFindKiosk && (

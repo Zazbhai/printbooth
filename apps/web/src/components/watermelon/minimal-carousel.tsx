@@ -42,13 +42,11 @@ export const MinimalCarousel: React.FC<MinimalCarouselProps> = ({
     onActiveChange?.(id);
   };
 
-  const activeCard = cards.find((c) => c.id === activeId);
-  const secondaryCards = cards.filter((c) => c.id !== activeId);
+  const activeCard = cards.find((c) => c.id === activeId) || cards[cards.length - 1] || cards[0];
+  const secondaryCards = cards.filter((c) => c.id !== activeCard?.id);
 
-  const handleBackgroundClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      setActiveId(null);
-    }
+  const handleBackgroundClick = (_e: React.MouseEvent) => {
+    // Preserve active card so buttons and controls remain accessible
   };
 
   const cardTransition = {
