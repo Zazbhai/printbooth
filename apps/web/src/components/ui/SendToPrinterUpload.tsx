@@ -3,6 +3,7 @@ import './SendToPrinterUpload.css'
 
 export interface SendToPrinterUploadHandle {
   triggerAnimation: () => void
+  triggerFileInput: () => void
   reset: () => void
 }
 
@@ -42,7 +43,7 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       onComplete,
       isProcessing = false,
       processingStatus = '',
-      accept = '.pdf,.png,.jpg,.jpeg,.webp,.docx,.doc,.pptx,.ppt',
+      accept = '.pdf,.png,.jpg,.jpeg,.webp,.docx,.doc,.pptx,.ppt,application/pdf,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint',
       multiple = true,
       label = 'Upload',
       completedLabel = 'UPLOAD COMPLETE',
@@ -196,9 +197,17 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       setIsAnimating(false)
     }, [])
 
+    const openFilePicker = useCallback(() => {
+      if (disabled || isAnimating || isProcessing) return
+      fileInputRef.current?.click()
+    }, [disabled, isAnimating, isProcessing])
+
     useImperativeHandle(ref, () => ({
       triggerAnimation: () => {
         startAnimation()
+      },
+      triggerFileInput: () => {
+        openFilePicker()
       },
       reset: resetAnimation,
     }))
@@ -235,24 +244,14 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       }
     }, [isAnimating])
 
-    // Handle clicking button
-    function handleButtonClick() {
-      if (disabled || isAnimating || isProcessing) return
-      setIsWaiting(true)
-      fileInputRef.current?.click()
-    }
-
     // Handle file input change
     function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
       setIsWaiting(false)
-      if (e.target.files && e.target.files.length > 0) {
-        const selectedFiles = e.target.files
-        if (!isAnimating) {
-          startAnimation()
-        }
-        onFileSelect?.(selectedFiles)
-      }
+      const fileList = e.target.files
+      if (!fileList || fileList.length === 0) return
+      const filesArray = Array.from(fileList)
       e.target.value = ''
+      onFileSelect?.(filesArray)
     }
 
     // Split completed text into animated letters
@@ -262,23 +261,14 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       </span>
     ))
 
+    const isBtnDisabled = disabled || isAnimating || isProcessing
+
     return (
       <div
         ref={containerRef}
         className="stpu-container"
         data-device={resolvedDevice}
       >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={accept}
-          multiple={multiple}
-          onChange={handleInputChange}
-          style={{ display: 'none' }}
-          id="stpu-native-file-input"
-          disabled={disabled || isAnimating || isProcessing}
-        />
-
         <input
           ref={checkboxRef}
           type="checkbox"
@@ -287,17 +277,39 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
           readOnly
         />
 
-        <label className="stpu-label" htmlFor="stpu-checkbox-trigger" onClick={e => e.preventDefault()}>
+        <div className="stpu-label">
           <div
             ref={buttonRef}
             className={`stpu-button${disabled ? ' disabled' : ''}`}
-            onClick={handleButtonClick}
             role="button"
             tabIndex={disabled ? -1 : 0}
             aria-disabled={disabled}
             aria-label={label}
             aria-valuenow={percent}
           >
+            {/* Native file input directly covers the entire button with top z-index */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={accept}
+              multiple={multiple}
+              onChange={handleInputChange}
+              id="stpu-native-file-input"
+              disabled={isBtnDisabled}
+              aria-label={label || 'Select files'}
+              tabIndex={0}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                opacity: 0,
+                cursor: isBtnDisabled ? 'default' : 'pointer',
+                zIndex: 999,
+                pointerEvents: isBtnDisabled ? 'none' : 'auto',
+              }}
+            />
             {/* Check icon upon completion */}
             <div className="stpu-check-container">
               <svg viewBox="0 0 60 60" aria-hidden="true">
@@ -496,7 +508,7 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
               )}
             </div>
           </div>
-        </label>
+        </div>
 
         {/* Pop-in letters for UPLOAD COMPLETE */}
         <div className="stpu-complete-text">{letters}</div>

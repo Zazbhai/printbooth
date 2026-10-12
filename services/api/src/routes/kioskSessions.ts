@@ -471,7 +471,7 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       saveSession(session)
     } else {
       const elapsed = Date.now() - session.phoneDisconnectedAt
-      const graceMs = session.phoneDisconnectGraceMs || 15000
+      const graceMs = session.phoneDisconnectGraceMs || 180000 // 3 minutes grace for customer to browse and select files on device
       if (elapsed >= graceMs) {
         console.log(`[KioskSession] ⏱️ Phone disconnect grace expired for ${session.sessionId} on ${kioskId}. Refreshing kiosk session back to QR_READY.`)
         session.state = 'CANCELLED'
@@ -620,43 +620,83 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
   ).trim()
 
   const { valid, payload, error } = verifyToken(token)
+  const targetKioskId = String(payload?.kioskId || req.body?.kioskId || 'PB-001').toUpperCase().trim()
+  const webBase = resolveWebBaseUrl(req)
+
+  // 1. If token is invalid or expired, gracefully adopt or generate active session for the kiosk
   if (!valid || !payload) {
-    const isExpired = error === 'Session expired'
-    return res.status(isExpired ? 410 : 400).json({
-      success: false,
-      error: isExpired ? 'SESSION_EXPIRED' : (error || 'Invalid token'),
-      code: isExpired ? 'SESSION_EXPIRED' : 'INVALID_TOKEN',
-      message: isExpired
-        ? 'This QR code has expired. Please scan the current live QR code on the kiosk screen.'
-        : (error || 'Invalid token'),
+    console.log(`[KioskSession] 🔄 Token invalid/expired (${error}). Auto-recovering session for kiosk ${targetKioskId}`)
+    const currentActiveId = activeSessionByKiosk.get(targetKioskId)
+    if (currentActiveId) {
+      const currentSession = sessions.get(currentActiveId)
+      if (currentSession && currentSession.state !== 'DONE' && currentSession.state !== 'CANCELLED' && Date.now() < currentSession.expiresAt) {
+        const assignedSecret = clientClaimToken || currentSession.claimSecret || crypto.randomBytes(16).toString('hex')
+        currentSession.claimSecret = assignedSecret
+        currentSession.lastPhoneActivityAt = Date.now()
+        currentSession.lastActivityAt = Date.now()
+        currentSession.phoneDisconnected = false
+        saveSession(currentSession)
+
+        const liveVariant = currentSession.kioskVariant || getKioskVariantSync(targetKioskId)
+        return res.json({
+          success: true,
+          isOwner: true,
+          sessionId: currentSession.sessionId,
+          kioskId: targetKioskId,
+          kioskVariant: liveVariant,
+          variant: liveVariant,
+          state: currentSession.state,
+          claimSecret: assignedSecret,
+          token: currentSession.token,
+          message: 'Session resumed.',
+        })
+      }
+    }
+
+    // Generate fresh session
+    const freshSession = generateSession(targetKioskId, webBase)
+    activeSessionByKiosk.set(targetKioskId, freshSession.sessionId)
+    freshSession.claimedAt = Date.now()
+    freshSession.lastPhoneActivityAt = Date.now()
+    freshSession.lastActivityAt = Date.now()
+    freshSession.state = 'CLAIMED'
+    freshSession.phase = 'User scanning and opening upload page…'
+    freshSession.phaseStep = 1
+    freshSession.claimSecret = clientClaimToken || crypto.randomBytes(16).toString('hex')
+    saveSession(freshSession)
+
+    const liveVariant = freshSession.kioskVariant || getKioskVariantSync(targetKioskId)
+    return res.json({
+      success: true,
+      sessionId: freshSession.sessionId,
+      kioskId: targetKioskId,
+      kioskVariant: liveVariant,
+      variant: liveVariant,
+      token: freshSession.token,
+      claimSecret: freshSession.claimSecret,
+      state: freshSession.state,
+      message: 'Session claimed.',
     })
   }
 
   const { sessionId, kioskId } = payload
-
-  // Allow all devices (mobile, tablet, desktop, tester) with a valid token to connect and claim
-  const userAgent = String(req.headers['user-agent'] || '').toLowerCase()
-
   const currentActiveId = activeSessionByKiosk.get(kioskId)
 
-  // 1. If requested token is not for currentActiveId:
+  // 2. If requested token is not for currentActiveId, adopt the live session if available
   if (currentActiveId && currentActiveId !== sessionId) {
     const currentSession = sessions.get(currentActiveId)
-    const isHardwareBusy = currentSession &&
-      (currentSession.state === 'PRINTING' || currentSession.state === 'PAYING')
+    const isHardwarePrinting = currentSession && currentSession.state === 'PRINTING'
 
-    if (isHardwareBusy) {
-      console.warn(`[KioskSession] 🔒 Active print/payment in progress on ${kioskId}. Blocking stale claim.`)
+    if (isHardwarePrinting) {
       return res.status(409).json({
         success: false,
         error: 'MACHINE_ALREADY_IN_USE',
         code: 'MACHINE_ALREADY_IN_USE',
-        message: 'Machine is currently printing or processing payment for another customer. Please wait a moment.',
+        message: 'Machine is currently printing for another customer. Please wait a moment.',
         kioskId,
       })
     }
 
-    // Machine is free (not printing or paying). Seamlessly adopt the live active session!
     if (currentSession && currentSession.state !== 'DONE' && Date.now() < currentSession.expiresAt) {
       console.log(`[KioskSession] 🔄 Adopting current live active session ${currentActiveId} for customer on ${kioskId}`)
       const assignedSecret = clientClaimToken || currentSession.claimSecret || crypto.randomBytes(16).toString('hex')
@@ -664,7 +704,6 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
       currentSession.lastPhoneActivityAt = Date.now()
       currentSession.lastActivityAt = Date.now()
       currentSession.phoneDisconnected = false
-      currentSession.phoneDisconnectedAt = undefined
       saveSession(currentSession)
 
       const liveVariant = currentSession.kioskVariant || getKioskVariantSync(kioskId)
@@ -683,106 +722,75 @@ kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
     }
   }
 
-  const session = getSession(sessionId)
+  let session = getSession(sessionId)
 
-  if (!session) {
-    return res.status(410).json({
-      success: false,
-      error: 'SESSION_EXPIRED',
-      code: 'SESSION_EXPIRED',
-      message: 'Session not found or expired. Please scan the current QR code on screen.',
+  // If session is expired or missing, auto-recover instead of 410 error
+  if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || Date.now() > session.expiresAt) {
+    console.log(`[KioskSession] ✦ Auto-generating fresh session for customer claiming ${kioskId}`)
+    const freshSession = generateSession(kioskId, webBase)
+    activeSessionByKiosk.set(kioskId, freshSession.sessionId)
+    freshSession.claimedAt = Date.now()
+    freshSession.lastPhoneActivityAt = Date.now()
+    freshSession.lastActivityAt = Date.now()
+    freshSession.state = 'CLAIMED'
+    freshSession.phase = 'User scanning and opening upload page…'
+    freshSession.phaseStep = 1
+    freshSession.claimSecret = clientClaimToken || crypto.randomBytes(16).toString('hex')
+    saveSession(freshSession)
+
+    const liveVariant = freshSession.kioskVariant || getKioskVariantSync(kioskId)
+    return res.json({
+      success: true,
+      sessionId: freshSession.sessionId,
       kioskId,
-    })
-  }
-
-  if (session.state === 'DONE' || session.state === 'CANCELLED') {
-    return res.status(410).json({
-      success: false,
-      error: 'SESSION_COMPLETED',
-      code: 'SESSION_COMPLETED',
-      message: 'This print session has ended. Please scan the current QR code on screen.',
-      kioskId: session.kioskId,
-    })
-  }
-
-  if (Date.now() > session.expiresAt) {
-    return res.status(410).json({
-      success: false,
-      error: 'SESSION_EXPIRED',
-      code: 'SESSION_EXPIRED',
-      message: 'This QR code has expired. Please scan the current live QR code on screen.',
-      kioskId: session.kioskId,
+      kioskVariant: liveVariant,
+      variant: liveVariant,
+      token: freshSession.token,
+      claimSecret: freshSession.claimSecret,
+      state: freshSession.state,
+      message: 'Session claimed.',
     })
   }
 
   const resolvedVariant = session.kioskVariant || getKioskVariantSync(session.kioskId)
 
-  // 2. Active Session Reconnect / Resume:
-  // If session is already claimed or in progress, allow the user holding the live QR token to resume cleanly.
-  // Only reject if another customer is actively in PAYMENT or PRINTING!
-  if (session.state !== 'QR_READY') {
-    const isLockedPaymentOrPrinting = (session.state === 'PAYING' || session.state === 'PRINTING') &&
-      Boolean(session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken)
-
-    if (isLockedPaymentOrPrinting) {
-      console.warn(`[KioskSession] ⚠️ Access blocked: Machine ${kioskId} (session ${sessionId}) is in active payment or printing.`)
-      return res.status(409).json({
-        success: false,
-        error: 'MACHINE_ALREADY_IN_USE',
-        code: 'MACHINE_ALREADY_IN_USE',
-        message: 'Machine is currently processing payment or printing. Please wait a moment.',
-        kioskId: session.kioskId,
-        state: session.state,
-      })
-    }
-
-    // Pre-payment or matching owner: grant full access & resume
-    const assignedSecret = clientClaimToken || session.claimSecret || crypto.randomBytes(16).toString('hex')
-    session.claimSecret = assignedSecret
-    session.lastPhoneActivityAt = Date.now()
-    session.lastActivityAt = Date.now()
-    session.phoneDisconnected = false
-    session.phoneDisconnectedAt = undefined
-    saveSession(session)
-
-    return res.json({
-      success: true,
-      isOwner: true,
-      sessionId,
-      kioskId,
-      kioskVariant: resolvedVariant,
-      variant: resolvedVariant,
+  // Only reject if another customer is actively PRINTING paper
+  if (session.state === 'PRINTING' && session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken) {
+    return res.status(409).json({
+      success: false,
+      error: 'MACHINE_ALREADY_IN_USE',
+      code: 'MACHINE_ALREADY_IN_USE',
+      message: 'Machine is currently printing. Please wait a moment.',
+      kioskId: session.kioskId,
       state: session.state,
-      claimSecret: assignedSecret,
-      token: session.token,
-      message: 'Session resumed.',
     })
   }
 
-  // Claim the session for this user
-  const assignedSecret = clientClaimToken || crypto.randomBytes(16).toString('hex')
-  const now = Date.now()
+  // Pre-payment or matching owner: grant full access & resume
+  const assignedSecret = clientClaimToken || session.claimSecret || crypto.randomBytes(16).toString('hex')
   session.claimSecret = assignedSecret
-  session.state = 'CLAIMED'
-  session.claimedAt = now
-  session.lastPhoneActivityAt = now
-  session.lastActivityAt = now
-  session.currentSectionEnteredAt = now
-  session.claimedIp = clientIp
-  session.phase = 'User scanning and opening upload page…'
-  session.phaseStep = 1
+  session.lastPhoneActivityAt = Date.now()
+  session.lastActivityAt = Date.now()
+  session.phoneDisconnected = false
+  session.phoneDisconnectedAt = undefined
+  if (session.state === 'QR_READY') {
+    session.state = 'CLAIMED'
+    session.claimedAt = Date.now()
+    session.phase = 'User scanning and opening upload page…'
+    session.phaseStep = 1
+  }
   saveSession(session)
 
-  console.log(`[KioskSession] ✓ Claimed ${sessionId} by IP ${clientIp} for kiosk ${kioskId}`)
-
-  res.json({
+  return res.json({
     success: true,
     isOwner: true,
-    sessionId,
-    kioskId,
+    sessionId: session.sessionId,
+    kioskId: session.kioskId,
     kioskVariant: resolvedVariant,
     variant: resolvedVariant,
+    state: session.state,
     claimSecret: assignedSecret,
+    token: session.token,
     message: 'Session claimed. You may now upload your document.',
   })
 })
@@ -1099,15 +1107,19 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   })
 }, (req: Request, res: Response) => {
   const { sessionId } = req.params
-  const session = getSession(sessionId)
+  let session = getSession(sessionId)
 
   if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || session.state === 'EXPIRED' || Date.now() > session.expiresAt) {
-    return res.status(410).json({
-      success: false,
-      error: 'SESSION_EXPIRED',
-      code: 'SESSION_EXPIRED',
-      message: 'This print session has expired or ended. Please scan the current live QR code on the kiosk screen.',
-    })
+    const targetKioskId = String(req.body?.kioskId || (sessionId.includes('PB-') ? sessionId.split('_')[1] : null) || 'PB-001').toUpperCase().trim()
+    const activeId = activeSessionByKiosk.get(targetKioskId)
+    if (activeId && sessions.has(activeId)) {
+      session = sessions.get(activeId)!
+    } else {
+      console.log(`[KioskSession] ✦ Upload auto-recovery: generating active session for ${targetKioskId}`)
+      const webBase = resolveWebBaseUrl(req)
+      session = generateSession(targetKioskId, webBase)
+      activeSessionByKiosk.set(targetKioskId, session.sessionId)
+    }
   }
 
   const clientClaimToken = String(
@@ -1265,10 +1277,19 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
  */
 kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], async (req: Request, res: Response) => {
   const { sessionId } = req.params
-  const session = getSession(sessionId)
+  let session = getSession(sessionId)
 
-  if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || session.state === 'EXPIRED') {
-    return res.status(410).json({ success: false, error: 'SESSION_EXPIRED', message: 'Session expired or not found' })
+  if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || session.state === 'EXPIRED' || Date.now() > session.expiresAt) {
+    const targetKioskId = String(req.body?.kioskId || (sessionId.includes('PB-') ? sessionId.split('_')[1] : null) || 'PB-001').toUpperCase().trim()
+    const activeId = activeSessionByKiosk.get(targetKioskId)
+    if (activeId && sessions.has(activeId)) {
+      session = sessions.get(activeId)!
+    } else {
+      console.log(`[KioskSession] ✦ Next-phase auto-recovery: generating active session for ${targetKioskId}`)
+      const webBase = resolveWebBaseUrl(req)
+      session = generateSession(targetKioskId, webBase)
+      activeSessionByKiosk.set(targetKioskId, session.sessionId)
+    }
   }
 
   const {

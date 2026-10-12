@@ -52,6 +52,20 @@ export async function isKioskPiReachable(rawKioskId?: string): Promise<KioskReac
 
   const kioskId = rawKioskId.trim().toUpperCase()
 
+  // 0. Test / Virtual Simulation mode bypass (No physical Raspberry Pi or printer required)
+  const isTestMode =
+    (process.env.PRINT_MODE || '').toLowerCase() === 'test' ||
+    process.env.MOCK_PRINTER === 'true'
+
+  if (isTestMode) {
+    return {
+      isReachable: true,
+      reason: 'Virtual Simulator / Test Mode active',
+      via: 'simulation',
+      kioskId,
+    }
+  }
+
   // 1. Direct WebSocket Relay connection check (ws_kiosk_client.py on /ws)
   if (isKioskRelayConnected(kioskId)) {
     return {
@@ -87,8 +101,7 @@ export async function isKioskPiReachable(rawKioskId?: string): Promise<KioskReac
             kioskId,
           }
         }
-        const isTestMode = (process.env.PRINT_MODE || 'real').toLowerCase() === 'test'
-        if (isTestMode && kDoc.lastSeenAt) {
+        if (kDoc.lastSeenAt) {
           const elapsed = Date.now() - new Date(kDoc.lastSeenAt).getTime()
           if (elapsed < HEARTBEAT_FRESHNESS_MS) {
             // Heartbeat received within SLA
@@ -127,6 +140,16 @@ export async function markKioskOffline(
   options?: MarkKioskOfflineOptions
 ): Promise<void> {
   const kioskId = rawKioskId.trim().toUpperCase()
+
+  const isTestMode =
+    (process.env.PRINT_MODE || '').toLowerCase() === 'test' ||
+    process.env.MOCK_PRINTER === 'true'
+
+  if (isTestMode && !options?.merchantError) {
+    console.log(`[Kiosk Liveness] 🧪 Test Mode active: skipping markKioskOffline for ${kioskId}`)
+    return
+  }
+
   console.warn(`[Kiosk Liveness] 🚨 Marking Kiosk ${kioskId} as OFFLINE. Reason: ${reason}`)
 
   const now = new Date()

@@ -128,6 +128,17 @@ export default function MultiFilePage() {
   const checkPrinterStatus = useCallback(async (allowAutoPopup = true) => {
     setIsCheckingPrinter(true)
 
+    const isEnvTestMode =
+      (import.meta.env.VITE_PRINT_MODE || '').toLowerCase() === 'test' ||
+      (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('pb_print_mode') || '').toLowerCase() === 'test')
+
+    if (isEnvTestMode && !searchParams.get('offline')) {
+      setConnectedPrinterName('PrintBooth Virtual Printer (Simulator)')
+      setPrinterIssue(null)
+      setIsCheckingPrinter(false)
+      return
+    }
+
     // 1. Direct query parameter overrides (for testing, simulation & IoT kiosk dispatch)
     const qPaper = searchParams.get('paper')
     const qIssue = searchParams.get('issue')
@@ -168,26 +179,29 @@ export default function MultiFilePage() {
       const check = await checkPrinterHardwareStatus(assignedId, preferredPrinter)
 
       if (!check.isAvailable) {
-        if (allowAutoPopup || !userDismissedRef.current) {
-          setPrinterIssue({
-            hasIssue: true,
-            reason: check.reason || 'Printer not available right now, visit later',
-            detail: check.detail || 'Hardware printer is offline, disconnected or reporting an issue. Please visit later.',
-            kioskName: check.kioskName || 'PrintBooth Station',
-            printerName: check.printerName,
-          })
+        const isTest = isEnvTestMode || Boolean((check as any).isTestMode)
+        if (!isTest) {
+          if (allowAutoPopup || !userDismissedRef.current) {
+            setPrinterIssue({
+              hasIssue: true,
+              reason: check.reason || 'Printer not available right now, visit later',
+              detail: check.detail || 'Hardware printer is offline, disconnected or reporting an issue. Please visit later.',
+              kioskName: check.kioskName || 'PrintBooth Station',
+              printerName: check.printerName,
+            })
+          }
+          setConnectedPrinterName(check.printerName || null)
+          setIsCheckingPrinter(false)
+          return
         }
-        setConnectedPrinterName(check.printerName || null)
-        setIsCheckingPrinter(false)
-        return
       }
 
-      setConnectedPrinterName(check.printerName || 'Laser Print Engine')
+      setConnectedPrinterName(check.printerName || 'PrintBooth Virtual Printer (Simulator)')
       setPrinterIssue(null)
       setUserDismissedNotice(false)
     } catch (err) {
       console.warn('[MultiFilePage] Error checking printer availability:', err)
-      if (allowAutoPopup || !userDismissedRef.current) {
+      if (!isEnvTestMode && (allowAutoPopup || !userDismissedRef.current)) {
         setPrinterIssue({
           hasIssue: true,
           reason: 'Hardware connection check failed',
@@ -602,9 +616,7 @@ export default function MultiFilePage() {
     processingCompleteRef.current = true
     persistAllFilesToSession()
     persistActiveFileToSession()
-
-    // Automatically transfer to kiosk session and redirect to configuration phase
-    await handleTransferToKiosk()
+    setIsTransferredToKiosk(false)
   }
 
   function handleRemoveFile(id: string) {
@@ -939,9 +951,14 @@ export default function MultiFilePage() {
         <div className={`mfp-dropzone-shell ${files.length > 0 ? 'has-files' : ''}`}>
           <div
             className={`mfp-dropzone${dragOver ? ' drag-over' : ''}${isProcessing || isUploadAnimating ? ' processing' : ''}`}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest('.stpu-button, button, a, input, label')) return
+              uploadAnimRef.current?.triggerFileInput?.()
+            }}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
+            style={{ cursor: isProcessing || isUploadAnimating ? 'default' : 'pointer' }}
           >
             {/* Animated Hardware Send-To-Printer Upload Component */}
             <SendToPrinterUpload

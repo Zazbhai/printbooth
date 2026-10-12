@@ -85,6 +85,14 @@
     inset 0 1px 1px rgba(255, 255, 255, 0.45);
 }
 
+.stpu-button * {
+  pointer-events: none !important;
+}
+
+.stpu-button #stpu-native-file-input {
+  pointer-events: auto !important;
+}
+
 .stpu-button.disabled {
   opacity: 0.55;
   cursor: not-allowed;

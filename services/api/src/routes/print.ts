@@ -1524,6 +1524,41 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
     const rawKioskId = ((req.query.kioskId as string) || (req.query.id as string) || '').trim().toUpperCase()
     const kioskId = rawKioskId || 'PB-001'
 
+    const inTestMode = isTestMode() || (process.env.PRINT_MODE || '').toLowerCase() === 'test' || process.env.MOCK_PRINTER === 'true'
+    if (inTestMode) {
+      const live = await getRealPrinterHardwareStatus()
+      const selectedPrinter = live.selectedPrinter || 'PrintBooth Virtual Printer (Simulator)'
+      return res.json({
+        success: true,
+        isAvailable: true,
+        isHardwareReady: true,
+        hasPhysicalPrinter: true,
+        issueCode: null,
+        issueTitle: null,
+        selectedPrinter,
+        reason: 'Virtual Simulator / Test Mode active',
+        mode: 'test',
+        isTestMode: true,
+        kioskId,
+        details: {
+          name: selectedPrinter,
+          status_code: 0,
+          status_labels: ['Ready (Test Mode)'],
+          is_online: true,
+          is_connected: true,
+          port: 'VIRTUAL-SIM',
+          driver: 'PrintBooth Virtual Driver (Test Mode)',
+          connectionType: 'TEST_SIMULATION',
+        },
+        printers: [{
+          name: selectedPrinter,
+          is_online: true,
+          status_labels: ['Ready (Test Mode)'],
+          connectionType: 'TEST_SIMULATION',
+        }],
+      })
+    }
+
     // Trigger on-demand physical USB probe to target Raspberry Pi
     triggerKioskUsbProbe(kioskId)
 
@@ -1532,9 +1567,8 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
     // 1. Check if the targeted kiosk Raspberry Pi is reachable
     const reachability = await isKioskPiReachable(kioskId)
     if (!reachability.isReachable) {
-      markKioskOffline(kioskId, reachability.reason).catch(() => {})
-      const inTestMode = isTestMode()
-      if (!inTestMode) {
+      if (!isTestMode()) {
+        markKioskOffline(kioskId, reachability.reason).catch(() => {})
         return res.json({
           success: true,
           isAvailable: false,
@@ -1659,10 +1693,10 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
 
     // 2. Fallback to Windows host local detection if no fresh Pi heartbeat for this kiosk
     const live = await getRealPrinterHardwareStatus()
-    const inTestMode = isTestMode()
-    const isAvailable = inTestMode ? true : live.isAvailable
-    const isHardwareReady = inTestMode ? true : live.isHardwareReady
-    const selectedPrinter = inTestMode
+    const inTest = isTestMode()
+    const isAvailable = inTest ? true : live.isAvailable
+    const isHardwareReady = inTest ? true : live.isHardwareReady
+    const selectedPrinter = inTest
       ? (live.selectedPrinter || 'PrintBooth Test Printer (Mock)')
       : live.selectedPrinter
 
@@ -1670,7 +1704,7 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
       success: true,
       isAvailable,
       isHardwareReady,
-      hasPhysicalPrinter: inTestMode ? true : live.hasPhysicalPrinter,
+      hasPhysicalPrinter: inTest ? true : live.hasPhysicalPrinter,
       issueCode: isAvailable ? null : 'PRINTER_UNAVAILABLE',
       issueTitle: isAvailable ? null : 'Printer not available right now, visit later',
       selectedPrinter,

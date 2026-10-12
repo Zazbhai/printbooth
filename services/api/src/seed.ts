@@ -21,20 +21,27 @@ export async function seedDatabase() {
     await Merchant.deleteMany({ merchantId: { $ne: 'M-001' } })
 
     const existingTestKiosk = await Kiosk.findOne({ kioskId: 'PB-001' })
+    const isTestMode = (process.env.PRINT_MODE || '').toLowerCase() === 'test' || process.env.MOCK_PRINTER === 'true'
+
     if (existingTestKiosk) {
-      console.log('[Seed] Database contains canonical Test Station PB-001. Ensuring clean real baseline...')
+      console.log(`[Seed] Database contains canonical Test Station PB-001 (TestMode: ${isTestMode}). Ensuring clean baseline...`)
       const secretToSet = existingTestKiosk.deviceSecret || 'pb_sec_4b0894a6cc6ade322aa4f01151fbef9d35f79b18b48d7a7b'
       await Kiosk.updateOne({ kioskId: 'PB-001' }, {
         $set: {
           deviceSecret: secretToSet,
-          status: 'OFFLINE',
-          printerStatus: 'OFFLINE',
-          paperLevel: 0,
-          tonerLevel: 0,
+          status: isTestMode ? 'ONLINE' : 'OFFLINE',
+          printerStatus: isTestMode ? 'READY' : 'OFFLINE',
+          paperLevel: isTestMode ? 100 : (existingTestKiosk.paperLevel || 0),
+          tonerLevel: isTestMode ? 100 : (existingTestKiosk.tonerLevel || 0),
           queueCount: 0,
           todayPages: 0,
           todayRevenue: 0,
           totalRevenue: 0,
+          merchantError: null,
+          merchantRecommendation: null,
+          merchantErrorAt: null,
+          lastSeenAt: isTestMode ? new Date() : existingTestKiosk.lastSeenAt,
+          isTestMode,
         }
       })
       await Merchant.updateOne({ merchantId: 'M-001' }, {

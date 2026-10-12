@@ -88,7 +88,20 @@ export default function UnifiedPrintPage() {
   const hasActiveJob =
     hasRealUploadedDoc() ||
     hasAnyReadyFile() ||
-    Boolean(typeof window !== 'undefined' && (sessionStorage.getItem('pb_files') || sessionStorage.getItem('pb_file_name')))
+    getAllFiles().length > 0 ||
+    Boolean(typeof window !== 'undefined' && (
+      sessionStorage.getItem('pb_files') ||
+      sessionStorage.getItem('pb_file_name') ||
+      sessionStorage.getItem('pb_uploaded_file')
+    ))
+
+  // Sanitize double ampersands from incoming URLs (e.g. ?id=PB-001&&step=upload)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('&&')) {
+      const cleanSearch = window.location.search.replace(/&&+/g, '&')
+      window.history.replaceState({}, '', `${window.location.pathname}${cleanSearch}`)
+    }
+  }, [])
 
   // Saved kiosk fallback (persisted in session)
   const rawId = urlId || savedKioskId || null
@@ -146,10 +159,52 @@ export default function UnifiedPrintPage() {
 
   // When visiting raw /print?PB-00X or /print?id=PB-00X without a ?session= URL token,
   // user must scan the QR code on the kiosk machine before upload is unlocked.
+  // CRITICAL FIX: If user explicitly requested upload (step=upload) or has files in progress,
+  // NEVER hijack with the camera QR scanner!
   const urlSessionToken = searchParams.get('session') || (typeof window !== 'undefined' ? getSessionTokenFromUrl() : null)
   const isTargetingKiosk = Boolean(printerId && isCanonicalKioskFormat(printerId))
   const hasActiveSession = Boolean(urlSessionToken)
-  const shouldShowScanner = isTargetingKiosk && !urlSessionToken && !hasActiveJob
+  const isExplicitUpload = paramStep === 'upload' || (typeof window !== 'undefined' && window.location.search.includes('step=upload'))
+
+  // When visiting with a valid kiosk id (e.g. ?id=PB-001) but without a ?session= URL token,
+  // automatically probe and adopt the active kiosk session in the background so uploads succeed seamlessly
+  useEffect(() => {
+    const activeId = printerId || urlId
+    if (!activeId || !isCanonicalKioskFormat(activeId)) return
+    const storedToken = typeof window !== 'undefined' ? sessionStorage.getItem('pb_kiosk_session_token') : null
+    if (urlSessionToken || (storedToken && !isTokenExpired(storedToken))) return
+
+    let mounted = true
+    const adoptActiveSession = async () => {
+      try {
+        const apiBase = getApiBase()
+        const res = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(activeId)}`)
+        if (!res.ok || !mounted) return
+        const data = await res.json()
+        if (data.hasActiveSession && data.session && !data.isExpired) {
+          const s = data.session
+          if (mounted && s.token && s.sessionId) {
+            console.log(`[UnifiedPrintPage] ✦ Auto-adopted active session ${s.sessionId} for ${activeId}`)
+            sessionStorage.setItem('pb_kiosk_id', activeId)
+            sessionStorage.setItem('pb_kiosk_id_from_session', activeId)
+            sessionStorage.setItem('pb_kiosk_session_token', s.token)
+            sessionStorage.setItem('pb_kiosk_session_id', s.sessionId)
+            localStorage.setItem('pb_kiosk_session_token', s.token)
+            localStorage.setItem('pb_kiosk_session_id', s.sessionId)
+            if (s.kioskVariant) {
+              setKioskVariant(s.kioskVariant, activeId)
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[UnifiedPrintPage] Auto-adopt active session warning:', err)
+      }
+    }
+    adoptActiveSession()
+    return () => {
+      mounted = false
+    }
+  }, [printerId, urlId, urlSessionToken])
 
   // Machine Already In Use state (when another user claimed the kiosk session or printer is busy)
   const [machineInUseState, setMachineInUseState] = useState<{
@@ -188,9 +243,7 @@ export default function UnifiedPrintPage() {
             sessData &&
             sessData.hasActiveSession &&
             sessData.session?.state &&
-            sessData.session.state !== 'QR_READY' &&
-            sessData.session.state !== 'DONE' &&
-            sessData.session.state !== 'CANCELLED' &&
+            (sessData.session.state === 'PRINTING' || sessData.session.state === 'DISPATCHING') &&
             !sessData.isExpired
           ) {
             // Check if current browser is the owner of this active session
@@ -875,6 +928,12 @@ export default function UnifiedPrintPage() {
     'history',
   ]
   const effectiveStep: PrintStep = validSteps.includes(currentStep) ? currentStep : 'upload'
+  const shouldShowScanner =
+    !isExplicitUpload &&
+    isTargetingKiosk &&
+    !urlSessionToken &&
+    !hasActiveJob &&
+    effectiveStep === 'kiosk'
 
   const confirmMode = typeof window !== 'undefined' ? (sessionStorage.getItem('pb_confirm_mode') || 'doc') : 'doc'
   const pageKey = effectiveStep === 'confirm' ? `confirm_${confirmMode}` : effectiveStep
@@ -914,6 +973,10 @@ export default function UnifiedPrintPage() {
   const pageTitle = stepTitles[effectiveStep] || 'Self-Service Print Station'
   const isPrivateStep = ['payment', 'status', 'success'].includes(effectiveStep)
 
+  const isEnvTestMode =
+    (import.meta.env.VITE_PRINT_MODE || '').toLowerCase() === 'test' ||
+    (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('pb_print_mode') || '').toLowerCase() === 'test')
+
   const [isNetworkOffline, setIsNetworkOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine)
   const [isStationOffline, setIsStationOffline] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -942,6 +1005,7 @@ export default function UnifiedPrintPage() {
   // 1. WebSocket real-time hardware status & error listener
   useEffect(() => {
     const handleKioskOffline = (payload: any) => {
+      if (isEnvTestMode) return
       const offlineKiosk = (payload?.kioskId || '').toUpperCase()
       if (!offlineKiosk || offlineKiosk === activeStationId) {
         setIsStationOffline(true)
@@ -953,6 +1017,7 @@ export default function UnifiedPrintPage() {
       }
     }
     const handlePrinterError = (payload: any) => {
+      if (isEnvTestMode) return
       const target = (payload?.kioskId || '').toUpperCase()
       if (!target || target === activeStationId) {
         setIsStationOffline(true)
@@ -989,12 +1054,21 @@ export default function UnifiedPrintPage() {
       unsubOnline()
       unsubInit()
     }
-  }, [activeStationId])
+  }, [activeStationId, isEnvTestMode])
 
   // 2. Continuous telemetry check for active station (polls every 3s)
   useEffect(() => {
     let mounted = true
     const checkStationStatus = async () => {
+      if (isEnvTestMode) {
+        if (mounted) {
+          setIsStationOffline(false)
+          setStationOfflineDetail('')
+          setStationOfflineRecommendation('')
+        }
+        return
+      }
+
       // Don't block kiosk selection step or history
       if (effectiveStep === 'kiosk' || effectiveStep === 'history') {
         if (mounted) setIsStationOffline(false)

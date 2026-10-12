@@ -328,8 +328,9 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
 
       if (role === 'kiosk' && kioskId) {
         broadcastToAdmins('KIOSK_DISCONNECTED', { kioskId, clientId, disconnectedAt: Date.now() })
-        // If no other kiosk socket exists for this machine, mark it offline immediately
-        if (!isKioskRelayConnected(kioskId)) {
+        // If no other kiosk socket exists for this machine, mark it offline immediately (unless in test mode)
+        const isTestMode = (process.env.PRINT_MODE || '').toLowerCase() === 'test' || process.env.MOCK_PRINTER === 'true'
+        if (!isKioskRelayConnected(kioskId) && !isTestMode) {
           markKioskOffline(kioskId, 'Kiosk WebSocket disconnected / Raspberry Pi powered off').catch(() => {})
           broadcastToKioskUsers(kioskId, 'KIOSK_OFFLINE', {
             kioskId,
@@ -350,6 +351,7 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
   // Heartbeat ping interval (25 seconds)
   const pingInterval = setInterval(() => {
     const now = Date.now()
+    const isTestMode = (process.env.PRINT_MODE || '').toLowerCase() === 'test' || process.env.MOCK_PRINTER === 'true'
     for (const [id, client] of clients.entries()) {
       if (!client.isAlive) {
         console.warn(`[WSS Relay] Terminating unresponsive client: ${id}`)
@@ -357,7 +359,7 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
         const clientKioskId = client.kioskId
         client.ws.terminate()
         clients.delete(id)
-        if (clientRole === 'kiosk' && clientKioskId && !isKioskRelayConnected(clientKioskId)) {
+        if (clientRole === 'kiosk' && clientKioskId && !isKioskRelayConnected(clientKioskId) && !isTestMode) {
           markKioskOffline(clientKioskId, 'Heartbeat ping timeout / station unreachable').catch(() => {})
         }
         continue

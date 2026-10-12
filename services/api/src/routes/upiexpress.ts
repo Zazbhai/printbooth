@@ -7,6 +7,7 @@
  */
 
 import crypto from 'crypto'
+import QRCode from 'qrcode'
 import { Router, Request, Response } from 'express'
 import { isDbConnected } from '../db.js'
 import { Payment } from '../models/Payment.js'
@@ -109,6 +110,8 @@ export interface CreateUpiOrderResult {
     paymentUrl: string
     upiIntentUrl: string
     upiintent?: string
+    qrDataUrl?: string
+    qrCode?: string
     upiIdHash: string
     upiIntent: any
     clientTxnId: string
@@ -312,27 +315,65 @@ export async function createUpiExpressOrder(
     const apiAmount = Number(rawData.amount || reqAmount)
     const apiTotal = Number(rawData.total || apiAmount)
 
-    // NEVER modify, rewrite, or alter the provider's upiintent URL (matching test.py).
+    // NEVER modify, rewrite, or alter the provider's upiintent URL (matching test.ts).
     // The exact upiintent returned by UPI Express is used directly for QR code generation.
     const upiIntentUrl = rawUpiIntent
     const upiIntentObj: Record<string, any> = typeof rawData.upi_intent === 'object' ? { ...rawData.upi_intent } : {}
 
+    const toPaise = (value: number | string): number => {
+      const amt = Number(value)
+      if (!Number.isFinite(amt)) return 0
+      return Math.round(amt * 100)
+    }
+
+    const requestedPaise = toPaise(reqAmount)
+
     console.log('\n========== AMOUNT CHECK ==========')
-    console.log(`Requested amount: ₹${reqAmount.toFixed(2)}`)
+    console.log(`Requested amount: ₹${reqAmount.toFixed(2)} (${requestedPaise} paise)`)
     console.log(`API amount:       ₹${apiAmount.toFixed(2)}`)
     console.log(`Convenience fee:  ₹${rawData.convenience_fee || 0}`)
     console.log(`API total:        ₹${apiTotal.toFixed(2)}`)
     console.log(`UPI Intent:       ${upiIntentUrl}`)
     console.log('==================================')
 
-    if (Math.abs(apiTotal - reqAmount) > 0.001) {
-      console.warn(
-        `\n[UPIExpress] Provider total (₹${apiTotal.toFixed(2)}) differed from requested amount (₹${reqAmount.toFixed(2)}).`
-      )
+    if (rawData.total !== undefined) {
+      const totalPaise = toPaise(rawData.total)
+      if (totalPaise !== requestedPaise) {
+        console.warn(`[UPIExpress] Amount discrepancy: requested ₹${(requestedPaise / 100).toFixed(2)}, provider total is ₹${(totalPaise / 100).toFixed(2)}`)
+      }
     }
 
-    if (!upiIntentUrl) {
-      console.warn('[UPIExpress] Warning: API response did not contain upiintent string:', rawData)
+    if (upiIntentUrl && upiIntentUrl.startsWith('upi://pay?')) {
+      try {
+        const parsedUrl = new URL(upiIntentUrl)
+        const intentAmount = parsedUrl.searchParams.get('am')
+        if (intentAmount) {
+          const intentPaise = toPaise(intentAmount)
+          if (intentPaise !== requestedPaise) {
+            console.warn(`[UPIExpress] Amount discrepancy: requested ₹${(requestedPaise / 100).toFixed(2)}, intent has ₹${(intentPaise / 100).toFixed(2)}`)
+          }
+        }
+      } catch (err: any) {
+        console.warn('[UPIExpress] URL parsing warning:', err.message)
+      }
+    }
+
+    // Generate high-resolution 600px PNG QR code data URL matching test.ts specification
+    let qrDataUrl = ''
+    if (upiIntentUrl) {
+      try {
+        qrDataUrl = await QRCode.toDataURL(upiIntentUrl, {
+          errorCorrectionLevel: 'M',
+          width: 600,
+          margin: 4,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        })
+      } catch (qrErr: any) {
+        console.warn('[UPIExpress] QR DataURL generation error:', qrErr.message)
+      }
     }
 
     if (isDbConnected()) {
@@ -357,6 +398,8 @@ export async function createUpiExpressOrder(
         paymentUrl,
         upiIntentUrl,
         upiintent: upiIntentUrl,
+        qrDataUrl,
+        qrCode: qrDataUrl,
         upiIdHash: rawData.upi_id_hash || '',
         upiIntent: upiIntentObj,
         clientTxnId: effectiveClientTxnId,
