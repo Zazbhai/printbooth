@@ -1,0 +1,239 @@
+/* Kiosk App — Fullscreen Touch-First Interface (White & Laser-Red Theme) */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap');
+
+:root {
+  --clr-bg-900: #ffffff;
+  --clr-bg-800: #fafbfc;
+  --clr-bg-700: #f4f4f5;
+  --clr-surface-1: #ffffff;
+  --clr-surface-2: #f8fafc;
+  --clr-surface-3: #f1f5f9;
+  --clr-border: rgba(220, 38, 38, 0.14);
+  --clr-border-strong: rgba(220, 38, 38, 0.28);
+  --clr-accent: #dc2626;
+  --clr-accent-light: #ef4444;
+  --clr-accent-dim: rgba(220, 38, 38, 0.12);
+  --clr-success: #16a34a;
+  --clr-success-dim: rgba(22, 163, 74, 0.12);
+  --clr-warning: #f59e0b;
+  --clr-error: #dc2626;
+  --clr-error-dim: rgba(220, 38, 38, 0.12);
+  --clr-text-1: #09090b;
+  --clr-text-2: #475569;
+  --clr-text-3: #64748b;
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'Geist Mono', "SF Mono", monospace;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-normal: 200ms;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: clamp(15px, 1.2vw, 18px); /* Adaptive touch base font scale */
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--clr-bg-900);
+  color: var(--clr-text-1);
+  width: 100vw;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-overflow-scrolling: touch;
+  cursor: default;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Kiosk Screen — fullscreen layout with responsive scroll & clearance */
+.kiosk-screen {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(56px, 8vh, 80px) clamp(16px, 4vw, 48px) clamp(56px, 8vh, 72px);
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+/* Screen content wrappers center when fitting, scroll from top when overflowing */
+.kiosk-screen > .kiosk-welcome,
+.kiosk-screen > .kiosk-upload-methods,
+.kiosk-screen > .kiosk-qr-screen,
+.kiosk-screen > .kiosk-enter,
+.kiosk-screen > .kiosk-pin-screen {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+/* Ambient crimson lighting mesh */
+.kiosk-bg-mesh {
+  position: absolute;
+  inset: 0;
+  background-color: transparent;
+  background-image:
+    radial-gradient(ellipse 70% 60% at 50% 25%, rgba(220, 38, 38, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(220, 38, 38, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Status bar at top */
+.kiosk-statusbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: clamp(40px, 6vh, 48px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(12px, 3vw, 32px);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--clr-border);
+  font-size: clamp(11px, 2vw, 13px);
+  color: var(--clr-text-2);
+  font-family: var(--font-mono);
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+.statusbar__left { display: flex; align-items: center; gap: clamp(8px, 1.5vw, 16px); }
+.statusbar__right { display: flex; align-items: center; gap: clamp(8px, 1.5vw, 16px); }
+.statusbar__kiosk { font-weight: 700; color: var(--clr-text-1); }
+.statusbar__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--clr-accent);
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.6);
+}
+
+@media (max-width: 540px) {
+  .statusbar__right span:not(:first-child) {
+    display: none;
+  }
+}
+
+/* Kiosk buttons — large tactile touch targets with responsive scale */
+.kiosk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: clamp(14px, 2.5vh, 20px) clamp(20px, 4vw, 40px);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
+  font-size: clamp(15px, 2vw, 18px);
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--dur-normal) var(--ease-smooth);
+  white-space: nowrap;
+  min-width: clamp(160px, 25vw, 200px);
+  min-height: clamp(50px, 7vh, 64px);
+  box-sizing: border-box;
+}
+
+.kiosk-btn:active { transform: scale(0.97); }
+
+.kiosk-btn-primary {
+  background: var(--clr-accent);
+  color: #ffffff;
+  border-color: var(--clr-accent);
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.35);
+}
+.kiosk-btn-primary:hover {
+  background: #b91c1c;
+  color: #ffffff;
+  box-shadow: 0 6px 28px rgba(220, 38, 38, 0.5);
+}
+
+.kiosk-btn-secondary {
+  background: #ffffff;
+  color: var(--clr-text-1);
+  border-color: var(--clr-border-strong);
+  box-shadow: 0 2px 10px rgba(220, 38, 38, 0.06);
+}
+.kiosk-btn-secondary:hover {
+  background: #fef2f2;
+  border-color: var(--clr-accent);
+}
+
+.kiosk-btn-ghost {
+  background: transparent;
+  color: var(--clr-text-2);
+  border-color: var(--clr-border);
+}
+.kiosk-btn-ghost:hover {
+  background: #fef2f2;
+  color: var(--clr-accent);
+}
+
+.kiosk-btn-danger {
+  background: var(--clr-error-dim);
+  color: var(--clr-error);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+/* Kiosk card */
+.kiosk-card {
+  background: #ffffff;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--clr-border);
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
+  border-radius: clamp(16px, 2.5vw, var(--radius-xl));
+  padding: clamp(20px, 4vw, 40px);
+  width: min(100%, 640px);
+  box-sizing: border-box;
+}
+
+/* Typography */
+.kiosk-title {
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: var(--clr-text-1);
+  line-height: 1.15;
+}
+
+.kiosk-subtitle {
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  color: var(--clr-text-2);
+  line-height: 1.5;
+}
+
+/* Animations */
+@keyframes kiosk-fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes kiosk-pulse {
+  0%, 100% { transform: none; }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.kiosk-enter { animation: kiosk-fadeIn 0.3s var(--ease-smooth) both; }
+.kiosk-pulse { animation: none !important; }

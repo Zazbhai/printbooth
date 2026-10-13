@@ -1,0 +1,153 @@
+/* ─── Hardware-Accelerated Kiosk Moving Advertisement & Brand Logo Background ─── */
+
+.kiosk-ad-bg-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: #ffffff;
+  contain: strict;
+}
+
+/* Moving Ad Layer (Soft ambient canvas over white base) */
+.kiosk-ad-layer {
+  position: absolute;
+  inset: -40px; /* Bleed for smooth panning without edge seams */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: saturate(1.05) contrast(0.95);
+}
+
+/* White Opacity Wash (maintains clean white theme, keeps ad artwork softly understated) */
+.kiosk-ad-white-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 85% 75% at 50% 50%,
+    rgba(255, 255, 255, 0.90) 0%,
+    rgba(255, 255, 255, 0.72) 55%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Smooth Subtle Drift Motion for Ad Images */
+.kiosk-ad-motion-drift {
+  animation: adDriftMotion 36s ease-in-out infinite alternate;
+}
+
+@keyframes adDriftMotion {
+  0% {
+    transform: translate3d(-20px, -12px, 0) scale(1.03);
+  }
+  50% {
+    transform: translate3d(8px, 6px, 0) scale(1.06);
+  }
+  100% {
+    transform: translate3d(20px, 16px, 0) scale(1.08);
+  }
+}
+
+/* ─── Big App Logo Stage (Pure Logo Mark, Big Size, Smooth Ad Drift Motion, No Texts) ─── */
+.kiosk-bg-logo-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+  background: radial-gradient(
+    ellipse 80% 75% at 50% 50%,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.88) 70%,
+    #ffffff 100%
+  );
+}
+
+/* Big ambient moving wrap with continuous ad-style drift */
+.kiosk-bg-logo-ambient-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(560px, 68vw, 980px);
+  max-width: 96vw;
+  height: clamp(560px, 68vw, 980px);
+  max-height: 90vh;
+  will-change: transform;
+  animation: logoAdDriftMotion 32s ease-in-out infinite alternate;
+}
+
+@keyframes logoAdDriftMotion {
+  0% {
+    transform: translate3d(-34px, -22px, 0) scale(1.02);
+  }
+  35% {
+    transform: translate3d(26px, -14px, 0) scale(1.07);
+  }
+  70% {
+    transform: translate3d(-20px, 28px, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(32px, 18px, 0) scale(1.08);
+  }
+}
+
+/* Soft radiant ambient laser-red aura behind big logo */
+.kiosk-bg-logo-aura {
+  position: absolute;
+  inset: -15%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(220, 38, 38, 0.18) 0%,
+    rgba(220, 38, 38, 0.06) 45%,
+    rgba(220, 38, 38, 0) 70%
+  );
+  border-radius: 50%;
+  filter: blur(52px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Big App Logo Image (Pure Emblem, No Texts) */
+.kiosk-bg-logo-big-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  position: relative;
+  z-index: 2;
+  opacity: 0.34;
+  filter: drop-shadow(0 28px 64px rgba(220, 38, 38, 0.22));
+  user-select: none;
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
+/* Subtle Vignette for Cinema Depth */
+.kiosk-ad-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, transparent 65%, rgba(0, 0, 0, 0.03) 100%);
+  z-index: 3;
+}
+
+/* Unconditional reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-ad-layer,
+  .kiosk-ad-motion-drift,
+  .kiosk-bg-logo-ambient-wrap {
+    animation: none !important;
+    transform: none !important;
+  }
+}
