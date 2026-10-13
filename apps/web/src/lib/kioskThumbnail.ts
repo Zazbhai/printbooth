@@ -32,7 +32,18 @@ function compressToThumbnail(dataUrl: string, maxDim = 320, quality = 0.55): Pro
     }
 
     const img = new Image()
+    let settled = false
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true
+        resolve(dataUrl)
+      }
+    }, 3000)
+
     img.onload = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
       try {
         const canvas = document.createElement('canvas')
         const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1))
@@ -56,6 +67,9 @@ function compressToThumbnail(dataUrl: string, maxDim = 320, quality = 0.55): Pro
     }
 
     img.onerror = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
       resolve(dataUrl)
     }
 

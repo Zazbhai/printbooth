@@ -227,6 +227,14 @@ export default function MultiFilePage() {
     return () => clearInterval(timer)
   }, [checkPrinterStatus])
 
+  useEffect(() => {
+    if (kioskSession.isKioskSession()) {
+      const ready = getAllFiles().filter(f => f.status === 'ready')
+      const initialFileName = ready.length > 0 ? (ready.length > 1 ? `${ready.length} files` : ready[0].fileName) : undefined
+      kioskSession.reportUploading(initialFileName)
+    }
+  }, [])
+
   // Multi-file state
   const [files, setFiles] = useState<ManagedFile[]>(() => getAllFiles())
 

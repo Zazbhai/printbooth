@@ -689,9 +689,7 @@ export default function UnifiedPrintPage() {
 
     switch (currentStep) {
       case 'upload':
-        if (fileName) {
-          kioskSession.reportUploading(fileName)
-        }
+        kioskSession.reportUploading(fileName || undefined)
         break
       case 'confirm':
         kioskSession.reportConfirming({

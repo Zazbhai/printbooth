@@ -1197,8 +1197,9 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   const filePath = file?.path || ''
   const fileUrl = file ? `/api/kiosk-sessions/${sessionId}/file` : undefined
 
-  // Auto-generate preview from uploaded image file if previews array was empty
-  if (previews.length === 0 && file && /\.(png|jpe?g|webp|gif|bmp)$/i.test(fileName)) {
+  // Auto-generate preview from uploaded image file if previews array has no valid non-empty previews
+  const hasValidPreviews = Array.isArray(previews) && previews.some((p: any) => p && typeof p.url === 'string' && p.url.trim().length > 0)
+  if (!hasValidPreviews && file && /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(fileName)) {
     previews = [{
       pageNumber: 1,
       url: `/api/kiosk-sessions/${sessionId}/file`,
@@ -1349,6 +1350,16 @@ kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], asyn
     }))
   }
 
+  const hasNextValidPreviews = formattedPreviews.some(p => p && p.url && p.url.trim().length > 0)
+  if (!hasNextValidPreviews && (session.document?.fileUrl || (session.document?.fileName && /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(session.document.fileName)))) {
+    const directUrl = session.document?.fileUrl || `/api/kiosk-sessions/${sessionId}/file`
+    formattedPreviews = [{
+      pageNumber: 1,
+      url: directUrl,
+      title: session.document?.fileName || fileName || 'Document',
+    }]
+  }
+
   // Synthesize or update session.document so kiosk display immediately detects it
   session.document = {
     fileName: fileName || session.fileName || 'Document.pdf',
@@ -1404,10 +1415,28 @@ kioskSessionsRouter.get('/:sessionId/file', (req: Request, res: Response) => {
   if (!session || !session.document?.filePath || !fs.existsSync(session.document.filePath)) {
     const sample = path.resolve(__dirname, '../../../../test_sample.pdf')
     if (fs.existsSync(sample)) {
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Access-Control-Allow-Origin', '*')
       return res.sendFile(sample)
     }
     return res.status(404).json({ error: 'File not found' })
   }
+
+  const ext = path.extname(session.document.filePath).toLowerCase()
+  const mimeTypes: Record<string, string> = {
+    '.pdf': 'application/pdf',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.bmp': 'image/bmp',
+    '.svg': 'image/svg+xml',
+  }
+  if (mimeTypes[ext]) {
+    res.setHeader('Content-Type', mimeTypes[ext])
+  }
+  res.setHeader('Access-Control-Allow-Origin', '*')
   res.sendFile(session.document.filePath)
 })
 

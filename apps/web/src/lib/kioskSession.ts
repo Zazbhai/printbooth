@@ -936,14 +936,14 @@ export async function uploadDocumentToKiosk(opts: {
     try {
       const compactPreviews = await Promise.race([
         prepareKioskPreviews(opts.previews, 5),
-        new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('preview_timeout')), 1500))
+        new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('preview_timeout')), 6000))
       ])
       formData.append('previews', JSON.stringify(compactPreviews))
     } catch {
-      // Safe fallback: send lightweight previews (< 32KB) without huge uncompressed base64
+      // Safe fallback: send available previews without dropping valid URLs
       const safeCompact = opts.previews.slice(0, 5).map((p, idx) => ({
         pageNumber: p.pageNumber || idx + 1,
-        url: p.url && (p.url.startsWith('data:image/svg') || p.url.length < 32000) ? p.url : '',
+        url: p.url && (p.url.startsWith('data:image/svg') || p.url.length < 350000 || !p.url.startsWith('data:')) ? p.url : '',
         title: p.title || `Page ${idx + 1}`,
       }))
       formData.append('previews', JSON.stringify(safeCompact))
