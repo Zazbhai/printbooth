@@ -374,6 +374,15 @@ kioskSessionsRouter.post('/create', kioskSessionCreateLimiter, (req: Request, re
   if (prevId && !force) {
     const prev = sessions.get(prevId)
     if (prev && prev.state !== 'DONE' && Date.now() < prev.expiresAt) {
+      // Sanitize stale qrUrl: if it contains the old IP or localhost, rebuild with current webBase
+      const prevQrUrl = prev.progressData?.qrUrl || ''
+      const hasStaleIp = prevQrUrl.includes('192.168.1.4:') || prevQrUrl.includes('localhost:5200')
+      if (hasStaleIp && prev.token) {
+        const freshQrUrl = `${webBase}/print?id=${encodeURIComponent(kioskId)}&session=${encodeURIComponent(prev.token)}`
+        if (prev.progressData) prev.progressData.qrUrl = freshQrUrl
+        saveSession(prev)
+        console.log(`[KioskSession] Refreshed stale qrUrl for session ${prev.sessionId}: ${freshQrUrl}`)
+      }
       return res.json({
         success: true,
         sessionId: prev.sessionId,
