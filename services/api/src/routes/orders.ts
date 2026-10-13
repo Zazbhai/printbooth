@@ -330,6 +330,101 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
   }
 })
 
+// GET /api/orders/poll or /api/jobs/poll - Resilient pull-based job dispatch for Pi agent (modeled on LePrint)
+export async function handleJobPoll(req: Request, res: Response) {
+  try {
+    const rawKiosk = (
+      (req.query.kioskId as string) ||
+      (req.query.kiosk_id as string) ||
+      (req.headers['x-kiosk-id'] as string) ||
+      'PB-001'
+    ).trim().toUpperCase()
+    const kioskId = /^PB-\d{3}$/.test(rawKiosk) ? rawKiosk : 'PB-001'
+
+    let orders: any[] = []
+    if (isDbConnected()) {
+      // Find orders that are PAID or PRINTING, not yet printed or completed
+      orders = await Order.find({
+        kioskId,
+        status: { $in: ['PAID', 'PRINTING'] },
+      })
+        .sort({ createdAt: 1 })
+        .limit(5)
+        .lean()
+    }
+
+    if (orders.length === 0) {
+      // Check in-memory fallback orders
+      orders = fallbackOrders.filter(
+        (o) =>
+          (o.kioskId || 'PB-001') === kioskId &&
+          ['PAID', 'PRINTING'].includes((o.status || '').toUpperCase())
+      )
+    }
+
+    if (orders.length === 0) {
+      return res.json({ success: true, jobs: [] })
+    }
+
+    // Pick the oldest paid order
+    const o = orders[0]
+    const jobState = printJobs.get(o.orderId) || (o.orderNumber ? printJobs.get(o.orderNumber) : undefined)
+    const ps = o.printSettings || {}
+
+    const job = {
+      job_id: o.orderId,
+      orderId: o.orderId,
+      orderNumber: o.orderNumber,
+      filename: o.fileName || 'PrintBooth_Document.pdf',
+      fileName: o.fileName || 'PrintBooth_Document.pdf',
+      download_url: `/api/print/download/${o.orderId}`,
+      fileUrl: `/api/print/download/${o.orderId}`,
+      copies: jobState?.copies || o.copies || ps.copies || 1,
+      colourMode: jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW',
+      colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
+      duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+      paperSize: jobState?.paperSize || o.paperSize || ps.paperSize || 'A4',
+      pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'ALL',
+      scaling: jobState?.scaling || o.scaling || ps.scaling || 'FIT',
+      orientation: jobState?.orientation || o.orientation || ps.orientation || 'AUTO',
+      pagesPerSheet: jobState?.pagesPerSheet || o.pagesPerSheet || ps.pagesPerSheet || 1,
+      pageColours: jobState?.pageColours || o.pageColours || ps.pageColours,
+      pageCopies: jobState?.pageCopies || o.pageCopies || ps.pageCopies,
+      pages: o.pageCount || ps.pageCount || 1,
+      files: o.files || ps.files,
+      status: o.status,
+      metadata: {
+        print_settings: {
+          copies: jobState?.copies || o.copies || ps.copies || 1,
+          colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
+          orientation: (jobState?.orientation || o.orientation || ps.orientation || 'AUTO').toLowerCase(),
+          scaling: (jobState?.scaling || o.scaling || ps.scaling || 'FIT').toLowerCase(),
+          pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'all',
+          duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+        }
+      }
+    }
+
+    // Mark as PRINTING in DB to indicate it is claimed by Pi
+    if (isDbConnected() && o.status === 'PAID') {
+      await Order.findOneAndUpdate(
+        { orderId: o.orderId },
+        { status: 'PRINTING', updatedAt: new Date() }
+      )
+    }
+
+    return res.json({
+      success: true,
+      jobs: [job],
+    })
+  } catch (err: any) {
+    console.error('[Job Poll] Error handling poll:', err)
+    return res.status(500).json({ success: false, error: err.message, jobs: [] })
+  }
+}
+
+ordersRouter.get('/poll', handleJobPoll)
+
 // GET /api/orders - List orders (with kioskId and status filter for Raspberry Pi agent)
 ordersRouter.get('/', async (req: Request, res: Response) => {
   try {

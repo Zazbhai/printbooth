@@ -320,9 +320,18 @@ export function dispatchPrintJob(job: PrintJobState) {
     return
   }
 
-  // Safely simulate in dev mode without touching developer PC printers
-  console.log(`[Print Dispatch] ℹ Raspberry Pi not connected via WebSocket and host printing disabled. Simulating print job for dev.`)
-  simulateTestPrintJob(job)
+  if (isTestMode()) {
+    console.log(`[Print Dispatch] 🧪 Test mode active. Simulating print job for Order ${job.orderId}.`)
+    simulateTestPrintJob(job)
+    return
+  }
+
+  // In real mode: Kiosk WebSocket is not currently active.
+  // Keep order in PRINTING status so the Raspberry Pi agent picks it up via HTTP poll (/api/jobs/poll).
+  job.status = 'PRINTING'
+  syncJobState(job)
+  updateDbOrderStatus(job.orderId, 'PRINTING')
+  console.log(`[Print Dispatch] 📥 Order ${job.orderId} queued for Raspberry Pi kiosk (${targetKiosk}). Awaiting HTTP poll (/api/jobs/poll)...`)
 }
 
 async function updateDbOrderStatus(orderId: string, status: string) {
