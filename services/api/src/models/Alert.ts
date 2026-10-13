@@ -13,6 +13,7 @@ export interface IAlert extends Document {
     | 'TONER_EMPTY'
     | 'PRINTER_ERROR'
     | 'PAPER_JAM'
+    | 'PAYMENT_GATEWAY_ERROR'
   severity: 'INFO' | 'WARNING' | 'CRITICAL'
   message: string
   acknowledged: boolean
@@ -37,6 +38,7 @@ const AlertSchema = new Schema<IAlert>(
         'TONER_EMPTY',
         'PRINTER_ERROR',
         'PAPER_JAM',
+        'PAYMENT_GATEWAY_ERROR',
       ],
       required: true,
     },

@@ -198,17 +198,9 @@ razorpayRouter.post('/create-order', async (req: Request, res: Response) => {
       const merchantRecommendation =
         '1. Verify Razorpay Key ID and Key Secret in Merchant Settings.\n2. Ensure your Razorpay account is in Live Mode and KYC is active.\n3. Verify API Key permissions include Order Creation.\n4. Once verified, click "Start Printer Again" in Kiosk Status to resume printer operations.'
 
-      if (kioskId) {
-        await markKioskOffline(kioskId, merchantError, {
-          merchantError,
-          merchantRecommendation,
-          errorSource: 'RAZORPAY',
-        })
-      }
-
       return res.status(502).json({
         success: false,
-        kioskOffline: true,
+        kioskOffline: false,
         merchantError,
         merchantRecommendation,
         error: merchantError,

@@ -1805,11 +1805,6 @@ export async function initiatePaymentForSession(
       session.paymentUrl = ''
       session.qrAmount = undefined
       console.warn(`[KioskSession] Razorpay credentials missing for kiosk ${session.kioskId}`)
-      await markKioskOffline(session.kioskId, err, {
-        merchantError: err,
-        merchantRecommendation: rec,
-        errorSource: 'RAZORPAY',
-      })
     } else {
       session.paymentError = undefined
       session.merchantError = undefined
@@ -1890,12 +1885,6 @@ export async function initiatePaymentForSession(
           session.paymentError = merchantError
           session.merchantError = merchantError
           session.merchantRecommendation = merchantRecommendation
-
-          await markKioskOffline(session.kioskId, merchantError, {
-            merchantError,
-            merchantRecommendation,
-            errorSource: 'RAZORPAY',
-          })
         }
       } catch (err: any) {
         session.upiQrValue = ''
@@ -1909,11 +1898,6 @@ export async function initiatePaymentForSession(
         session.merchantError = merchantError
         session.merchantRecommendation = merchantRecommendation
         console.warn(`[KioskSession] Error generating Razorpay payment link for ${session.kioskId}:`, err)
-        await markKioskOffline(session.kioskId, merchantError, {
-          merchantError,
-          merchantRecommendation,
-          errorSource: 'RAZORPAY',
-        })
       }
     }
   } else {
@@ -1929,11 +1913,6 @@ export async function initiatePaymentForSession(
       session.paymentUrl = ''
       session.qrAmount = undefined
       console.warn(`[KioskSession] UPI Express API key missing for kiosk ${session.kioskId}`)
-      await markKioskOffline(session.kioskId, err, {
-        merchantError: err,
-        merchantRecommendation: rec,
-        errorSource: 'UPIEXPRESS',
-      })
     } else {
       session.paymentError = undefined
       session.merchantError = undefined
@@ -1983,11 +1962,6 @@ export async function initiatePaymentForSession(
         session.merchantError = merchantError
         session.merchantRecommendation = merchantRecommendation
         console.warn(`[KioskSession] Error generating UPI Express QR for ${session.kioskId}:`, err)
-        await markKioskOffline(session.kioskId, merchantError, {
-          merchantError,
-          merchantRecommendation,
-          errorSource: 'UPIEXPRESS',
-        })
       }
     }
   }

@@ -255,54 +255,46 @@ export async function createUpiExpressOrder(
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        let response = await fetch(`${UPIEXPRESS_BASE_URL}/create_order`, {
+        const response = await fetch(`${UPIEXPRESS_BASE_URL}/create_order`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
 
-        if (!response.ok) {
-          lastError = `UPI Express HTTP ${response.status}: ${response.statusText}`
-          console.warn(`[UPIExpress] create_order attempt ${attempt}/${MAX_ATTEMPTS} failed with HTTP ${response.status}`)
-          if (attempt < MAX_ATTEMPTS) {
-            await new Promise((resolve) => setTimeout(resolve, attempt * 600))
-          }
-          continue
+        // UPI Express returns HTTP 500 with JSON body for errors like "Client Transaction ID already exists"
+        let responseText = ''
+        try {
+          responseText = await response.text()
+          data = JSON.parse(responseText)
+        } catch {
+          data = null
         }
 
-        data = (await response.json()) as any
-        isOk = data?.status === true || data?.success === true
-
-        // If UPI Express reports that client_txn_id already exists, automatically generate a fresh unique ID and retry
-        if (!isOk) {
-          const errMsg = String(data?.msg || data?.message || '')
-          if (
-            errMsg.toLowerCase().includes('already exists') ||
-            errMsg.toLowerCase().includes('client transaction id')
-          ) {
-            console.warn(`[UPIExpress] Client Transaction ID ${effectiveClientTxnId} already exists. Regenerating fresh unique transaction ID...`)
-            effectiveClientTxnId = generateUniqueClientTxnId('PB')
-            payload.client_txn_id = effectiveClientTxnId
-            payload.p_info = note || `PrintBooth Station ${kioskId || 'PB-001'} Order ${effectiveClientTxnId}`
-
-            response = await fetch(`${UPIEXPRESS_BASE_URL}/create_order`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-            })
-            if (response.ok) {
-              data = (await response.json()) as any
-              isOk = data?.status === true || data?.success === true
-            }
-          }
-        }
+        isOk = response.ok && (data?.status === true || data?.success === true)
 
         if (isOk) {
           break
         }
 
-        lastError = data?.msg || data?.message || 'UPI Express rejected order creation'
-        console.warn(`[UPIExpress] create_order attempt ${attempt}/${MAX_ATTEMPTS} non-success response: ${lastError}`)
+        const errMsg = String(data?.msg || data?.message || responseText || response.statusText || '')
+        lastError = errMsg || `UPI Express HTTP ${response.status}: ${response.statusText}`
+        console.warn(`[UPIExpress] create_order attempt ${attempt}/${MAX_ATTEMPTS} non-success (HTTP ${response.status}): ${lastError}`)
+
+        // If client_txn_id already exists, regenerate a fresh unique transaction ID immediately
+        if (
+          errMsg.toLowerCase().includes('already exists') ||
+          errMsg.toLowerCase().includes('client transaction id') ||
+          errMsg.toLowerCase().includes('duplicate')
+        ) {
+          console.warn(`[UPIExpress] Client Transaction ID ${effectiveClientTxnId} already exists. Regenerating fresh unique transaction ID...`)
+          effectiveClientTxnId = generateUniqueClientTxnId('PB')
+          payload.client_txn_id = effectiveClientTxnId
+          payload.p_info = note || `PrintBooth Station ${kioskId || 'PB-001'} Order ${effectiveClientTxnId}`
+        } else if (errMsg.toLowerCase().includes('unique amount')) {
+          const currentAmt = Number(payload.amount) || Number(amount)
+          payload.amount = (currentAmt + 0.01).toFixed(2)
+          console.warn(`[UPIExpress] Unique amount conflict. Retrying with adjusted amount ${payload.amount}...`)
+        }
 
         if (attempt < MAX_ATTEMPTS) {
           await new Promise((resolve) => setTimeout(resolve, attempt * 600))
@@ -319,19 +311,11 @@ export async function createUpiExpressOrder(
     if (!isOk) {
       const merchantError = `UPI Express Payment Gateway Error: ${lastError || 'Order creation failed after 3 attempts'}`
       const merchantRecommendation =
-        '1. Verify your UPI Express API Key and Merchant UPI ID in Merchant Settings.\n2. Ensure your UPI Express merchant plan is active and not expired.\n3. Verify your receiving UPI VPA handle is active with your bank.\n4. Once verified, click "Start Printer Again" in Kiosk Status to resume printer operations.'
-
-      if (kioskId) {
-        await markKioskOffline(kioskId, merchantError, {
-          merchantError,
-          merchantRecommendation,
-          errorSource: 'UPIEXPRESS',
-        })
-      }
+        '1. Verify your UPI Express API Key and Merchant UPI ID in Merchant Settings.\n2. Ensure your UPI Express merchant plan is active and not expired.\n3. Verify your receiving UPI VPA handle is active with your bank.\n4. Once verified, refresh the page to retry.'
 
       return {
         success: false,
-        kioskOffline: true,
+        kioskOffline: false,
         merchantError,
         merchantRecommendation,
         error: merchantError,
@@ -445,17 +429,9 @@ export async function createUpiExpressOrder(
     const merchantRecommendation =
       '1. Verify server internet connectivity and access to upiexpress.com.\n2. Verify UPI Express portal status.\n3. Click "Start Printer Again" in Kiosk Status once network is restored.'
 
-    if (kioskId) {
-      await markKioskOffline(kioskId, merchantError, {
-        merchantError,
-        merchantRecommendation,
-        errorSource: 'UPIEXPRESS',
-      })
-    }
-
     return {
       success: false,
-      kioskOffline: true,
+      kioskOffline: false,
       merchantError,
       merchantRecommendation,
       error: merchantError,
