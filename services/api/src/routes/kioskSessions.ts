@@ -2513,6 +2513,7 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
         totalFiles: files.length,
         fileName: f.fileName || `Document_${idx + 1}.pdf`,
         filePath: f.filePath || targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf'),
+        fileUrl: f.fileUrl || targetSession.document?.fileUrl || `/api/print/download/${subOrderId}`,
         copies: fCopies,
         colourMode: fColour === 'COLOUR' ? 'COLOUR' : 'BW',
         pageRange: fPageRange,
@@ -2542,6 +2543,7 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
   } else {
     const fileName = targetSession.document?.fileName || targetSession.fileName || 'PrintBooth_Document.pdf'
     const filePath = targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
+    const fileUrl = targetSession.document?.fileUrl || `/api/print/download/${effectiveOrderId}`
     const copies = targetSession.settings?.copies || targetSession.copies || 1
     const colourMode = targetSession.settings?.colour || targetSession.colourMode || 'BW'
     const duplex = targetSession.settings?.duplex || 'SINGLE'
@@ -2552,6 +2554,7 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
       orderId: effectiveOrderId,
       fileName,
       filePath,
+      fileUrl,
       copies,
       colourMode,
       pageRange,
@@ -2579,5 +2582,28 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
   console.log(`[KioskSession] 🖨️ AUTO-DISPATCHING PRINT on payment confirmed: session ${targetSession.sessionId} on kiosk ${targetSession.kioskId} (order ${effectiveOrderId})`)
 
   return true
+}
+
+/**
+ * Searches in-memory kiosk sessions for a file path associated with the order ID, session ID, or short hash.
+ */
+export function findSessionFilePath(orderOrSessionId: string): string | null {
+  if (!orderOrSessionId) return null
+  for (const s of sessions.values()) {
+    if (
+      s.orderId === orderOrSessionId ||
+      s.sessionId === orderOrSessionId ||
+      (orderOrSessionId && orderOrSessionId.includes(s.sessionId.slice(-6))) ||
+      (s.orderId && orderOrSessionId.includes(s.orderId))
+    ) {
+      if (s.document?.filePath && fs.existsSync(s.document.filePath)) {
+        return s.document.filePath
+      }
+      if (s.files && s.files[0]?.filePath && fs.existsSync(s.files[0].filePath)) {
+        return s.files[0].filePath
+      }
+    }
+  }
+  return null
 }
 

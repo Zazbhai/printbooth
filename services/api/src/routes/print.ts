@@ -17,7 +17,7 @@ import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.j
 import { getKioskPiPrinters, isKioskUsbPrinterConnected } from '../modules/kioskPiPrinters.js'
 import { permanentlyDeleteOrderFiles, isOrderFileExpired, RETENTION_MS } from '../modules/fileLifecycle.js'
 import { safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
-import { advanceSessionOnPinVerified } from './kioskSessions.js'
+import { advanceSessionOnPinVerified, findSessionFilePath } from './kioskSessions.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -57,6 +57,7 @@ export interface PrintJobState {
   orderId: string
   fileName: string
   filePath: string
+  fileUrl?: string
   copies: number
   colourMode: string
   pageRange: string
@@ -306,6 +307,7 @@ export function dispatchPrintJob(job: PrintJobState) {
       orderId: job.orderId,
       payload: {
         ...job,
+        fileUrl: job.fileUrl || `/api/print/download/${job.orderId}`,
         immediate: true,
         forceKioskPrint: true,
       },
@@ -817,6 +819,11 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
 
     if (job?.filePath && fs.existsSync(job.filePath)) {
       return res.sendFile(path.resolve(job.filePath))
+    }
+
+    const sessionDocPath = findSessionFilePath(orderId)
+    if (sessionDocPath && fs.existsSync(sessionDocPath)) {
+      return res.sendFile(path.resolve(sessionDocPath))
     }
 
     if (orderId.includes('_sub_')) {
@@ -1682,7 +1689,7 @@ printRouter.get('/detect', async (req: Request, res: Response) => {
           driver: 'CUPS Linux Driver',
           connection_type: 'USB_DIRECT',
         },
-        printers: (piPrinters.allPrinters || []).map(p => ({
+        printers: (piPrinters.allPrinters || []).map((p: any) => ({
           name: p.name,
           is_online: isAvailable && Boolean(p.is_online),
           status_labels: p.status_labels || [statusLabel],
