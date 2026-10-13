@@ -763,6 +763,79 @@ export default function PaymentPage() {
     setTimeout(() => navigate('/print/status'), 1200)
   }
 
+  // ── Test Mode: Simulate Payment to test hardware printing without paying ──
+  const [isSimulating, setIsSimulating] = useState(false)
+
+  async function handleSimulatePayment() {
+    if (isSimulating || isRecordingOrderRef.current || orderRecordedSuccessfullyRef.current) return
+    setIsSimulating(true)
+    setStatus('PROCESSING')
+    log('🧪 [Test Mode] Simulating payment for hardware printing verification…', 'info')
+
+    try {
+      const activeSessionId = kioskSession.getSessionId() || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_kiosk_session_id') : null)
+
+      // Notify backend simulation endpoint to transition kiosk session & trigger hardware print
+      try {
+        const endpoint = activeSessionId
+          ? `${API}/api/kiosk-sessions/${encodeURIComponent(activeSessionId)}/simulate-payment`
+          : `${API}/api/kiosk-sessions/kiosk/${encodeURIComponent(kioskId)}/simulate-payment`
+
+        await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: activeSessionId,
+            kioskId,
+            orderId,
+            amount: totalPrice,
+            isSimulated: true,
+          }),
+        })
+      } catch (simErr) {
+        log(`Simulation session ping notice: ${simErr}`, 'warn')
+      }
+
+      setStatus('SUCCESS')
+      if (timerRef.current) clearInterval(timerRef.current)
+      await recordOrder('SIMULATED_TEST_PAYMENT')
+    } catch (err: any) {
+      log(`Simulation execution failed: ${err?.message || err}`, 'error')
+      setIsSimulating(false)
+      setStatus('WAITING')
+    }
+  }
+
+  const renderSimulatePaymentCard = () => (
+    <div className="test-simulate-card" id="test-simulate-payment-card">
+      <div className="test-simulate-top">
+        <div className="test-simulate-badge">
+          <Lightning size={13} weight="fill" />
+          <span>HARDWARE TEST MODE</span>
+        </div>
+        <span className="test-simulate-zero-cost">₹0 TEST RUN</span>
+      </div>
+      <div className="test-simulate-body">
+        <div className="test-simulate-info">
+          <h4 className="test-simulate-title">Simulate Payment (Test Print)</h4>
+          <p className="test-simulate-desc">
+            Test printer hardware feed, B&W / Colour output, and print settings immediately without paying.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`test-simulate-btn ${isSimulating ? 'loading' : ''}`}
+          id="simulate-payment-btn"
+          onClick={handleSimulatePayment}
+          disabled={isSimulating}
+        >
+          <Printer size={18} weight="bold" />
+          <span>{isSimulating ? 'Simulating & Printing…' : 'Simulate Payment & Print'}</span>
+        </button>
+      </div>
+    </div>
+  )
+
   // ── Main Razorpay payment handler (with direct method routing) ──
   async function handleRazorpayPayment(targetMethod?: 'upi' | 'card' | 'wallet' | 'netbanking') {
     if (!razorpayReady) {
@@ -1322,6 +1395,9 @@ export default function PaymentPage() {
                   <span>⚡ After payment, your print will dispense automatically from the collection tray.</span>
                 </div>
 
+                {/* ── Test Mode Payment Simulation Card ── */}
+                {renderSimulatePaymentCard()}
+
                 {/* Timer & Privacy footer */}
                 <div className="kiosk-footer-status" style={{ marginTop: 16 }}>
                   <div className={`kiosk-timer-pill${isUrgent ? ' urgent' : ''}`}>
@@ -1595,6 +1671,9 @@ export default function PaymentPage() {
                   </div>
                 )}
 
+                {/* ── Test Mode Payment Simulation Card ── */}
+                {renderSimulatePaymentCard()}
+
                 <div className="rzp-waiting-actions" style={{ marginTop: '10px' }}>
                   <button
                     type="button"
@@ -1738,6 +1817,9 @@ export default function PaymentPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* ── Test Mode Payment Simulation Card ── */}
+                  {renderSimulatePaymentCard()}
 
                   {/* Back to Review Order button */}
                   <div className="rzp-waiting-actions" style={{ marginTop: '12px', marginBottom: '4px' }}>

@@ -1952,3 +1952,113 @@
 .rzp-waiting-cancel-btn:active {
   transform: translateY(0) scale(0.98);
 }
+
+/* ── Hardware Test Mode Payment Simulation Card ── */
+.test-simulate-card {
+  width: 100%;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7f7 50%, #fef2f2 100%);
+  border: 1.5px dashed rgba(220, 38, 38, 0.45);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.08);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.test-simulate-card:hover {
+  border-color: #dc2626;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.12);
+}
+
+.test-simulate-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.test-simulate-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.test-simulate-zero-cost {
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.test-simulate-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.test-simulate-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #09090b;
+  letter-spacing: -0.01em;
+}
+
+.test-simulate-desc {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.test-simulate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 42px;
+}
+
+.test-simulate-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.35);
+}
+
+.test-simulate-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.test-simulate-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+

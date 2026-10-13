@@ -30,7 +30,7 @@ import {
   resolveUpiKeyForKiosk,
   resolveMerchantUpiIdForKiosk,
 } from './upiexpress.js'
-import { relayToKiosk } from '../modules/wsRelay.js'
+import { relayToKiosk, relayPaymentCaptured } from '../modules/wsRelay.js'
 import { markKioskOffline } from '../modules/kioskLiveness.js'
 import { kioskSessionClaimLimiter, kioskSessionCreateLimiter } from '../middleware/rateLimiter.js'
 
@@ -2023,6 +2023,77 @@ kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) 
     session,
   })
 })
+
+/**
+ * POST /api/kiosk-sessions/:sessionId/simulate-payment
+ * POST /api/kiosk-sessions/kiosk/:kioskId/simulate-payment
+ * POST /api/kiosk-sessions/simulate-payment
+ * Simulates payment confirmation for testing the physical print pipeline without charging real money.
+ */
+const handleSimulatePayment = (req: Request, res: Response) => {
+  const { sessionId: paramSessionId, kioskId: paramKioskId } = req.params
+  let session: KioskSession | null = null
+
+  if (paramSessionId) {
+    session = getSession(paramSessionId)
+  }
+  if (!session && req.body?.sessionId) {
+    session = getSession(req.body.sessionId)
+  }
+  if (!session && (paramKioskId || req.body?.kioskId)) {
+    const kid = String(paramKioskId || req.body.kioskId).toUpperCase().trim()
+    session = getActiveSession(kid)
+  }
+  if (!session && req.body?.orderId) {
+    for (const s of sessions.values()) {
+      if (s.orderId === req.body.orderId) {
+        session = s
+        break
+      }
+    }
+  }
+
+  const effectiveKioskId = (session?.kioskId || paramKioskId || req.body?.kioskId || 'PB-001').toUpperCase().trim()
+  const effectiveOrderId = session?.orderId || req.body?.orderId || `ORD-SIM-${Date.now().toString().slice(-6)}`
+
+  if (session) {
+    session.orderId = effectiveOrderId
+    session.state = 'PRINTING'
+    session.phase = 'Simulated payment confirmed! Printing document on Brother hardware…'
+    session.phaseStep = 5
+    saveSession(session)
+  }
+
+  console.log(`[KioskSession] 🧪 SIMULATED PAYMENT CONFIRMED: orderId=${effectiveOrderId}, kioskId=${effectiveKioskId}, session=${session?.sessionId || 'NONE'}`)
+
+  // 1. Broadcast payment captured to WebSocket relay for kiosk screen & web client
+  relayPaymentCaptured(effectiveOrderId, effectiveKioskId, {
+    method: 'SIMULATED',
+    status: 'PAID',
+    isSimulated: true,
+    amount: session?.amount || req.body?.amount || 0,
+    timestamp: Date.now(),
+  })
+
+  // 2. Dispatch hardware print job via triggerSessionPrintOnPayment
+  const dispatched = triggerSessionPrintOnPayment(effectiveOrderId, effectiveKioskId, {
+    method: 'SIMULATED',
+    isSuccess: true,
+  })
+
+  res.json({
+    success: true,
+    message: 'Simulated payment confirmed! Hardware print job dispatched.',
+    orderId: effectiveOrderId,
+    kioskId: effectiveKioskId,
+    dispatched,
+    session,
+  })
+}
+
+kioskSessionsRouter.post('/:sessionId/simulate-payment', handleSimulatePayment)
+kioskSessionsRouter.post('/kiosk/:kioskId/simulate-payment', handleSimulatePayment)
+kioskSessionsRouter.post('/simulate-payment', handleSimulatePayment)
 
 /**
  * POST /api/kiosk-sessions/:sessionId/execute-print
