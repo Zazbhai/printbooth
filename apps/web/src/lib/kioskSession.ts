@@ -791,6 +791,11 @@ export const kioskSession = {
     return sessionStorage.getItem('pb_kiosk_id_from_session')
   },
 
+  /** Get the active session ID if connected */
+  getSessionId(): string | null {
+    return getActiveKioskSession().sessionId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_kiosk_session_id') : null)
+  },
+
   /** Upload document to the connected kiosk station */
   uploadDocument: uploadDocumentToKiosk,
 
