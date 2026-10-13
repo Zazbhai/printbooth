@@ -450,10 +450,14 @@ export default function PaymentPage() {
     log('Securing print order…')
     let finalOrderId = orderId
     let releasePin = ''
-    const hasCustomPageColours = settings.pageColours && Object.keys(settings.pageColours).length > 0
+
+    const activeFileSetting = multiFiles.find(f => f.status === 'ready')?.settings
+    const effectiveSettings: FileSettings = activeFileSetting ? { ...settings, ...activeFileSetting } : settings
+
+    const hasCustomPageColours = effectiveSettings.pageColours && Object.keys(effectiveSettings.pageColours).length > 0
     const hasAnyColourPage = hasCustomPageColours
-      ? Object.values(settings.pageColours!).some(c => c === 'COLOUR')
-      : settings.colour === 'COLOUR'
+      ? Object.values(effectiveSettings.pageColours!).some(c => c === 'COLOUR')
+      : effectiveSettings.colour === 'COLOUR'
     const effectiveColourMode = hasAnyColourPage ? 'COLOUR' : 'BW'
 
     const allCandidateFiles = [
@@ -475,39 +479,39 @@ export default function PaymentPage() {
     }
 
     try {
-      const selectedPgs = parsePageRange(settings.pages || 'ALL', pageCount)
+      const selectedPgs = parsePageRange(effectiveSettings.pages || 'ALL', pageCount)
       const effectivePageCount = selectedPgs.length
 
       const created = await createPrintOrder({
         kioskId,
         fileName,
         pageCount: effectivePageCount,
-        copies: settings.copies || 1,
+        copies: effectiveSettings.copies || 1,
         colourMode: effectiveColourMode,
-        duplex: settings.duplex || 'SINGLE',
-        paperSize: settings.paperSize || 'A4',
-        pageRange: settings.pages || 'ALL',
+        duplex: effectiveSettings.duplex || 'SINGLE',
+        paperSize: effectiveSettings.paperSize || 'A4',
+        pageRange: effectiveSettings.pages || 'ALL',
         amount: totalPrice,
-        pageColours: settings.pageColours,
-        pageCopies: settings.pageCopies,
+        pageColours: effectiveSettings.pageColours,
+        pageCopies: effectiveSettings.pageCopies,
         printSettings: {
-          pageRange: settings.pages || 'ALL',
-          pages: settings.pages || 'ALL',
+          pageRange: effectiveSettings.pages || 'ALL',
+          pages: effectiveSettings.pages || 'ALL',
           selectedPages: selectedPgs,
           pageCount: effectivePageCount,
           totalDocPages: pageCount,
           docPageCount: pageCount,
-          copies: settings.copies || 1,
+          copies: effectiveSettings.copies || 1,
           colourMode: effectiveColourMode,
           colour: effectiveColourMode,
-          duplex: settings.duplex || 'SINGLE',
-          paperSize: settings.paperSize || 'A4',
-          scaling: settings.scaling || 'FIT',
-          customScalePercent: settings.customScalePercent || 100,
-          dpi: settings.dpi || '600',
-          orientation: settings.orientation || 'AUTO',
-          pagesPerSheet: settings.pagesPerSheet || 1,
-          margins: settings.margins || 'STANDARD',
+          duplex: effectiveSettings.duplex || 'SINGLE',
+          paperSize: effectiveSettings.paperSize || 'A4',
+          scaling: effectiveSettings.scaling || 'FIT',
+          customScalePercent: effectiveSettings.customScalePercent || 100,
+          dpi: effectiveSettings.dpi || '600',
+          orientation: effectiveSettings.orientation || 'AUTO',
+          pagesPerSheet: effectiveSettings.pagesPerSheet || 1,
+          margins: effectiveSettings.margins || 'STANDARD',
           contrastMode: settings.contrastMode || 'BALANCED',
           pageBorder: Boolean(settings.pageBorder),
           pageCopies: settings.pageCopies,
@@ -682,23 +686,23 @@ export default function PaymentPage() {
           orderId: finalOrderId,
           kioskId,
           releasePin,
-          copies:             settings.copies             || 1,
-          pageCount:          pageCount                   || 1,
-          totalPages:         (pageCount || 1) * (settings.copies || 1),
+          copies:             effectiveSettings.copies             || 1,
+          pageCount:          pageCount                            || 1,
+          totalPages:         (pageCount || 1) * (effectiveSettings.copies || 1),
           colourMode:         effectiveColourMode,
-          pages:              settings.pages              || 'ALL',
-          duplex:             settings.duplex             || 'SINGLE',
-          paperSize:          settings.paperSize          || 'A4',
-          scaling:            settings.scaling            || 'FIT',
-          customScalePercent: settings.customScalePercent || 100,
-          dpi:                settings.dpi                || '600',
-          orientation:        settings.orientation        || 'AUTO',
-          pagesPerSheet:      settings.pagesPerSheet      || 1,
-          margins:            settings.margins            || 'STANDARD',
-          contrastMode:       settings.contrastMode       || 'BALANCED',
-          pageBorder:         Boolean(settings.pageBorder),
-          pageColours:        settings.pageColours,
-          pageCopies:         settings.pageCopies,
+          pages:              effectiveSettings.pages              || 'ALL',
+          duplex:             effectiveSettings.duplex             || 'SINGLE',
+          paperSize:          effectiveSettings.paperSize          || 'A4',
+          scaling:            effectiveSettings.scaling            || 'FIT',
+          customScalePercent: effectiveSettings.customScalePercent || 100,
+          dpi:                effectiveSettings.dpi                || '600',
+          orientation:        effectiveSettings.orientation        || 'AUTO',
+          pagesPerSheet:      effectiveSettings.pagesPerSheet      || 1,
+          margins:            effectiveSettings.margins            || 'STANDARD',
+          contrastMode:       effectiveSettings.contrastMode       || 'BALANCED',
+          pageBorder:         Boolean(effectiveSettings.pageBorder),
+          pageColours:        effectiveSettings.pageColours,
+          pageCopies:         effectiveSettings.pageCopies,
         })
         if (res && res.success !== false) {
           dispatchSuccess = true

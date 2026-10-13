@@ -152,13 +152,12 @@ export default function PrintSettingsPage() {
           f.id === activeFile.id ? { ...f, settings: { ...f.settings, ...patch } } : f
         )
       )
-    } else {
-      setLocalSettings(prev => {
-        const next = { ...prev, ...patch }
-        sessionStorage.setItem('pb_settings', JSON.stringify(next))
-        return next
-      })
     }
+    setLocalSettings(prev => {
+      const next = { ...prev, ...patch }
+      sessionStorage.setItem('pb_settings', JSON.stringify(next))
+      return next
+    })
   }, [activeFile?.id])
 
   // Enforce pure B&W if connected to PrintBooth Lite

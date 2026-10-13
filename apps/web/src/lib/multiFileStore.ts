@@ -569,19 +569,23 @@ export function persistActiveFileToSession() {
 
 /** Persist all files as JSON to session (for ReviewPage and PaymentPage) */
 export function persistAllFilesToSession() {
-  const payload = managedFiles
-    .filter(f => f.status === 'ready')
-    .map(f => ({
-      id: f.id,
-      fileName: f.fileName,
-      fileSize: f.fileSize,
-      fileType: f.fileType,
-      pageCount: f.pageCount,
-      settings: { ...f.settings, scaling: 'FIT', paperSize: 'A4' },
-    }))
+  const readyFiles = managedFiles.filter(f => f.status === 'ready')
+  const payload = readyFiles.map(f => ({
+    id: f.id,
+    fileName: f.fileName,
+    fileSize: f.fileSize,
+    fileType: f.fileType,
+    pageCount: f.pageCount,
+    settings: { ...f.settings, scaling: 'FIT', paperSize: 'A4' },
+  }))
   sessionStorage.setItem('pb_files', JSON.stringify(payload))
   const total = computeTotalPrice()
   sessionStorage.setItem('pb_total_price', String(total))
+
+  const active = getActiveFile() || readyFiles[0]
+  if (active && active.settings) {
+    sessionStorage.setItem('pb_settings', JSON.stringify({ ...active.settings, scaling: 'FIT', paperSize: 'A4' }))
+  }
 }
 
 function notifyChange() {

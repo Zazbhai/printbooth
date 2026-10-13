@@ -2496,14 +2496,27 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
       }
     }
   } else {
-    const fileName = targetSession.document?.fileName || targetSession.fileName || 'PrintBooth_Document.pdf'
-    const filePath = targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
-    const fileUrl = targetSession.document?.fileUrl || `/api/print/download/${effectiveOrderId}`
-    const copies = targetSession.settings?.copies || targetSession.copies || 1
-    const colourMode = targetSession.settings?.colour || targetSession.colourMode || 'BW'
-    const duplex = targetSession.settings?.duplex || 'SINGLE'
-    const pageRange = targetSession.settings?.pageRange || 'ALL'
-    const totalPages = targetSession.document?.pageCount || targetSession.totalPages || 1
+    const f0: any = (files && files.length > 0) ? files[0] : null
+    const f0Settings: any = f0?.settings || {}
+    const sSettings: any = targetSession.settings || {}
+
+    const fileName = f0?.fileName || targetSession.document?.fileName || targetSession.fileName || 'PrintBooth_Document.pdf'
+    const filePath = f0?.filePath || targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
+    const fileUrl = f0?.fileUrl || targetSession.document?.fileUrl || `/api/print/download/${effectiveOrderId}`
+
+    const copies = Math.max(1, Number(f0Settings.copies || f0?.copies || sSettings.copies || targetSession.copies || 1))
+    const rawCol = String(f0Settings.colour || f0?.colour || sSettings.colour || targetSession.colourMode || 'BW').toUpperCase()
+    const colourMode = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
+    const duplex = String(f0Settings.duplex || f0?.duplex || sSettings.duplex || 'SINGLE').toUpperCase()
+    const pageRange = String(f0Settings.pages || f0Settings.pageRange || f0?.pageRange || f0?.pages || sSettings.pageRange || sSettings.pages || 'ALL').trim()
+    const paperSize = String(f0Settings.paperSize || sSettings.paperSize || 'A4').trim()
+    const scaling = String(f0Settings.scaling || sSettings.scaling || 'FIT').trim()
+    const pagesPerSheet = Number(f0Settings.pagesPerSheet || sSettings.pagesPerSheet || 1)
+    const orientation = String(f0Settings.orientation || sSettings.orientation || 'AUTO').toUpperCase().trim()
+    const dpi = String(f0Settings.dpi || sSettings.dpi || '600')
+    const pageColours = f0Settings.pageColours || f0?.pageColours || sSettings.pageColours
+    const pageCopies = f0Settings.pageCopies || f0?.pageCopies || sSettings.pageCopies
+    const totalPages = Math.max(1, Number(f0?.pageCount || targetSession.document?.pageCount || targetSession.totalPages || 1))
 
     const jobState: PrintJobState = {
       orderId: effectiveOrderId,
@@ -2514,7 +2527,13 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
       colourMode,
       pageRange,
       duplex,
-      paperSize: targetSession.settings?.paperSize || 'A4',
+      paperSize,
+      scaling,
+      pagesPerSheet,
+      orientation,
+      dpi,
+      pageColours,
+      pageCopies,
       status: 'PRINTING',
       printedPages: 0,
       totalPages,
