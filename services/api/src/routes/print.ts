@@ -55,6 +55,8 @@ export const printRouter = Router()
 // In-memory status tracker for real-time telemetry
 export interface PrintJobState {
   orderId: string
+  orderNumber?: string
+  masterOrderId?: string
   fileName: string
   filePath: string
   fileUrl?: string
@@ -299,12 +301,25 @@ const recentlyDispatchedOrders = new Map<string, number>()
  */
 export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = false) {
   const now = Date.now()
-  const lastDispatched = recentlyDispatchedOrders.get(job.orderId)
-  if (!forceReprint && lastDispatched && (now - lastDispatched) < 60000) {
-    console.log(`[Print Dispatch] ℹ Order ${job.orderId} was already dispatched ${Math.round((now - lastDispatched) / 1000)}s ago. Skipping duplicate dispatch.`)
+  const checkKeys = [job.orderId]
+  if (job.orderNumber && job.orderNumber !== job.orderId) checkKeys.push(job.orderNumber)
+  if (job.masterOrderId && job.masterOrderId !== job.orderId) checkKeys.push(job.masterOrderId)
+  if (job.releasePin) checkKeys.push(job.releasePin)
+
+  const isDuplicate = !forceReprint && checkKeys.some(k => {
+    const t = recentlyDispatchedOrders.get(k)
+    return t && (now - t) < 60000
+  })
+
+  if (isDuplicate) {
+    console.log(`[Print Dispatch] ℹ Order ${job.orderId} (${job.orderNumber || ''}) was already dispatched recently. Skipping duplicate dispatch.`)
     return
   }
-  recentlyDispatchedOrders.set(job.orderId, now)
+
+  for (const k of checkKeys) {
+    recentlyDispatchedOrders.set(k, now)
+  }
+
   if (recentlyDispatchedOrders.size > 200) {
     for (const [k, t] of recentlyDispatchedOrders.entries()) {
       if (now - t > 180000) recentlyDispatchedOrders.delete(k)
@@ -315,13 +330,17 @@ export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = fal
   if (isKioskRelayConnected(targetKiosk)) {
     job.status = 'PRINTING'
     syncJobState(job)
-    console.log(`[Print Dispatch] 📡 Relaying print execution for Order ${job.orderId} to connected Raspberry Pi kiosk (${targetKiosk})...`)
+    console.log(`[Print Dispatch] 📡 Relaying print execution for Order ${job.orderId} (${job.orderNumber || ''}) to connected Raspberry Pi kiosk (${targetKiosk})...`)
     relayToKiosk(targetKiosk, {
       type: 'PRINT_EXECUTE',
       kioskId: targetKiosk,
       orderId: job.orderId,
+      orderNumber: job.orderNumber || job.masterOrderId || job.orderId,
       payload: {
         ...job,
+        orderId: job.orderId,
+        orderNumber: job.orderNumber || job.masterOrderId || job.orderId,
+        releasePin: job.releasePin,
         fileUrl: job.fileUrl || `/api/print/download/${job.orderId}`,
         immediate: true,
         forceKioskPrint: false,

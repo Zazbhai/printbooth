@@ -2147,6 +2147,8 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
       const subJobState: PrintJobState = {
         orderId: subOrderId,
         masterOrderId: orderId,
+        orderNumber: session.orderNumber || orderId,
+        releasePin: session.releasePin || session.otp || session.pickupCode,
         fileIndex: idx + 1,
         totalFiles: files.length,
         fileName: f.fileName || `Document_${idx + 1}.pdf`,
@@ -2188,6 +2190,8 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
 
     const jobState: PrintJobState = {
       orderId,
+      orderNumber: session.orderNumber || orderId,
+      releasePin: session.releasePin || session.otp || session.pickupCode,
       fileName,
       filePath,
       copies,
@@ -2591,6 +2595,8 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
 
     const jobState: PrintJobState = {
       orderId: effectiveOrderId,
+      orderNumber: targetSession.orderNumber || effectiveOrderId,
+      releasePin: targetSession.releasePin || targetSession.otp || targetSession.pickupCode,
       fileName,
       filePath,
       fileUrl,
