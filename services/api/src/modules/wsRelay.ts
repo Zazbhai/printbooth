@@ -49,6 +49,7 @@ export interface WsMessage<T = any> {
   payload?: T
   kioskId?: string
   orderId?: string
+  orderNumber?: string
   sessionId?: string
   timestamp?: number
 }

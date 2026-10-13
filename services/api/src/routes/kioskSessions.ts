@@ -139,7 +139,10 @@ export interface KioskSession {
   phase?: string         // Human-readable phase label shown on kiosk display
   phaseStep?: number     // 0-6 numeric step
   otp?: string           // 4-digit OTP sent to user; displayed large on kiosk
+  releasePin?: string
+  pickupCode?: string
   orderId?: string
+  orderNumber?: string
   fileName?: string
   totalPages?: number
   copies?: number

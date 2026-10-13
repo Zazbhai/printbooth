@@ -56,7 +56,6 @@ export const printRouter = Router()
 export interface PrintJobState {
   orderId: string
   orderNumber?: string
-  masterOrderId?: string
   fileName: string
   filePath: string
   fileUrl?: string
@@ -335,7 +334,6 @@ export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = fal
       type: 'PRINT_EXECUTE',
       kioskId: targetKiosk,
       orderId: job.orderId,
-      orderNumber: job.orderNumber || job.masterOrderId || job.orderId,
       payload: {
         ...job,
         orderId: job.orderId,
