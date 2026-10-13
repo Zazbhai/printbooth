@@ -100,6 +100,8 @@ export async function sendPrintJob(params: {
   masterOrderId?: string
   fileIndex?: number
   totalFiles?: number
+  isImmediate?: boolean
+  immediate?: boolean
   /** JSON object: page-number → colour override e.g. {"1":"BW","3":"COLOUR"} */
   pageColours?: Record<string, string>
   /** JSON object: page-number → copy count e.g. {"1":2,"4":3} */
@@ -122,6 +124,10 @@ export async function sendPrintJob(params: {
     }
     if (params.totalFiles !== undefined) {
       formData.append('totalFiles', String(params.totalFiles))
+    }
+    if (params.isImmediate || params.immediate) {
+      formData.append('isImmediate', 'true')
+      formData.append('immediate', 'true')
     }
     if (params.kioskId) {
       formData.append('kioskId', params.kioskId)

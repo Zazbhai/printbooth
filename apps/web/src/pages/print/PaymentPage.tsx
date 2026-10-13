@@ -663,6 +663,8 @@ export default function PaymentPage() {
               pageBorder:         Boolean(mfSettings.pageBorder),
               pageColours:        mfSettings.pageColours,
               pageCopies:         mfSettings.pageCopies,
+              isImmediate:        true,
+              immediate:          true,
             })
             if (res && res.success !== false) {
               dispatchSuccess = true
@@ -686,6 +688,8 @@ export default function PaymentPage() {
           orderId: finalOrderId,
           kioskId,
           releasePin,
+          isImmediate:        true,
+          immediate:          true,
           copies:             effectiveSettings.copies             || 1,
           pageCount:          pageCount                            || 1,
           totalPages:         (pageCount || 1) * (effectiveSettings.copies || 1),

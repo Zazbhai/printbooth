@@ -571,6 +571,8 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
         masterOrderId: masterOrderId ? String(masterOrderId).trim() : undefined,
         fileIndex,
         totalFiles,
+        immediate: isImmediate,
+        isImmediate,
         stagedAt: Date.now(),
       },
     })
@@ -835,12 +837,24 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
       return res.sendFile(path.resolve(sessionDocPath))
     }
 
-    if (orderId.includes('_sub_')) {
-      const subIdx = parseInt(orderId.split('_sub_')[1], 10) - 1
-      const orderFileList = order?.files || order?.printSettings?.files
-      if (Array.isArray(orderFileList) && orderFileList[subIdx]?.filePath && fs.existsSync(orderFileList[subIdx].filePath)) {
-        return res.sendFile(path.resolve(orderFileList[subIdx].filePath))
+    const orderFileList = order?.files || order?.printSettings?.files
+    if (Array.isArray(orderFileList) && orderFileList.length > 0) {
+      const subIdx = orderId.includes('_sub_') ? (parseInt(orderId.split('_sub_')[1], 10) - 1) : 0
+      const targetFile = orderFileList[subIdx] || orderFileList[0]
+      if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
+        return res.sendFile(path.resolve(targetFile.filePath))
       }
+      if (targetFile?.fileUrl && fs.existsSync(targetFile.fileUrl)) {
+        return res.sendFile(path.resolve(targetFile.fileUrl))
+      }
+    }
+
+    if (order?.filePath && fs.existsSync(order.filePath)) {
+      return res.sendFile(path.resolve(order.filePath))
+    }
+
+    if (order?.document?.filePath && fs.existsSync(order.document.filePath)) {
+      return res.sendFile(path.resolve(order.document.filePath))
     }
 
     if (order?.fileUrl && fs.existsSync(order.fileUrl)) {
