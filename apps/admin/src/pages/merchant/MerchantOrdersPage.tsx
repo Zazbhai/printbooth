@@ -358,7 +358,7 @@ export default function MerchantOrdersPage() {
               {selectedKiosk === 'ALL' ? 'All Machine Stations' : `Station ${selectedKiosk}`} • {activeMerchant?.storeName || 'Campus Partner Hub'}
             </span>
           </div>
-          <h1 className="admin-page__title" style={{ wordBreak: 'break-word' }}>Store Print Transactions & Customer Access</h1>
+          <h1 className="admin-page__title" style={{ wordBreak: 'break-word' }}>Store Orders</h1>
           <p className="admin-page__sub" style={{ wordBreak: 'break-word' }}>
             Review every customer print order for your machines, verify cash/UPI payments, and allow or ban customer IPs and devices.
           </p>

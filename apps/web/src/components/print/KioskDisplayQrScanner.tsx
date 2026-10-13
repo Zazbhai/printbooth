@@ -1,13 +1,11 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import jsQR from 'jsqr'
 import {
   Lightning,
   ArrowsClockwise,
-  UploadSimple,
   WarningCircle,
   CheckCircle,
   ShieldCheck,
-  Desktop,
   ArrowLeft,
   Printer,
   Clock,
@@ -97,7 +95,6 @@ export default function KioskDisplayQrScanner({
 }: KioskDisplayQrScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const animFrameRef = useRef<number | null>(null)
 
@@ -306,7 +303,7 @@ export default function KioskDisplayQrScanner({
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setHasCamera(false)
-      setCameraError('Camera access is not supported in this browser environment. You can upload a photo of the QR code below.')
+      setCameraError('Camera access is required to scan the kiosk screen QR code. Please enable camera permissions in your browser.')
       return
     }
 
@@ -341,9 +338,9 @@ export default function KioskDisplayQrScanner({
       console.warn('[KioskDisplayQrScanner] Camera error:', err)
       setHasCamera(false)
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setCameraError('Camera permission denied. Please allow camera access in your browser settings, or upload a photo of the QR code.')
+        setCameraError('Camera permission denied. Please allow camera access in your browser settings to scan the kiosk QR code.')
       } else {
-        setCameraError('Unable to open camera on this device. You can upload a photo of the QR code below.')
+        setCameraError('Unable to open camera on this device. Please check camera permissions in your browser.')
       }
     }
   }, [scanFrame])
@@ -370,43 +367,6 @@ export default function KioskDisplayQrScanner({
     const nextMode = facingMode === 'environment' ? 'user' : 'environment'
     setFacingMode(nextMode)
     startCamera(nextMode)
-  }
-
-  // Handle uploaded image file fallback
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setStatusMessage('Analyzing uploaded image…')
-    const img = new Image()
-    const reader = new FileReader()
-
-    reader.onload = (event) => {
-      img.onload = () => {
-        const canvas = canvasRef.current || document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })
-        if (ctx) {
-          ctx.drawImage(img, 0, 0)
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'attemptBoth',
-          })
-          if (code && code.data) {
-            const success = processQrContent(code.data)
-            if (!success) {
-              setStatusMessage('QR code found, but was missing a valid session token. Please try again.')
-            }
-          } else {
-            setStatusMessage('No QR code detected in the photo. Please try a clearer picture.')
-          }
-        }
-      }
-      img.src = event.target?.result as string
-    }
-
-    reader.readAsDataURL(file)
   }
 
   useEffect(() => {
@@ -507,7 +467,7 @@ export default function KioskDisplayQrScanner({
       <div className="pb-qr-scanner-card">
         <div className="pb-scanner-intro">
           <div className="pb-scanner-intro-icon">
-            <Desktop size={24} weight="bold" color="#dc2626" />
+            <Printer size={24} weight="bold" color="#dc2626" />
           </div>
           <div>
             <h1 className="pb-scanner-title">Scan Kiosk Display to Continue</h1>
@@ -589,66 +549,6 @@ export default function KioskDisplayQrScanner({
         <div className={`pb-scanner-status-bar ${scannedSuccess ? 'success' : ''}`}>
           <span className="pb-scanner-status-dot" />
           <span className="pb-scanner-status-text">{statusMessage}</span>
-        </div>
-
-        {/* Fallback Upload Action */}
-        <div className="pb-scanner-actions">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: 'none' }}
-            onChange={handleFileUpload}
-          />
-
-          <button
-            type="button"
-            className="pb-scanner-upload-btn"
-            style={{
-              background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
-              color: '#ffffff',
-              border: 'none',
-              marginBottom: '8px',
-            }}
-            onClick={async () => {
-              try {
-                setStatusMessage('Pairing with kiosk display…')
-                const apiBase = getApiBase()
-                let res = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
-                let data = res.ok ? await res.json() : null
-                let liveToken = data?.session?.token
-                if (!liveToken || data?.session?.state === 'DONE') {
-                  res = await fetch(`${apiBase}/api/kiosk-sessions/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ kioskId, force: true }),
-                  })
-                  data = res.ok ? await res.json() : null
-                  liveToken = data?.token || data?.session?.token
-                }
-                if (liveToken) {
-                  processQrContent(liveToken)
-                  return
-                }
-              } catch (e) {
-                console.warn('[KioskDisplayQrScanner] pair error:', e)
-              }
-              setStatusMessage('Unable to connect to screen automatically. Please scan the QR code.')
-            }}
-          >
-            <Desktop size={16} weight="bold" />
-            <span>Connect to Screen ({kioskId})</span>
-          </button>
-
-          <button
-            type="button"
-            className="pb-scanner-upload-btn"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <UploadSimple size={16} weight="bold" />
-            <span>Upload QR Code Image</span>
-          </button>
         </div>
 
         {/* Security & Zero-Touch Assurance */}

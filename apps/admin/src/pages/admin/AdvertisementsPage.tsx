@@ -239,7 +239,7 @@ export default function AdvertisementsPage() {
         <div>
           <h1 className="ads-title">
             <Megaphone size={26} color="#dc2626" weight="fill" />
-            <span>Kiosk Background Advertisements</span>
+            <span>Advertisements</span>
           </h1>
           <p className="ads-subtitle">
             Deploy hardware-accelerated animated sponsor campaigns, campus notices, and ambient brand graphics directly into the background of all PrintBooth touchscreen terminals.

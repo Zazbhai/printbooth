@@ -256,8 +256,8 @@ export function initSessionFromEnvironment(): void {
       sessionStorage.setItem('pb_kiosk_id_from_session', kioskId)
     }
 
-    let savedId = sessionStorage.getItem('pb_kiosk_session_id') || localStorage.getItem('pb_kiosk_session_id')
-    const savedToken = sessionStorage.getItem('pb_kiosk_session_token') || localStorage.getItem('pb_kiosk_session_token')
+    let savedId = sessionStorage.getItem('pb_kiosk_session_id')
+    const savedToken = sessionStorage.getItem('pb_kiosk_session_token')
     if (savedToken && isTokenExpired(savedToken)) {
       clearActiveKioskSession()
     } else if (savedToken) {
@@ -415,32 +415,47 @@ export function getLastPhoneActivityTimestamp(): number {
 /**
  * Record user touch/interaction strictly on their phone.
  * Throttles network pings to POST /api/kiosk-sessions/:sessionId/phone-activity
- * to at most once every 3.5 seconds.
+ * to at most once every 2 seconds.
  */
 export function recordPhoneActivity(): void {
   _lastPhoneActivityTimestamp = Date.now()
   const { sessionId } = getActiveKioskSession()
-  if (!sessionId) return
+  const apiBase = getApiBase()
 
   const now = Date.now()
-  if (now - _lastActivityReportedAt < 3500) return
+  if (now - _lastActivityReportedAt < 2000) return
   _lastActivityReportedAt = now
 
-  const clientClaimToken = getClientClaimSecret(sessionId)
-  const apiBase = getApiBase()
-  fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/phone-activity`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-client-claim-token': clientClaimToken,
-    },
-    body: JSON.stringify({ clientClaimToken }),
-  }).catch(() => {
-    // Non-blocking best effort
-  })
+  if (sessionId) {
+    const clientClaimToken = getClientClaimSecret(sessionId)
+    fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/phone-activity`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-client-claim-token': clientClaimToken,
+      },
+      body: JSON.stringify({ clientClaimToken }),
+    }).catch(() => {
+      // Non-blocking best effort
+    })
+  } else {
+    const kioskId =
+      kioskSession.getKioskId() ||
+      (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null) ||
+      (typeof window !== 'undefined' ? (sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id')) : null) ||
+      'PB-001'
+
+    if (kioskId) {
+      fetch(`${apiBase}/api/kiosk-sessions/kiosk/${encodeURIComponent(kioskId)}/phone-activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kioskId }),
+      }).catch(() => {})
+    }
+  }
 }
 
-// Automatically register touch listeners on the user's phone
+// Automatically register touch listeners on the user's phone for genuine user interaction only
 if (typeof window !== 'undefined') {
   const PHONE_TOUCH_EVENTS = [
     'touchstart',
@@ -459,13 +474,6 @@ if (typeof window !== 'undefined') {
   PHONE_TOUCH_EVENTS.forEach(evt => {
     window.addEventListener(evt, () => recordPhoneActivity(), { passive: true, capture: true })
   })
-
-  // Periodically send phone heartbeat every 5s while active in a kiosk session
-  setInterval(() => {
-    if (kioskSession.isKioskSession()) {
-      recordPhoneActivity()
-    }
-  }, 5000)
 }
 
 /**
@@ -675,6 +683,11 @@ export const kioskSession = {
     duplex?: string
     files?: any[]
   }) {
+    const effectiveOrderId = opts?.orderId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_order_id') || undefined : undefined)
+    if (effectiveOrderId && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('pb_order_id', effectiveOrderId)
+    }
+
     reportKioskProgress({
       state: 'PAYING',
       phase: 'Scan UPI QR on kiosk display to pay',
@@ -684,7 +697,7 @@ export const kioskSession = {
       ...(opts?.copies ? { copies: opts.copies } : {}),
       ...(opts?.colourMode ? { colourMode: opts.colourMode } : {}),
       ...(opts?.amount ? { amount: opts.amount } : {}),
-      ...(opts?.orderId ? { orderId: opts.orderId } : {}),
+      ...(effectiveOrderId ? { orderId: effectiveOrderId } : {}),
       ...(opts?.files ? { files: opts.files } : {}),
       settings: {
         ...(opts?.colourMode ? { colour: opts.colourMode } : {}),
@@ -695,7 +708,7 @@ export const kioskSession = {
     })
 
     if (opts?.amount) {
-      initiateKioskPayment(opts.amount, opts.orderId).catch(() => {})
+      initiateKioskPayment(opts.amount, effectiveOrderId).catch(() => {})
     }
   },
 
@@ -762,12 +775,12 @@ export const kioskSession = {
     const urlToken = getSessionTokenFromUrl()
     if (urlToken && !isTokenExpired(urlToken)) return true
 
-    // 3. Stored token in sessionStorage or localStorage
-    const storedToken = sessionStorage.getItem('pb_kiosk_session_token') || localStorage.getItem('pb_kiosk_session_token')
+    // 3. Stored token in sessionStorage (strictly current tab session, not stale persistent storage)
+    const storedToken = sessionStorage.getItem('pb_kiosk_session_token')
     if (storedToken && !isTokenExpired(storedToken)) return true
 
-    // 4. Stored session ID
-    const storedId = sessionStorage.getItem('pb_kiosk_session_id') || localStorage.getItem('pb_kiosk_session_id')
+    // 4. Stored session ID in sessionStorage
+    const storedId = sessionStorage.getItem('pb_kiosk_session_id')
     if (storedId) return true
 
     return false

@@ -80,7 +80,7 @@ export default function SupportPage() {
       fallback={<SupportSkeletonFallback />}
     >
       <SEO
-        title="Customer Support & Helpdesk — Fast Order Assistance | PrintBooth"
+        title="Support"
         description="Need help with a print order or kiosk payment? Contact the PrintBooth help desk. Fast response within 24 hours with dedicated refund and ticket resolution."
         canonicalUrl="https://printbooth.co.in/support"
         breadcrumbs={[

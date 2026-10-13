@@ -64,7 +64,7 @@ export default function LocationsPage() {
       fallback={<LocationsSkeletonFallback />}
     >
       <SEO
-        title="Find a Print Station — Active Campus & Retail Locations | PrintBooth"
+        title="Locations"
         description="Find active walk-up PrintBooth kiosk stations near you. Live hardware status, walking distance, directions, and operating hours across campuses and tech hubs."
         canonicalUrl="https://printbooth.co.in/locations"
         breadcrumbs={[

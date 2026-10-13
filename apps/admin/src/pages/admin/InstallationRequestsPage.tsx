@@ -400,7 +400,7 @@ export default function InstallationRequestsPage() {
         <div className="installations-header__title-group">
           <div className="installations-header__title">
             <HardDrives size={28} weight="duotone" color="#dc2626" />
-            <span>Kiosk Purchase & Installation Requests</span>
+            <span>Installation Requests</span>
             <span className="installations-header__badge">Dealership Pipeline</span>
           </div>
           <p className="installations-header__sub">

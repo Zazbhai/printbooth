@@ -125,7 +125,7 @@ export default function FAQPage() {
       fallback={<FAQSkeletonFallback />}
     >
       <SEO
-        title="Frequently Asked Questions — Payments, Formats & Privacy | PrintBooth"
+        title="FAQ"
         description="Got questions about PrintBooth? Learn about UPI payments, zero-cloud file security, supported document formats, refund policies, and kiosk hardware."
         canonicalUrl="https://printbooth.co.in/faq"
         breadcrumbs={[

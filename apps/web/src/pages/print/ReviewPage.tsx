@@ -128,6 +128,11 @@ export default function ReviewPage() {
         copies: settings.copies,
         colourMode: settings.colour,
         amount: totalPrice,
+        settings: {
+          ...settings,
+          pages: settings.pages,
+          pageRange: settings.pages,
+        },
         files: multiFiles.map(f => ({
           id: f.id,
           fileName: f.fileName,
@@ -137,8 +142,8 @@ export default function ReviewPage() {
           copies: f.settings?.copies || settings.copies || 1,
           colour: f.settings?.colour || settings.colour || 'BW',
           duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
-          pages: f.settings?.pages || 'ALL',
-          pageRange: f.settings?.pages || 'ALL',
+          pages: f.settings?.pages || settings.pages || 'ALL',
+          pageRange: f.settings?.pages || settings.pages || 'ALL',
           paperSize: f.settings?.paperSize || 'A4',
           scaling: f.settings?.scaling || 'FIT',
           pagesPerSheet: f.settings?.pagesPerSheet || 1,
@@ -149,11 +154,12 @@ export default function ReviewPage() {
           pageBorder: Boolean(f.settings?.pageBorder),
           pageCopies: f.settings?.pageCopies,
           pageColours: f.settings?.pageColours,
+          previews: f.previews || (f.thumbnail ? [{ pageNumber: 1, url: f.thumbnail }] : []),
           settings: f.settings,
         })),
       })
     }
-  }, [fileName, pageCount, settings.copies, settings.colour, totalPrice, multiFiles])
+  }, [fileName, pageCount, settings.copies, settings.colour, settings.pages, totalPrice, multiFiles, settings])
 
   function handlePay() {
     sessionStorage.setItem('pb_print_step', 'payment')

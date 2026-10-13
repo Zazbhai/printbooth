@@ -132,7 +132,7 @@ export default function MerchantPricingPage() {
         {/* ─── Header ─── */}
         <div className="pricing-header">
           <div className="pricing-header-left">
-            <h1 className="pricing-header-title">Kiosk Page Pricing</h1>
+            <h1 className="pricing-header-title">Page Pricing</h1>
             <div className="pricing-header-meta">
               <span className="pricing-live-dot" />
               <span>Live rates for {activeMerchant?.storeName || "your store"}</span>

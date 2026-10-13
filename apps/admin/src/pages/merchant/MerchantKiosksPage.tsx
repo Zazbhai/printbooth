@@ -171,7 +171,7 @@ export default function MerchantKiosksPage() {
       if (res?.success) {
         setNetworkNotice({
           type: 'success',
-          message: res.message || `Connected successfully to "${targetSsid}". Assigned IP: ${res.data?.primaryIp || res.data?.wifi?.ipAddress || '192.168.1.4'}`,
+          message: res.message || `Connected successfully to "${targetSsid}". Assigned IP: ${res.data?.primaryIp || res.data?.wifi?.ipAddress || '192.168.1.41'}`,
         })
         setWifiModalOpen(false)
         setWifiPassword('')
@@ -292,7 +292,7 @@ export default function MerchantKiosksPage() {
               Machine {activeKioskId} • {activeMerchant?.storeName || 'MIT ADT Campus Print Hub'}
             </span>
           </div>
-          <h1 className="admin-page__title">My Kiosk Hardware & QR Standee</h1>
+          <h1 className="admin-page__title">My Kiosks</h1>
           <p className="admin-page__sub">Live paper levels, printer health, counter standee QR, and maintenance tools for your location</p>
         </div>
 

@@ -358,7 +358,7 @@ export default function HelpDeskPage() {
         <div className="helpdesk-header__title-group">
           <div className="helpdesk-header__title">
             <Headset size={28} weight="duotone" color="#dc2626" />
-            <span>Help Desk & Operations Triage</span>
+            <span>Help Desk</span>
             <span className="helpdesk-header__badge">Unified Feed</span>
           </div>
           <p className="helpdesk-header__sub">

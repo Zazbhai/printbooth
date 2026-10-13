@@ -389,6 +389,10 @@ export default function MultiFilePage() {
       copies: f.settings?.copies || 1,
       colour: f.settings?.colour || 'BW',
       duplex: f.settings?.duplex || 'SINGLE',
+      pages: f.settings?.pages || 'ALL',
+      pageRange: f.settings?.pages || 'ALL',
+      previews: f.previews || (f.thumbnail ? [{ pageNumber: 1, url: f.thumbnail }] : []),
+      settings: f.settings,
     }))
 
     // Fire upload to kiosk display
@@ -918,39 +922,6 @@ export default function MultiFilePage() {
               </div>
             </div>
           ))}
-
-          {/* Primary In-Flow Transfer Button DIRECTLY below uploaded files */}
-          <div className="mfp-transfer-section" style={{ marginTop: '14px', width: '100%' }}>
-            <button
-              type="button"
-              className="mfp-transfer-kiosk-btn"
-              onClick={handleTransferToKiosk}
-              disabled={isSendingToKiosk || isProcessing}
-              id="mfp-transfer-to-kiosk-btn"
-            >
-              {isSendingToKiosk ? (
-                <>
-                  <ArrowsClockwise size={18} weight="bold" className="spin-fast" />
-                  <span>Transferring to Kiosk Screen…</span>
-                </>
-              ) : (
-                <>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                    <line x1="8" y1="21" x2="16" y2="21" />
-                    <line x1="12" y1="17" x2="12" y2="21" />
-                  </svg>
-                  <span>Transfer to Kiosk ({readyCount} {readyCount === 1 ? 'File' : 'Files'})</span>
-                  <span className="mfp-btn-icon-circle">
-                    <ArrowRight size={14} weight="bold" />
-                  </span>
-                </>
-              )}
-            </button>
-            <span className="mfp-transfer-hint-sub">
-              Sends your {readyCount === 1 ? 'document' : 'documents'} directly to the kiosk screen for instant preview &amp; printing
-            </span>
-          </div>
         </div>
       )}
 
@@ -1060,11 +1031,11 @@ export default function MultiFilePage() {
             {isSendingToKiosk ? (
               <>
                 <ArrowsClockwise size={14} weight="bold" className="spin-fast" />
-                <span>Transferring…</span>
+                <span>Continuing…</span>
               </>
             ) : (
               <>
-                <span>Transfer to Kiosk</span>
+                <span>Continue</span>
                 <span className="mfp-btn-icon-circle">
                   <ArrowRight size={13} weight="bold" />
                 </span>

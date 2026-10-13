@@ -43,7 +43,7 @@ export default function CookiesPage() {
   return (
     <div className="sub-page">
       <SEO
-        title="Cookie Policy — Essential Privacy Disclosures | PrintBooth"
+        title="Cookies"
         description="PrintBooth uses strictly necessary cookies for session continuity and CSRF security. We use no marketing or third-party advertising tracking cookies."
         canonicalUrl="https://printbooth.co.in/cookies"
         breadcrumbs={[

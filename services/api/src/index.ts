@@ -242,7 +242,7 @@ app.get('/api/kiosk/sync-file/:filename', (req, res) => {
 })
 
 app.get('/api/kiosk/sync-script.sh', (req, res) => {
-  const host = req.get('host') || '192.168.1.4:5000'
+  const host = req.get('host') || (process.env.API_URL ? new URL(process.env.API_URL).host : (process.env.SITE_URL ? new URL(process.env.SITE_URL).host.replace(':5200', ':5000') : '192.168.1.41:5000'))
   const script = `#!/bin/bash
 set -e
 echo "══════════════════════════════════════════════════════"

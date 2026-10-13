@@ -81,7 +81,7 @@ export default function FeaturesPage() {
       fallback={<FeaturesSkeletonFallback />}
     >
       <SEO
-        title="Features & Architecture — Fast, Private Autonomous Printing | PrintBooth"
+        title="Features"
         description="Discover PrintBooth's autonomous printing hardware features. Zero cloud file retention, virus-scanning, instant UPI payments, and sub-90-second automated hardware dispensing."
         canonicalUrl="https://printbooth.co.in/features"
         breadcrumbs={[

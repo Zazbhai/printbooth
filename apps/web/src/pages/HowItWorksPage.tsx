@@ -60,7 +60,7 @@ export default function HowItWorksPage() {
       fallback={<HowItWorksSkeletonFallback />}
     >
       <SEO
-        title="How It Works — Fast, Autonomous Self-Service Printing | PrintBooth"
+        title="Print Guide"
         description="Learn how to print documents at a PrintBooth kiosk in 5 simple steps. Upload your file, configure settings, scan UPI QR, and collect your prints in under 2 minutes."
         canonicalUrl="https://printbooth.co.in/how-it-works"
         breadcrumbs={[

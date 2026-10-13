@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import AdminLayout from './components/AdminLayout'
 import MerchantLayout from './components/MerchantLayout'
 
@@ -27,6 +28,65 @@ import LoginPage from './pages/LoginPage'
 import { AuthProvider, RequireRole, useAuth } from '@/lib/authContext'
 import { MerchantProvider } from '@/lib/merchantContext'
 
+function PageTitleUpdater() {
+  const location = useLocation()
+
+  useEffect(() => {
+    const pathname = location.pathname.toLowerCase()
+
+    let title = 'PrintBooth Admin'
+
+    if (pathname === '/login') {
+      title = 'Admin Login'
+    } else if (pathname === '/admin/dashboard') {
+      title = 'Admin Dashboard'
+    } else if (pathname.startsWith('/admin/kiosks/') && pathname !== '/admin/kiosks') {
+      title = 'Kiosk Details'
+    } else if (pathname === '/admin/kiosks') {
+      title = 'Fleet Kiosks'
+    } else if (pathname === '/admin/orders') {
+      title = 'Live Orders'
+    } else if (pathname === '/admin/alerts') {
+      title = 'Fleet Alerts'
+    } else if (pathname === '/admin/helpdesk') {
+      title = 'Help Desk'
+    } else if (pathname === '/admin/installations') {
+      title = 'Installations'
+    } else if (pathname === '/admin/merchants') {
+      title = 'Merchant Partners'
+    } else if (pathname === '/admin/payments') {
+      title = 'Payment Gateway'
+    } else if (pathname === '/admin/advertisements' || pathname === '/admin/ads' || pathname === '/admin/campaigns') {
+      title = 'Advertisements'
+    } else if (pathname === '/admin/users' || pathname === '/admin/admins') {
+      title = 'Admin Users'
+    } else if (
+      pathname === '/merchant/dashboard' ||
+      pathname === '/merchant/earnings' ||
+      pathname === '/merchant/payout' ||
+      pathname === '/merchant/payouts' ||
+      pathname === '/merchant/supplies'
+    ) {
+      title = 'Merchant Dashboard'
+    } else if (pathname === '/merchant/kiosks') {
+      title = 'Merchant Kiosks'
+    } else if (pathname === '/merchant/pages' || pathname === '/merchant/paper') {
+      title = 'Paper Levels'
+    } else if (pathname === '/merchant/pricing') {
+      title = 'Page Pricing'
+    } else if (pathname === '/merchant/orders') {
+      title = 'Store Orders'
+    } else if (pathname === '/merchant/settings') {
+      title = 'Store Settings'
+    }
+
+    const words = title.trim().split(/\s+/).filter(Boolean)
+    document.title = words.slice(0, 2).join(' ')
+  }, [location.pathname])
+
+  return null
+}
+
 function RootRedirect() {
   const { isAuthenticated, role } = useAuth()
 
@@ -41,6 +101,7 @@ export default function App() {
   return (
     <AuthProvider>
       <MerchantProvider>
+        <PageTitleUpdater />
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />

@@ -330,7 +330,7 @@ export default function AlertsPage() {
               Hardware Telemetry &amp; Merchant Broadcast Engine
             </span>
           </div>
-          <h1 className="admin-page__title">Incident Command &amp; Merchant Broadcasts</h1>
+          <h1 className="admin-page__title">Fleet Alerts</h1>
           <p className="admin-page__sub">
             Publish synchronized announcements to host stores and resolve real-time hardware telemetry alerts
           </p>

@@ -5,7 +5,7 @@ export default function TermsPage() {
   return (
     <div className="sub-page">
       <SEO
-        title="Terms & Conditions — Kiosk Usage & Service Agreement | PrintBooth"
+        title="Terms"
         description="PrintBooth terms of service and conditions for self-service walk-up printing kiosks, payment handling, and hardware usage rules."
         canonicalUrl="https://printbooth.co.in/terms"
         breadcrumbs={[

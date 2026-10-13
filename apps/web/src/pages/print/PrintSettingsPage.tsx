@@ -236,32 +236,42 @@ export default function PrintSettingsPage() {
         colourMode: settings.colour,
         duplex: settings.duplex,
         amount: grandTotal,
-        files: files.map(f => ({
-          id: f.id,
-          fileName: f.fileName,
-          fileSize: f.fileSize,
-          fileType: f.fileType,
-          pageCount: f.pageCount || 1,
-          copies: f.settings?.copies || settings.copies || 1,
-          colour: f.settings?.colour || settings.colour || 'BW',
-          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
-          pages: f.settings?.pages || 'ALL',
-          pageRange: f.settings?.pages || 'ALL',
-          paperSize: f.settings?.paperSize || 'A4',
-          scaling: f.settings?.scaling || 'FIT',
-          pagesPerSheet: f.settings?.pagesPerSheet || 1,
-          orientation: f.settings?.orientation || 'AUTO',
-          dpi: f.settings?.dpi || '600',
-          margins: f.settings?.margins || 'STANDARD',
-          contrastMode: f.settings?.contrastMode || 'BALANCED',
-          pageBorder: Boolean(f.settings?.pageBorder),
-          pageCopies: f.settings?.pageCopies,
-          pageColours: f.settings?.pageColours,
-          settings: f.settings,
-        })),
+        settings: {
+          ...settings,
+          pages: settings.pages,
+          pageRange: settings.pages,
+        },
+        files: files.map(f => {
+          const isActive = f.id === activeFile?.id
+          const filePageRange = isActive ? settings.pages : (f.settings?.pages || 'ALL')
+          return {
+            id: f.id,
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            fileType: f.fileType,
+            pageCount: f.pageCount || 1,
+            copies: isActive ? settings.copies : (f.settings?.copies || 1),
+            colour: isActive ? settings.colour : (f.settings?.colour || 'BW'),
+            duplex: isActive ? settings.duplex : (f.settings?.duplex || 'SINGLE'),
+            pages: filePageRange,
+            pageRange: filePageRange,
+            paperSize: f.settings?.paperSize || 'A4',
+            scaling: f.settings?.scaling || 'FIT',
+            pagesPerSheet: f.settings?.pagesPerSheet || 1,
+            orientation: f.settings?.orientation || 'AUTO',
+            dpi: f.settings?.dpi || '600',
+            margins: f.settings?.margins || 'STANDARD',
+            contrastMode: f.settings?.contrastMode || 'BALANCED',
+            pageBorder: Boolean(f.settings?.pageBorder),
+            pageCopies: f.settings?.pageCopies,
+            pageColours: f.settings?.pageColours,
+            previews: isActive && activeFile?.realPages?.length ? activeFile.realPages : (f.realPages || f.previews),
+            settings: isActive ? settings : f.settings,
+          }
+        }),
       })
     }
-  }, [displayFileName, pageCount, settings.copies, settings.colour, settings.duplex, grandTotal, files])
+  }, [displayFileName, pageCount, settings.copies, settings.colour, settings.duplex, settings.pages, grandTotal, files, activeFile?.realPages, activeFile?.id, settings])
 
   // Carousel Cards with interactive in-card editing
   const ALL_CARDS: CarouselCard[] = [
@@ -385,29 +395,39 @@ export default function PrintSettingsPage() {
         copies: settings.copies,
         colourMode: settings.colour,
         amount: grandTotal,
-        files: readyFiles.map(f => ({
-          id: f.id,
-          fileName: f.fileName,
-          fileSize: f.fileSize,
-          fileType: f.fileType,
-          pageCount: f.pageCount || 1,
-          copies: f.settings?.copies || settings.copies || 1,
-          colour: f.settings?.colour || settings.colour || 'BW',
-          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
-          pages: f.settings?.pages || 'ALL',
-          pageRange: f.settings?.pages || 'ALL',
-          paperSize: f.settings?.paperSize || 'A4',
-          scaling: f.settings?.scaling || 'FIT',
-          pagesPerSheet: f.settings?.pagesPerSheet || 1,
-          orientation: f.settings?.orientation || 'AUTO',
-          dpi: f.settings?.dpi || '600',
-          margins: f.settings?.margins || 'STANDARD',
-          contrastMode: f.settings?.contrastMode || 'BALANCED',
-          pageBorder: Boolean(f.settings?.pageBorder),
-          pageCopies: f.settings?.pageCopies,
-          pageColours: f.settings?.pageColours,
-          settings: f.settings,
-        })),
+        settings: {
+          ...settings,
+          pages: settings.pages,
+          pageRange: settings.pages,
+        },
+        files: readyFiles.map(f => {
+          const isActive = f.id === activeFile?.id
+          const filePageRange = isActive ? settings.pages : (f.settings?.pages || 'ALL')
+          return {
+            id: f.id,
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            fileType: f.fileType,
+            pageCount: f.pageCount || 1,
+            copies: isActive ? settings.copies : (f.settings?.copies || 1),
+            colour: isActive ? settings.colour : (f.settings?.colour || 'BW'),
+            duplex: isActive ? settings.duplex : (f.settings?.duplex || 'SINGLE'),
+            pages: filePageRange,
+            pageRange: filePageRange,
+            paperSize: f.settings?.paperSize || 'A4',
+            scaling: f.settings?.scaling || 'FIT',
+            pagesPerSheet: f.settings?.pagesPerSheet || 1,
+            orientation: f.settings?.orientation || 'AUTO',
+            dpi: f.settings?.dpi || '600',
+            margins: f.settings?.margins || 'STANDARD',
+            contrastMode: f.settings?.contrastMode || 'BALANCED',
+            pageBorder: Boolean(f.settings?.pageBorder),
+            pageCopies: f.settings?.pageCopies,
+            pageColours: f.settings?.pageColours,
+            previews: isActive && activeFile?.realPages?.length ? activeFile.realPages : (f.realPages || f.previews),
+            settings: isActive ? settings : f.settings,
+          }
+        }),
       })
     }
 

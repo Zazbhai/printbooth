@@ -137,3 +137,26 @@ export const authLimiter = createLimiter({
   prefix: 'auth',
   message: 'Too many authentication attempts. Please try again after 15 minutes.',
 })
+
+/**
+ * Kiosk Session Claim Limiter: 30 attempts per 5 minutes per IP
+ * Protects against brute-forcing session tokens or automated session hijacking
+ */
+export const kioskSessionClaimLimiter = createLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  prefix: 'kiosk_claim',
+  message: 'Too many kiosk session claim attempts. Please wait a moment before trying again.',
+})
+
+/**
+ * Kiosk Session Creation Limiter: 60 attempts per 5 minutes per IP
+ * Protects against rogue session generation flooding
+ */
+export const kioskSessionCreateLimiter = createLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  prefix: 'kiosk_create',
+  message: 'Too many kiosk sessions created. Please wait a moment before trying again.',
+})
+

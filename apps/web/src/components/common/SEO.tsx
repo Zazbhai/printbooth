@@ -17,11 +17,23 @@ export interface SEOProps {
   schema?: Record<string, any>
 }
 
-const DEFAULT_TITLE = 'PrintBooth — Autonomous Self-Service Printing Kiosks'
+const DEFAULT_TITLE = 'PrintBooth'
 const DEFAULT_DESCRIPTION =
   "PrintBooth is India's autonomous self-service printing kiosk network. Direct browser upload, instant UPI scan-to-pay, zero-cloud retention, and automatic hardware release in under 90s."
 const DEFAULT_OG_IMAGE = 'https://printbooth.co.in/og-image.png'
 const BASE_URL = 'https://printbooth.co.in'
+
+export function sanitizeTitleMaxTwoWords(rawTitle?: string): string {
+  if (!rawTitle || !rawTitle.trim()) return DEFAULT_TITLE
+  // Clean off standard separators like " | PrintBooth", " — ...", etc.
+  const stripped = rawTitle.split(/[|—–-]/)[0].trim()
+  const clean = stripped || rawTitle.trim()
+  const words = clean.split(/\s+/).filter(Boolean)
+  if (words.length <= 2) {
+    return words.join(' ')
+  }
+  return words.slice(0, 2).join(' ')
+}
 
 function updateMetaTag(attributeName: 'name' | 'property', attributeValue: string, content: string) {
   let element = document.querySelector(`meta[${attributeName}="${attributeValue}"]`) as HTMLMetaElement | null
@@ -56,13 +68,9 @@ export default function SEO({
   const location = useLocation()
 
   useEffect(() => {
-    // 1. Dynamic Title Tag
-    const fullTitle = title
-      ? title.includes('PrintBooth')
-        ? title
-        : `${title} | PrintBooth`
-      : DEFAULT_TITLE
-    document.title = fullTitle
+    // 1. Dynamic Title Tag (Max 2 words)
+    const pageTitle = sanitizeTitleMaxTwoWords(title)
+    document.title = pageTitle
 
     // 2. Canonical URL
     const canonical = canonicalUrl || `${BASE_URL}${location.pathname}`
@@ -78,7 +86,7 @@ export default function SEO({
     updateMetaTag('name', 'robots', robotsValue)
 
     // 5. Open Graph Meta Tags
-    updateMetaTag('property', 'og:title', fullTitle)
+    updateMetaTag('property', 'og:title', pageTitle)
     updateMetaTag('property', 'og:description', description)
     updateMetaTag('property', 'og:url', canonical)
     updateMetaTag('property', 'og:type', ogType)
@@ -86,7 +94,7 @@ export default function SEO({
     updateMetaTag('property', 'og:site_name', 'PrintBooth')
 
     // 6. Twitter Cards
-    updateMetaTag('name', 'twitter:title', fullTitle)
+    updateMetaTag('name', 'twitter:title', pageTitle)
     updateMetaTag('name', 'twitter:description', description)
     updateMetaTag('name', 'twitter:image', ogImage)
     updateMetaTag('name', 'twitter:card', 'summary_large_image')

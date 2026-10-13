@@ -90,6 +90,7 @@ export interface ManagedFile {
   status: 'pending' | 'processing' | 'ready' | 'error'
   errorMsg?: string
   thumbnail?: string  // first page URL for quick preview
+  previews?: DocumentPagePreview[]
 }
 
 const defaultSettings = (): FileSettings => ({

@@ -343,7 +343,7 @@ export default function AdminUsersPage() {
             <ShieldCheck size={14} weight="bold" />
             <span>Platform Governance & RBAC</span>
           </span>
-          <h1 className="users-header__title">Admin & User Management</h1>
+          <h1 className="users-header__title">Admin Users</h1>
           <p className="users-header__sub">
             Supervise platform administrators, credential permissions, access statuses, and directory accounts across the network.
           </p>

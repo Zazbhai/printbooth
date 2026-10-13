@@ -20,7 +20,7 @@ export default function NotFoundPage({ title, message, kioskId }: NotFoundPagePr
   return (
     <div className="notfound-wrapper">
       <SEO
-        title="404 — Page Not Found | PrintBooth"
+        title="Not Found"
         description="The requested page or print station does not exist on PrintBooth."
         noIndex={true}
       />

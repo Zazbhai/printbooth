@@ -36,7 +36,7 @@ export default function OrdersPage() {
             <span className="badge badge-online">Print Transactions</span>
             <span style={{ fontSize: 13, color: 'var(--clr-text-3)' }}>{orders.length} Records</span>
           </div>
-          <h1 className="admin-page__title">Live Orders Fleet</h1>
+          <h1 className="admin-page__title">Live Orders</h1>
           <p className="admin-page__sub">Real-time print transactions directly synchronized across the network</p>
         </div>
       </div>

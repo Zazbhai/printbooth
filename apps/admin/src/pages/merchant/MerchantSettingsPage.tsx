@@ -167,7 +167,7 @@ export default function MerchantSettingsPage() {
               Machine {activeKioskId} Host Profile • {activeMerchant?.storeName || 'Store'}
             </span>
           </div>
-          <h1 className="admin-page__title">Store & Contact Settings</h1>
+          <h1 className="admin-page__title">Store Settings</h1>
           <p className="admin-page__sub">Manage your venue operating hours, emergency alerts, and store profile</p>
         </div>
 

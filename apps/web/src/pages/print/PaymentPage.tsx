@@ -151,10 +151,18 @@ export default function PaymentPage() {
 
   const isMultiFile = multiFiles.length > 1
 
-  const orderId = useRef(
-    'PB-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' +
-    String(Math.floor(Math.random() * 999999)).padStart(6, '0')
-  ).current
+  const orderId = useRef((() => {
+    if (typeof sessionStorage !== 'undefined') {
+      const existing = sessionStorage.getItem('pb_order_id')
+      if (existing && existing.startsWith('PB-')) return existing
+    }
+    const fresh = 'PB-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' +
+      String(Math.floor(100000 + Math.random() * 900000))
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('pb_order_id', fresh)
+    }
+    return fresh
+  })()).current
 
   // ── State ──
   const [status,          setStatus]          = useState<PaymentStatus>('WAITING')
@@ -920,15 +928,15 @@ export default function PaymentPage() {
     log('Creating UPI Express order…')
 
     try {
-      // Generate guaranteed unique client transaction ID for UPI Express
-      const freshClientTxnId = 'PB-' + Array.from(crypto.getRandomValues(new Uint8Array(10)))
-        .map(b => b.toString(16).padStart(2, '0')).join('')
+      // Use the stable orderId for UPI Express clientTxnId so order IDs match exactly
+      const effectiveClientTxnId = orderId || ('PB-' + Array.from(crypto.getRandomValues(new Uint8Array(10)))
+        .map(b => b.toString(16).padStart(2, '0')).join(''))
 
       const r = await fetch(`${API}/api/upiexpress/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientTxnId:     freshClientTxnId,
+          clientTxnId:     effectiveClientTxnId,
           amount:          String(totalPrice),
           customerName:    'Kiosk Guest',
           customerEmail:   'guest@kiosk.printbooth',
@@ -953,8 +961,8 @@ export default function PaymentPage() {
       log(`Payment URL ready — awaiting UPI scan…`, 'info')
 
       // Start polling for payment status using the exact clientTxnId
-      const effectiveClientTxnId = j.data?.clientTxnId || freshClientTxnId
-      startUpiExpressPolling(effectiveClientTxnId)
+      const pollingClientTxnId = j.data?.clientTxnId || effectiveClientTxnId
+      startUpiExpressPolling(pollingClientTxnId)
     } catch (err: any) {
       log(`UPI Express order creation failed: ${err.message}`, 'error')
       setStatus('FAILED')

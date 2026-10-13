@@ -253,7 +253,7 @@ export default function MerchantPagesPage() {
               Station: <strong style={{ color: 'var(--paper-text-1, #09090b)' }}>{activeMerchant?.storeName || activeKioskId}</strong> ({activeKioskId})
             </span>
           </div>
-          <h1 className="paper-header__title">Printer Pages & Sheet Telemetry</h1>
+          <h1 className="paper-header__title">Paper Levels</h1>
           <p className="paper-header__sub">
             Monitor real-time remaining sheets, load new paper batches, adjust cassette stock, and track automated consumption per print.
           </p>

@@ -16,12 +16,12 @@
     "hasPower": true,
     "hasSecurity": true,
     "notes": "High footfall near central auditorium, requires 2 autonomous units.",
-    "status": "SITE_SURVEY",
+    "status": "REJECTED",
     "priority": "HIGH",
     "assignedLead": "Unassigned",
     "estimatedUnits": 2,
     "createdAt": "2026-10-05T13:09:18.772Z",
-    "updatedAt": "2026-10-05T13:55:26.859Z",
+    "updatedAt": "2026-10-13T16:02:14.058Z",
     "surveyNotes": [
       {
         "id": "sn-1791205758772",
@@ -34,6 +34,12 @@
         "author": "Platform Ops Lead",
         "text": "Status updated to SITE_SURVEY",
         "timestamp": "2026-10-05T13:55:26.842Z"
+      },
+      {
+        "id": "sn-1791907333993",
+        "author": "Platform Ops Lead",
+        "text": "Status updated to REJECTED",
+        "timestamp": "2026-10-13T16:02:13.993Z"
       }
     ]
   }

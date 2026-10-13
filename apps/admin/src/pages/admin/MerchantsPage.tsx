@@ -600,7 +600,7 @@ export default function MerchantsPage() {
               {merchants.length} Host Partners Deployed
             </span>
           </div>
-          <h1 className="admin-page__title">Merchant Partners &amp; Machine Standees</h1>
+          <h1 className="admin-page__title">Merchant Partners</h1>
           <p className="admin-page__sub">
             Onboard venue hosts, pair isolated print kiosks, and generate turnkey customer print standees.
           </p>
@@ -758,19 +758,22 @@ export default function MerchantsPage() {
       </div>
 
       {/* ─── Merchants Table with Live Printer Status & QR Actions ─── */}
-      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="table-responsive">
-          <table className="admin-table" style={{ minWidth: 920 }}>
+      <div className="merchants-table-card">
+        <div className="merchants-scroll-hint">
+          <span>← Scroll horizontally to inspect full machine telemetry, manager contacts &amp; actions →</span>
+        </div>
+        <div className="table-responsive merchants-table-wrap">
+          <table className="merchants-data-table">
             <thead>
               <tr>
-                <th style={{ width: 68 }}>Photo</th>
-                <th>Partner Store &amp; Venue</th>
-                <th>Assigned Machine &amp; Telemetry</th>
-                <th>Store Manager</th>
-                <th>Payment Gateway</th>
-                <th>Payout Model</th>
-                <th>MTD Volume</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="th-photo">Photo</th>
+                <th className="th-store">Partner Store &amp; Venue</th>
+                <th className="th-telemetry">Assigned Machine &amp; Telemetry</th>
+                <th className="th-manager">Store Manager</th>
+                <th className="th-gateway">Payment Gateway</th>
+                <th className="th-payout">Payout Model</th>
+                <th className="th-volume">MTD Volume</th>
+                <th className="th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -834,7 +837,7 @@ export default function MerchantsPage() {
                   return (
                     <tr key={m._id || m.merchantId || m.kioskId}>
                       {/* Photo */}
-                      <td>
+                      <td className="td-photo">
                         {m.kioskPhotoUrl ? (
                           <img
                             src={m.kioskPhotoUrl}
@@ -854,13 +857,13 @@ export default function MerchantsPage() {
                       </td>
 
                       {/* Store & Venue Info */}
-                      <td>
+                      <td className="td-store">
                         <div>
                           <div style={{ fontWeight: 700, color: 'var(--foreground)', fontSize: 14 }}>
                             {m.storeName || m.name}
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                            <span className="mono">ID: {m.merchantId}</span>
+                            <span className="mono font-bold" style={{ color: 'var(--foreground)', opacity: 0.9 }}>ID: {m.merchantId}</span>
                             {m.address && (
                               <>
                                 <span>•</span>
@@ -875,7 +878,7 @@ export default function MerchantsPage() {
                       </td>
 
                       {/* Machine & Consumables Telemetry */}
-                      <td>
+                      <td className="td-telemetry">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span
@@ -893,7 +896,7 @@ export default function MerchantsPage() {
                               {m.printerStatus || (isOnline ? 'ONLINE' : 'OFFLINE')}
                             </span>
                             <span className={`badge ${m.kioskVariant === 'lite' ? 'badge-variant-lite' : 'badge-variant-pro'}`} style={{ fontSize: 9.5 }}>
-                              {m.kioskVariant === 'lite' ? 'Lite · B&W Only' : 'Pro · Touch & Color'}
+                              {m.kioskVariant === 'lite' ? 'Lite · B&W' : 'Pro · Touch & Color'}
                             </span>
                           </div>
 
@@ -904,7 +907,7 @@ export default function MerchantsPage() {
                               <div className="telemetry-bar-bg">
                                 <div className={`telemetry-bar-fill ${paperClass}`} style={{ width: `${paper}%` }} />
                               </div>
-                              <span className="mono" style={{ fontSize: 11 }}>{paper}%</span>
+                              <span className="mono" style={{ fontSize: 11, minWidth: 28 }}>{paper}%</span>
                             </div>
 
                             <div className="telemetry-row" title={`Toner Level: ${toner}%`}>
@@ -912,14 +915,14 @@ export default function MerchantsPage() {
                               <div className="telemetry-bar-bg">
                                 <div className={`telemetry-bar-fill ${tonerClass}`} style={{ width: `${toner}%` }} />
                               </div>
-                              <span className="mono" style={{ fontSize: 11 }}>{toner}%</span>
+                              <span className="mono" style={{ fontSize: 11, minWidth: 28 }}>{toner}%</span>
                             </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Store Manager & Contact */}
-                      <td>
+                      <td className="td-manager">
                         <div>
                           <div style={{ color: 'var(--foreground)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <span>{m.name}</span>
@@ -969,7 +972,7 @@ export default function MerchantsPage() {
                       </td>
 
                       {/* Payment Gateway */}
-                      <td>
+                      <td className="td-gateway">
                         {m.paymentGateway === 'razorpay' ? (
                           <span className="gateway-badge gateway-badge--razorpay">
                             <CreditCard size={13} weight="bold" />
@@ -984,14 +987,14 @@ export default function MerchantsPage() {
                       </td>
 
                       {/* Payout Model */}
-                      <td>
+                      <td className="td-payout">
                         <span className="badge badge-online" style={{ fontSize: 11 }}>
                           100% Direct (0% Cut)
                         </span>
                       </td>
 
                       {/* MTD Volume */}
-                      <td>
+                      <td className="td-volume">
                         <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--clr-success)', fontSize: 14 }}>
                           ₹{(m.mtdEarnings || 0).toLocaleString('en-IN')}
                         </div>
@@ -1000,9 +1003,9 @@ export default function MerchantsPage() {
                         </div>
                       </td>
 
-                      {/* Actions */}
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      {/* Actions (Sticky Column) */}
+                      <td className="td-actions">
+                        <div className="merchant-actions-group">
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
@@ -1045,8 +1048,8 @@ export default function MerchantsPage() {
                             type="button"
                             className="btn btn-secondary btn-sm"
                             style={{
-                              padding: '5px 9px',
-                              fontSize: 11.5,
+                              padding: '5px 8px',
+                              fontSize: 11,
                               color: '#c8ff00',
                               borderColor: 'rgba(200, 255, 0, 0.35)',
                               background: 'rgba(200, 255, 0, 0.08)',
@@ -1054,8 +1057,8 @@ export default function MerchantsPage() {
                             onClick={() => handleOpenHardwareKey(m)}
                             title="View Raspberry Pi Security Key & .env Configuration"
                           >
-                            <Key size={14} weight="bold" />
-                            <span>Key &amp; .env</span>
+                            <Key size={13} weight="bold" />
+                            <span>Key</span>
                           </button>
 
                           <button
@@ -1088,6 +1091,256 @@ export default function MerchantsPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ─── Mobile Venue Cards List (Screen width <= 820px) ─── */}
+      <div className="merchants-mobile-cards">
+        {loading ? (
+          <div className="merchants-mobile-loading">
+            Loading partner merchants &amp; printer telemetry...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="merchants-mobile-empty">
+            <Storefront size={40} weight="light" color="#94a3b8" />
+            <p style={{ margin: 0, fontWeight: 700, color: 'var(--foreground)', fontSize: 14 }}>
+              {merchants.length === 0 ? 'No partner merchants onboarded yet' : 'No merchants match this filter'}
+            </p>
+            {merchants.length === 0 ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleOpenAddModal}
+                style={{ marginTop: 8 }}
+              >
+                <Plus size={14} weight="bold" />
+                <span>Onboard First Partner</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setSearch('')
+                  setStatusFilter('ALL')
+                }}
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+        ) : (
+          filtered.map((m: any) => {
+            const paper = m.paperLevel ?? 0
+            const toner = m.tonerLevel ?? 0
+            const paperClass = paper > 30 ? 'ok' : paper > 15 ? 'warn' : 'danger'
+            const tonerClass = toner > 30 ? 'ok' : toner > 15 ? 'warn' : 'danger'
+            const isOnline = m.kioskStatus === 'ONLINE'
+
+            return (
+              <div key={`m-card-${m._id || m.merchantId || m.kioskId}`} className="merchant-mobile-card">
+                {/* Header: Photo + Store Name + ID + Venue */}
+                <div className="merchant-mobile-card__header">
+                  {m.kioskPhotoUrl ? (
+                    <img
+                      src={m.kioskPhotoUrl}
+                      alt={`${m.storeName} Kiosk`}
+                      className="merchant-photo-thumb"
+                      onClick={() => setLightboxPhoto(m.kioskPhotoUrl)}
+                    />
+                  ) : (
+                    <div
+                      className="merchant-photo-thumb"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--secondary)', color: 'var(--muted-foreground)' }}
+                    >
+                      <ImageIcon size={22} />
+                    </div>
+                  )}
+
+                  <div className="merchant-mobile-card__title-wrap">
+                    <div className="merchant-mobile-card__store-name">
+                      {m.storeName || m.name}
+                    </div>
+                    <div className="merchant-mobile-card__store-id-row">
+                      <span className="mono font-bold">ID: {m.merchantId}</span>
+                      {m.address && (
+                        <>
+                          <span>•</span>
+                          <span className="merchant-mobile-card__address">
+                            <MapPin size={11} />
+                            <span>{m.address}</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Telemetry Strip */}
+                <div className="merchant-mobile-card__telemetry-box">
+                  <div className="merchant-mobile-card__badges">
+                    <span
+                      className="badge badge-accent mono font-bold credential-copy-pill"
+                      onClick={() => {
+                        navigator.clipboard.writeText(m.kioskId).catch(() => {})
+                        setToastMessage(`Copied Kiosk ID ${m.kioskId} to clipboard!`)
+                      }}
+                      title="Click to copy Kiosk ID"
+                    >
+                      <span>{m.kioskId}</span>
+                      <Copy size={10} className="copy-icon" />
+                    </span>
+                    <span className={`badge ${isOnline ? 'badge-online' : 'badge-danger'}`} style={{ fontSize: 10 }}>
+                      {m.printerStatus || (isOnline ? 'ONLINE' : 'OFFLINE')}
+                    </span>
+                    <span className={`badge ${m.kioskVariant === 'lite' ? 'badge-variant-lite' : 'badge-variant-pro'}`} style={{ fontSize: 9.5 }}>
+                      {m.kioskVariant === 'lite' ? 'Lite · B&W' : 'Pro · Touch & Color'}
+                    </span>
+                  </div>
+
+                  <div className="telemetry-gauge-wrap" style={{ width: '100%', marginTop: 8 }}>
+                    <div className="telemetry-row" title={`Paper Level: ${paper}%`}>
+                      <span className="telemetry-label">Paper:</span>
+                      <div className="telemetry-bar-bg" style={{ maxWidth: '100%' }}>
+                        <div className={`telemetry-bar-fill ${paperClass}`} style={{ width: `${paper}%` }} />
+                      </div>
+                      <span className="mono" style={{ fontSize: 11, minWidth: 32, textAlign: 'right' }}>{paper}%</span>
+                    </div>
+
+                    <div className="telemetry-row" title={`Toner Level: ${toner}%`}>
+                      <span className="telemetry-label">Toner:</span>
+                      <div className="telemetry-bar-bg" style={{ maxWidth: '100%' }}>
+                        <div className={`telemetry-bar-fill ${tonerClass}`} style={{ width: `${toner}%` }} />
+                      </div>
+                      <span className="mono" style={{ fontSize: 11, minWidth: 32, textAlign: 'right' }}>{toner}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Grid (Manager & Financials) */}
+                <div className="merchant-mobile-card__info-grid">
+                  <div className="merchant-mobile-card__info-cell">
+                    <span className="merchant-mobile-cell-label">Store Manager</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
+                      <span style={{ fontWeight: 700, color: 'var(--foreground)', fontSize: 13 }}>{m.name}</span>
+                      {m.isBlocked || m.status === 'BLOCKED' ? (
+                        <span className="badge badge-danger" style={{ fontSize: 9 }}>BLOCKED</span>
+                      ) : (
+                        <span className="badge badge-online" style={{ fontSize: 9 }}>ACTIVE</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4, fontSize: 11.5 }}>
+                      <span
+                        className="credential-copy-pill"
+                        onClick={() => {
+                          const un = m.username || (m.email ? m.email.split('@')[0] : 'merchant')
+                          navigator.clipboard.writeText(un).catch(() => {})
+                          setToastMessage(`Copied username "${un}" to clipboard!`)
+                        }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#2563eb', fontFamily: 'var(--font-mono)' }}
+                      >
+                        <At size={11} />
+                        <strong>{m.username || (m.email ? m.email.split('@')[0] : 'merchant')}</strong>
+                        <Copy size={9} className="copy-icon" />
+                      </span>
+                      <a href={`tel:${m.phone}`} style={{ color: 'var(--muted-foreground)', display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+                        <Phone size={11} /> {m.phone}
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="merchant-mobile-card__info-cell">
+                    <span className="merchant-mobile-cell-label">Financials &amp; Gateway</span>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--clr-success)', fontSize: 15, marginTop: 2 }}>
+                      ₹{(m.mtdEarnings || 0).toLocaleString('en-IN')}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
+                      100% Direct Payout
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      {m.paymentGateway === 'razorpay' ? (
+                        <span className="gateway-badge gateway-badge--razorpay" style={{ fontSize: 10.5, padding: '2px 7px' }}>
+                          <CreditCard size={12} weight="bold" />
+                          <span>Razorpay</span>
+                        </span>
+                      ) : (
+                        <span className="gateway-badge gateway-badge--upiexpress" style={{ fontSize: 10.5, padding: '2px 7px' }}>
+                          <Lightning size={12} weight="fill" />
+                          <span>UPI Express</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Action Buttons Grid */}
+                <div className="merchant-mobile-card__actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenEditModal(m)}
+                  >
+                    <PencilSimple size={14} />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${m.isBlocked || m.status === 'BLOCKED' ? 'btn-secondary' : 'btn-danger-outline'}`}
+                    style={{
+                      color: m.isBlocked || m.status === 'BLOCKED' ? '#059669' : '#dc2626',
+                    }}
+                    onClick={() => handleToggleBlock(m)}
+                    disabled={blockActionLoading === m.merchantId}
+                  >
+                    {m.isBlocked || m.status === 'BLOCKED' ? (
+                      <>
+                        <LockOpen size={14} weight="bold" />
+                        <span>Unblock</span>
+                      </>
+                    ) : (
+                      <>
+                        <Prohibit size={14} weight="bold" />
+                        <span>Block</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      color: '#c8ff00',
+                      borderColor: 'rgba(200, 255, 0, 0.35)',
+                      background: 'rgba(200, 255, 0, 0.08)',
+                    }}
+                    onClick={() => handleOpenHardwareKey(m)}
+                  >
+                    <Key size={14} weight="bold" />
+                    <span>Key &amp; .env</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenStandee(m)}
+                  >
+                    <QrCode size={14} />
+                    <span>Standee</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm merchant-mobile-portal-btn"
+                    onClick={() => handleOpenMerchantPortal(m.kioskId)}
+                  >
+                    <Storefront size={14} />
+                    <span>Open Merchant Portal</span>
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
       </div>
 
       {/* ──────── Onboard Merchant Modal ──────── */}

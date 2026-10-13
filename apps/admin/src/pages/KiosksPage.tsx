@@ -246,7 +246,7 @@ export default function KiosksPage() {
             <span className="badge badge-online">Fleet Control Engine</span>
             <span style={{ fontSize: 13, color: 'var(--clr-text-3)' }}>{kiosks.length} Kiosks Deployed</span>
           </div>
-          <h1 className="admin-page__title">Kiosk Fleet Management</h1>
+          <h1 className="admin-page__title">Kiosk Fleet</h1>
           <p className="admin-page__sub">
             Monitor real-time status and control operational maintenance individually or fleet-wide
           </p>

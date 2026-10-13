@@ -154,7 +154,7 @@ export default function RequestInstallationPage() {
       fallback={<RequestInstallationSkeletonFallback />}
     >
       <SEO
-        title="Request Kiosk Installation & Machine Sales | PrintBooth"
+        title="Installation"
         description="Deploy autonomous PrintBooth kiosks at your university, college, library, or retail venue. Turnkey hardware setup, 100% merchant profit retention, and full warranty."
         canonicalUrl="https://printbooth.co.in/request-installation"
         breadcrumbs={[

@@ -1154,4 +1154,418 @@
   font-weight: 700;
 }
 
+/* ═════════════════════════════════════════════════════════════════════
+   RESPONSIVE DATA TABLE & MOBILE VENUE CARDS SYSTEM
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Table Outer Card */
+.merchants-table-card {
+  background: var(--clr-bg-800, #ffffff);
+  border: 1px solid var(--clr-border, #e2e8f0);
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Subtle scroll hint displayed on intermediate screens (769px - 1300px) */
+.merchants-scroll-hint {
+  display: none;
+  padding: 6px 16px;
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+  letter-spacing: 0.02em;
+}
+
+@media (min-width: 821px) and (max-width: 1340px) {
+  .merchants-scroll-hint {
+    display: block;
+  }
+}
+
+/* Horizontal Scroll Wrapper */
+.merchants-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.merchants-table-wrap::-webkit-scrollbar {
+  height: 7px;
+}
+
+.merchants-table-wrap::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.merchants-table-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.merchants-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Modern Data Table */
+.merchants-data-table {
+  width: 100%;
+  min-width: 1320px;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  table-layout: auto;
+}
+
+.merchants-data-table th {
+  padding: 13px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--clr-text-3, #64748b);
+  background: var(--clr-bg-700, #f8fafc);
+  border-bottom: 1px solid var(--clr-border, #e2e8f0);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.merchants-data-table td {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--clr-text-2, #334155);
+  border-bottom: 1px solid var(--clr-border, #f1f5f9);
+  vertical-align: middle;
+  background: #ffffff;
+  transition: background-color 0.15s ease;
+}
+
+.merchants-data-table tbody tr:hover td {
+  background-color: #f8fafc;
+}
+
+/* Explicit Column Dimensions to Prevent Squishing */
+.th-photo,
+.td-photo {
+  width: 68px;
+  min-width: 68px;
+  text-align: center;
+}
+
+.th-store,
+.td-store {
+  min-width: 220px;
+}
+
+.th-telemetry,
+.td-telemetry {
+  min-width: 230px;
+}
+
+.th-manager,
+.td-manager {
+  min-width: 210px;
+}
+
+.th-gateway,
+.td-gateway {
+  min-width: 130px;
+}
+
+.th-payout,
+.td-payout {
+  min-width: 150px;
+}
+
+.th-volume,
+.td-volume {
+  min-width: 120px;
+}
+
+/* ── Sticky Actions Column ── */
+/* Stays pinned to the right edge during horizontal scroll so buttons are NEVER clipped */
+.th-actions,
+.td-actions {
+  position: sticky;
+  right: 0;
+  z-index: 10;
+  width: 380px;
+  min-width: 380px;
+  max-width: 380px;
+  background-color: #ffffff !important;
+  box-shadow: -8px 0 16px -4px rgba(15, 23, 42, 0.08);
+  border-left: 1px solid rgba(226, 232, 240, 0.85);
+  box-sizing: border-box;
+}
+
+.th-actions {
+  background-color: #f8fafc !important;
+  z-index: 12;
+  text-align: center;
+  padding: 13px 14px;
+}
+
+.td-actions {
+  padding: 12px 14px;
+}
+
+.merchants-data-table tbody tr:hover .td-actions {
+  background-color: #f8fafc !important;
+}
+
+.merchant-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.merchant-actions-group button {
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 5px 8px !important;
+  font-size: 11px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   MOBILE VENUE CARDS (< 820px)
+   ═════════════════════════════════════════════════════════════════════ */
+.merchants-mobile-cards {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.merchants-mobile-loading,
+.merchants-mobile-empty {
+  background: var(--clr-bg-800, #ffffff);
+  border: 1px solid var(--clr-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--clr-text-3, #64748b);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.merchant-mobile-card {
+  background: #ffffff;
+  border: 1px solid var(--clr-border, #e2e8f0);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.merchant-mobile-card:hover {
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.08);
+}
+
+.merchant-mobile-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.merchant-mobile-card__title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.merchant-mobile-card__store-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--clr-text-1, #0f172a);
+  line-height: 1.25;
+}
+
+.merchant-mobile-card__store-id-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--clr-text-3, #64748b);
+  flex-wrap: wrap;
+}
+
+.merchant-mobile-card__address {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-mobile-card__telemetry-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.merchant-mobile-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.merchant-mobile-card__info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.merchant-mobile-cell-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--clr-text-3, #64748b);
+  display: block;
+}
+
+.merchant-mobile-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.merchant-mobile-portal-btn {
+  grid-column: span 2;
+  width: 100%;
+  justify-content: center;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   MEDIA QUERIES FOR FULL RESPONSIVE SUPPORT
+   ═════════════════════════════════════════════ */
+
+/* 1. Large Laptops / Tablets Landscape (<= 1200px) */
+@media (max-width: 1200px) {
+  .merchants-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 2. Tablets & Mobile Breakpoint (<= 820px) */
+@media (max-width: 820px) {
+  /* Hide desktop table & show touch-optimized cards */
+  .merchants-table-card {
+    display: none !important;
+  }
+
+  .merchants-mobile-cards {
+    display: flex !important;
+  }
+
+  .merchants-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .search-filter-wrap {
+    max-width: 100%;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .merchants-toolbar-controls {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .merchants-segment-group {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .merchants-segment-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 11.5px;
+  }
+}
+
+/* 3. Small Mobile Phones (<= 640px) */
+@media (max-width: 640px) {
+  .merchants-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .merchant-mobile-card__info-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .merchant-form-row--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-page__header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .admin-page__header-row > div:last-child {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .merchant-modal {
+    max-height: 94vh;
+    border-radius: 12px;
+  }
+
+  .merchant-modal__header {
+    padding: 14px 16px;
+  }
+
+  .merchant-modal__body {
+    padding: 16px;
+  }
+}
+
 

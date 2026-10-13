@@ -32,6 +32,7 @@ import {
 } from './upiexpress.js'
 import { relayToKiosk } from '../modules/wsRelay.js'
 import { markKioskOffline } from '../modules/kioskLiveness.js'
+import { kioskSessionClaimLimiter, kioskSessionCreateLimiter } from '../middleware/rateLimiter.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -186,7 +187,7 @@ export type KioskSessionState =
 const SESSION_TTL_SECONDS = 24 * 60 * 60  // Fixed QR code on screen while in QR_READY: valid until customer scans it
 const SESSION_DONE_TTL_SECONDS = 30  // Keep DONE state visible briefly
 const HMAC_SECRET = process.env.KIOSK_SESSION_SECRET || 'pb_kiosk_session_hmac_secret_2024'
-const SECTION_INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes — auto-expire abandoned sessions
+const SECTION_INACTIVITY_TIMEOUT_MS = 60 * 1000 // 1 minute (60s) inactivity timeout per section
 
 // Per-kiosk active session index: kioskId → sessionId
 const activeSessionByKiosk = new Map<string, string>()
@@ -331,12 +332,19 @@ function getActiveSession(kioskId: string): KioskSession | null {
 
 // Resolve web base URL from request or env
 function resolveWebBaseUrl(req: Request): string {
-  return (
-    process.env.SITE_URL ||
-    process.env.WEB_URL ||
-    process.env.CLIENT_WEB_URL ||
-    `http://${req.get('host') || 'localhost:5200'}`
-  ).replace(/\/+$/, '')
+  const envUrl = process.env.SITE_URL || process.env.CLIENT_WEB_URL || process.env.VITE_SITE_URL || process.env.VITE_CLIENT_WEB_URL
+  if (envUrl && envUrl.trim()) {
+    const clean = envUrl.trim().replace(/\/+$/, '')
+    if (!clean.includes('192.168.1.4:')) {
+      return clean
+    }
+  }
+  const host = req.get('host')
+  if (host && !host.includes('5000') && !host.includes('5174')) {
+    const proto = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http'
+    return `${proto}://${host}`
+  }
+  return 'http://localhost:5200'
 }
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
@@ -346,16 +354,18 @@ function resolveWebBaseUrl(req: Request): string {
  * Called by kiosk UI to generate a new encrypted QR session.
  * Creates a fresh session; invalidates any previous session for this kiosk.
  */
-kioskSessionsRouter.post('/create', (req: Request, res: Response) => {
+kioskSessionsRouter.post('/create', kioskSessionCreateLimiter, (req: Request, res: Response) => {
   const kioskId = String(
     req.body?.kioskId || req.headers['x-kiosk-id'] || 'PB-001'
   ).toUpperCase().trim()
 
   const requestedBase = req.body?.webBaseUrl
-  const envBase = process.env.SITE_URL || process.env.CLIENT_WEB_URL
-  const webBase = (envBase && requestedBase && requestedBase.includes('printbooth.co.in') && !envBase.includes('printbooth.co.in'))
-    ? envBase.replace(/\/+$/, '')
-    : (requestedBase || resolveWebBaseUrl(req))
+  const envBase = (process.env.SITE_URL || process.env.CLIENT_WEB_URL || process.env.VITE_SITE_URL || process.env.VITE_CLIENT_WEB_URL)?.trim().replace(/\/+$/, '')
+  // If requestedBase contains the obsolete hardcoded IP (192.168.1.4:) or cloud domain mismatch, discard it and prioritize envBase
+  const isRequestedInvalid = !requestedBase || requestedBase.includes('192.168.1.4:') || (envBase && requestedBase.includes('printbooth.co.in') && !envBase.includes('printbooth.co.in'))
+  const webBase = (!isRequestedInvalid && requestedBase)
+    ? requestedBase.replace(/\/+$/, '')
+    : (envBase || resolveWebBaseUrl(req))
   const force = Boolean(req.body?.force)
 
   // If an active session is currently underway (e.g. uploading, reviewing, configuring, paying),
@@ -508,20 +518,21 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
   }
 
   // Check section inactivity timeout:
-  // Auto reset the session if there is no response of user for 5 mins (300 seconds) in each section
-  // (e.g. user completely abandoned session or walked away).
-  // Provides ample time for mobile document browsing, cloud drive downloads, and settings.
-  const lastActivity = Math.max(
-    session.lastActivityAt || 0,
+  // Auto reset the session if there is no response/activity on user's phone for 1 minute (60 seconds) in each section.
+  const lastPhoneActivity = Math.max(
     session.lastPhoneActivityAt || 0,
-    session.claimedAt || 0,
     session.currentSectionEnteredAt || 0,
+    session.claimedAt || 0,
     session.createdAt || 0
   )
-  const isInactiveTimeout = isPrePrintState && Boolean(lastActivity) && (Date.now() - lastActivity >= SECTION_INACTIVITY_TIMEOUT_MS)
+  const elapsedPhoneInactivity = Date.now() - lastPhoneActivity
+  const remainingInactivityMs = Math.max(0, SECTION_INACTIVITY_TIMEOUT_MS - elapsedPhoneInactivity)
+  const inactivityRemainingSec = Math.ceil(remainingInactivityMs / 1000)
+  const resetAt = lastPhoneActivity + SECTION_INACTIVITY_TIMEOUT_MS
+  const isInactiveTimeout = isPrePrintState && Boolean(lastPhoneActivity) && (elapsedPhoneInactivity >= SECTION_INACTIVITY_TIMEOUT_MS)
 
   if (isInactiveTimeout) {
-    console.log(`[KioskSession] ⏱️ 5-minute inactivity timeout reached for ${session.sessionId} in section ${session.state} on ${kioskId}. Marking previous session as EXPIRED and refreshing kiosk.`)
+    console.log(`[KioskSession] ⏱️ 1-minute phone inactivity timeout reached for ${session.sessionId} in section ${session.state} on ${kioskId}. Marking previous session as EXPIRED and refreshing kiosk.`)
     session.state = 'EXPIRED'
     session.expiredReason = 'INACTIVITY_TIMEOUT'
     session.completedAt = Date.now()
@@ -536,6 +547,9 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       isExpired: true,
       isPhoneInactive: true,
       isInactiveTimeout: true,
+      inactivityRemainingSec: 0,
+      resetAt,
+      isInactiveWarning: false,
       session: {
         sessionId: freshSession.sessionId,
         kioskId: freshSession.kioskId,
@@ -549,6 +563,9 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
         expiresAt: freshSession.expiresAt,
         lastPhoneActivityAt: freshSession.lastPhoneActivityAt,
         lastActivityAt: freshSession.lastActivityAt,
+        inactivityRemainingSec: 60,
+        resetAt: freshSession.createdAt + SECTION_INACTIVITY_TIMEOUT_MS,
+        isInactiveWarning: false,
       },
     })
   }
@@ -560,19 +577,24 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
     ? Math.max(1, Math.ceil(((session.phoneDisconnectGraceMs || 5000) - (Date.now() - session.phoneDisconnectedAt)) / 1000))
     : 0
 
+  const isInactiveWarning = isPrePrintState && inactivityRemainingSec <= 15 && inactivityRemainingSec > 0
+
   res.json({
     success: true,
     hasActiveSession: true,
     isExpired,
     isPhoneInactive: false,
+    inactivityRemainingSec: isPrePrintState ? inactivityRemainingSec : 60,
+    resetAt: isPrePrintState ? resetAt : Date.now() + SECTION_INACTIVITY_TIMEOUT_MS,
+    isInactiveWarning,
     phoneDisconnected: isPrePrintState && Boolean(session.phoneDisconnected),
     phoneGraceRemainingSec,
     session: {
       sessionId: session.sessionId,
       kioskId: session.kioskId,
       kioskVariant: session.kioskVariant || getKioskVariantSync(session.kioskId),
-      token: session.token,
-      qrUrl: session.progressData?.qrUrl,
+      token: session.state === 'QR_READY' ? session.token : undefined,
+      qrUrl: session.state === 'QR_READY' ? session.progressData?.qrUrl : undefined,
       state: session.state,
       phase: session.phase,
       phaseStep: session.phaseStep,
@@ -587,6 +609,10 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       expiresAt: session.expiresAt,
       claimedAt: session.claimedAt,
       lastPhoneActivityAt: session.lastPhoneActivityAt,
+      currentSectionEnteredAt: session.currentSectionEnteredAt,
+      inactivityRemainingSec: isPrePrintState ? inactivityRemainingSec : 60,
+      resetAt: isPrePrintState ? resetAt : Date.now() + SECTION_INACTIVITY_TIMEOUT_MS,
+      isInactiveWarning,
       phoneDisconnected: isPrePrintState && Boolean(session.phoneDisconnected),
       phoneGraceRemainingSec,
       completedAt: session.completedAt,
@@ -612,170 +638,101 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
  * Called by the web app when user scans the QR.
  * First caller wins — subsequent callers get "session taken".
  */
-kioskSessionsRouter.post('/:token/claim', (req: Request, res: Response) => {
+kioskSessionsRouter.post('/:token/claim', kioskSessionClaimLimiter, (req: Request, res: Response) => {
   const { token } = req.params
-  const clientIp = String(req.ip || req.socket?.remoteAddress || 'unknown')
   const clientClaimToken = String(
     req.body?.clientClaimToken || req.headers['x-client-claim-token'] || ''
   ).trim()
 
   const { valid, payload, error } = verifyToken(token)
   const targetKioskId = String(payload?.kioskId || req.body?.kioskId || 'PB-001').toUpperCase().trim()
-  const webBase = resolveWebBaseUrl(req)
 
-  // 1. If token is invalid or expired, gracefully adopt or generate active session for the kiosk
+  // 1. Strict security: Invalid or expired signatures must NEVER auto-generate fresh sessions
   if (!valid || !payload) {
-    console.log(`[KioskSession] 🔄 Token invalid/expired (${error}). Auto-recovering session for kiosk ${targetKioskId}`)
-    const currentActiveId = activeSessionByKiosk.get(targetKioskId)
-    if (currentActiveId) {
-      const currentSession = sessions.get(currentActiveId)
-      if (currentSession && currentSession.state !== 'DONE' && currentSession.state !== 'CANCELLED' && Date.now() < currentSession.expiresAt) {
-        const assignedSecret = clientClaimToken || currentSession.claimSecret || crypto.randomBytes(16).toString('hex')
-        currentSession.claimSecret = assignedSecret
-        currentSession.lastPhoneActivityAt = Date.now()
-        currentSession.lastActivityAt = Date.now()
-        currentSession.phoneDisconnected = false
-        saveSession(currentSession)
-
-        const liveVariant = currentSession.kioskVariant || getKioskVariantSync(targetKioskId)
-        return res.json({
-          success: true,
-          isOwner: true,
-          sessionId: currentSession.sessionId,
-          kioskId: targetKioskId,
-          kioskVariant: liveVariant,
-          variant: liveVariant,
-          state: currentSession.state,
-          claimSecret: assignedSecret,
-          token: currentSession.token,
-          message: 'Session resumed.',
-        })
-      }
-    }
-
-    // Generate fresh session
-    const freshSession = generateSession(targetKioskId, webBase)
-    activeSessionByKiosk.set(targetKioskId, freshSession.sessionId)
-    freshSession.claimedAt = Date.now()
-    freshSession.lastPhoneActivityAt = Date.now()
-    freshSession.lastActivityAt = Date.now()
-    freshSession.state = 'CLAIMED'
-    freshSession.phase = 'User scanning and opening upload page…'
-    freshSession.phaseStep = 1
-    freshSession.claimSecret = clientClaimToken || crypto.randomBytes(16).toString('hex')
-    saveSession(freshSession)
-
-    const liveVariant = freshSession.kioskVariant || getKioskVariantSync(targetKioskId)
-    return res.json({
-      success: true,
-      sessionId: freshSession.sessionId,
+    const isExpired = error?.toLowerCase().includes('expired')
+    console.warn(`[KioskSession] 🔒 Rejected invalid/expired token claim for ${targetKioskId}: ${error}`)
+    return res.status(isExpired ? 410 : 400).json({
+      success: false,
+      isExpired: Boolean(isExpired),
+      error: isExpired ? 'SESSION_EXPIRED' : 'INVALID_TOKEN',
+      message: isExpired
+        ? 'This QR code has expired. Please scan the current live QR code on the kiosk screen.'
+        : 'Invalid or forged QR code token. Please scan the official QR code on the kiosk screen.',
       kioskId: targetKioskId,
-      kioskVariant: liveVariant,
-      variant: liveVariant,
-      token: freshSession.token,
-      claimSecret: freshSession.claimSecret,
-      state: freshSession.state,
-      message: 'Session claimed.',
     })
   }
 
   const { sessionId, kioskId } = payload
   const currentActiveId = activeSessionByKiosk.get(kioskId)
 
-  // 2. If requested token is not for currentActiveId, adopt the live session if available
+  // 2. If requested token is not for currentActiveId:
   if (currentActiveId && currentActiveId !== sessionId) {
-    const currentSession = sessions.get(currentActiveId)
-    const isHardwarePrinting = currentSession && currentSession.state === 'PRINTING'
-
-    if (isHardwarePrinting) {
+    const activeSess = sessions.get(currentActiveId)
+    // If the active session is currently claimed or in progress by another customer:
+    if (activeSess && activeSess.state !== 'QR_READY' && activeSess.state !== 'DONE' && activeSess.state !== 'CANCELLED' && Date.now() < activeSess.expiresAt) {
+      console.log(`[KioskSession] ⚠️ Kiosk ${kioskId} is active with session ${currentActiveId} in state ${activeSess.state}. Rejecting claim for ${sessionId}.`)
       return res.status(409).json({
         success: false,
+        machineInUse: true,
         error: 'MACHINE_ALREADY_IN_USE',
         code: 'MACHINE_ALREADY_IN_USE',
-        message: 'Machine is currently printing for another customer. Please wait a moment.',
+        message: 'This printer is currently in use by another customer. Please wait until they are finished.',
         kioskId,
+        state: activeSess.state,
       })
     }
 
-    if (currentSession && currentSession.state !== 'DONE' && Date.now() < currentSession.expiresAt) {
-      console.log(`[KioskSession] 🔄 Adopting current live active session ${currentActiveId} for customer on ${kioskId}`)
-      const assignedSecret = clientClaimToken || currentSession.claimSecret || crypto.randomBytes(16).toString('hex')
-      currentSession.claimSecret = assignedSecret
-      currentSession.lastPhoneActivityAt = Date.now()
-      currentSession.lastActivityAt = Date.now()
-      currentSession.phoneDisconnected = false
-      saveSession(currentSession)
-
-      const liveVariant = currentSession.kioskVariant || getKioskVariantSync(kioskId)
-      return res.json({
-        success: true,
-        isOwner: true,
-        sessionId: currentSession.sessionId,
-        kioskId,
-        kioskVariant: liveVariant,
-        variant: liveVariant,
-        state: currentSession.state,
-        claimSecret: assignedSecret,
-        token: currentSession.token,
-        message: 'Session resumed.',
-      })
-    }
+    return res.status(410).json({
+      success: false,
+      isExpired: true,
+      error: 'SESSION_EXPIRED',
+      message: 'This QR code has expired. Please scan the current live QR code on the kiosk screen.',
+      kioskId,
+    })
   }
 
   let session = getSession(sessionId)
 
-  // If session is expired or missing, auto-recover instead of 410 error
+  // If session is expired or completed, return 410
   if (!session || session.state === 'DONE' || session.state === 'CANCELLED' || Date.now() > session.expiresAt) {
-    console.log(`[KioskSession] ✦ Auto-generating fresh session for customer claiming ${kioskId}`)
-    const freshSession = generateSession(kioskId, webBase)
-    activeSessionByKiosk.set(kioskId, freshSession.sessionId)
-    freshSession.claimedAt = Date.now()
-    freshSession.lastPhoneActivityAt = Date.now()
-    freshSession.lastActivityAt = Date.now()
-    freshSession.state = 'CLAIMED'
-    freshSession.phase = 'User scanning and opening upload page…'
-    freshSession.phaseStep = 1
-    freshSession.claimSecret = clientClaimToken || crypto.randomBytes(16).toString('hex')
-    saveSession(freshSession)
-
-    const liveVariant = freshSession.kioskVariant || getKioskVariantSync(kioskId)
-    return res.json({
-      success: true,
-      sessionId: freshSession.sessionId,
+    return res.status(410).json({
+      success: false,
+      isExpired: true,
+      error: 'SESSION_EXPIRED',
+      message: 'This session has expired. Please scan the current live QR code on the kiosk screen.',
       kioskId,
-      kioskVariant: liveVariant,
-      variant: liveVariant,
-      token: freshSession.token,
-      claimSecret: freshSession.claimSecret,
-      state: freshSession.state,
-      message: 'Session claimed.',
     })
   }
 
-  const resolvedVariant = session.kioskVariant || getKioskVariantSync(session.kioskId)
+  // 3. One customer at a time: If session is already claimed, only the owner with matching claimSecret can access
+  const isAlreadyClaimed = (session.state !== 'QR_READY' && Boolean(session.claimedAt))
+  const isOwner = Boolean(session.claimSecret && clientClaimToken && session.claimSecret === clientClaimToken)
 
-  // Only reject if another customer is actively PRINTING paper
-  if (session.state === 'PRINTING' && session.claimSecret && clientClaimToken && session.claimSecret !== clientClaimToken) {
+  if (isAlreadyClaimed && !isOwner) {
+    console.log(`[KioskSession] ⚠️ Session ${sessionId} on ${kioskId} is already claimed by another user. State: ${session.state}`)
     return res.status(409).json({
       success: false,
+      machineInUse: true,
       error: 'MACHINE_ALREADY_IN_USE',
       code: 'MACHINE_ALREADY_IN_USE',
-      message: 'Machine is currently printing. Please wait a moment.',
+      message: 'This printer is currently in use by another customer. Please wait until they are finished.',
       kioskId: session.kioskId,
       state: session.state,
     })
   }
 
-  // Pre-payment or matching owner: grant full access & resume
+  const resolvedVariant = session.kioskVariant || getKioskVariantSync(session.kioskId)
+
+  // 4. Pre-payment or matching owner: assign claim secret & lock session
   const assignedSecret = clientClaimToken || session.claimSecret || crypto.randomBytes(16).toString('hex')
   session.claimSecret = assignedSecret
+  session.claimedAt = session.claimedAt || Date.now()
   session.lastPhoneActivityAt = Date.now()
   session.lastActivityAt = Date.now()
   session.phoneDisconnected = false
   session.phoneDisconnectedAt = undefined
   if (session.state === 'QR_READY') {
     session.state = 'CLAIMED'
-    session.claimedAt = Date.now()
     session.phase = 'User scanning and opening upload page…'
     session.phaseStep = 1
   }
@@ -821,6 +778,17 @@ kioskSessionsRouter.post('/:sessionId/phone-activity', (req: Request, res: Respo
   const now = Date.now() - backdate
   session.lastPhoneActivityAt = now
   session.lastActivityAt = now
+  if (backdate > 0) {
+    if (session.currentSectionEnteredAt && session.currentSectionEnteredAt > now) {
+      session.currentSectionEnteredAt = now
+    }
+    if (session.claimedAt && session.claimedAt > now) {
+      session.claimedAt = now
+    }
+    if (session.createdAt && session.createdAt > now) {
+      session.createdAt = now
+    }
+  }
 
   // If session had pending disconnect countdown, immediately cancel it because phone is active
   if (session.phoneDisconnected) {
@@ -837,6 +805,83 @@ kioskSessionsRouter.post('/:sessionId/phone-activity', (req: Request, res: Respo
     lastPhoneActivityAt: now,
     phoneDisconnected: false,
   })
+})
+
+/**
+ * POST /api/kiosk-sessions/kiosk/:kioskId/phone-activity
+ * Fallback to update phone activity by kiosk ID (e.g. PB-001).
+ */
+kioskSessionsRouter.post('/kiosk/:kioskId/phone-activity', (req: Request, res: Response) => {
+  const kioskId = String(req.params.kioskId || '').trim().toUpperCase()
+  const activeId = activeSessionByKiosk.get(kioskId)
+  if (!activeId) {
+    return res.json({ success: true, message: 'No active session' })
+  }
+  const session = getSession(activeId)
+  if (!session || session.state === 'EXPIRED' || session.state === 'DONE' || session.state === 'CANCELLED') {
+    return res.status(410).json({ success: false, isExpired: true, error: 'Session expired or ended' })
+  }
+
+  const backdate = Number(req.body?.backdateMs) || 0
+  const now = Date.now() - backdate
+  session.lastPhoneActivityAt = now
+  session.lastActivityAt = now
+  if (backdate > 0) {
+    if (session.currentSectionEnteredAt && session.currentSectionEnteredAt > now) {
+      session.currentSectionEnteredAt = now
+    }
+    if (session.claimedAt && session.claimedAt > now) {
+      session.claimedAt = now
+    }
+    if (session.createdAt && session.createdAt > now) {
+      session.createdAt = now
+    }
+  }
+
+  if (session.phoneDisconnected) {
+    session.phoneDisconnected = false
+    session.phoneDisconnectedAt = undefined
+  }
+
+  saveSession(session)
+
+  res.json({
+    success: true,
+    kioskId,
+    sessionId: session.sessionId,
+    lastPhoneActivityAt: now,
+    phoneDisconnected: false,
+  })
+})
+
+/**
+ * POST /api/kiosk-sessions/:sessionId/section
+ * POST /api/kiosk-sessions/kiosk/:kioskId/section
+ * Called whenever a section is entered on kiosk or mobile.
+ * Resets the 1-minute inactivity countdown specifically for the newly entered section.
+ */
+kioskSessionsRouter.post(['/:sessionId/section', '/kiosk/:kioskId/section'], (req: Request, res: Response) => {
+  const { sessionId, kioskId } = req.params
+  const resolvedId = sessionId || (kioskId ? activeSessionByKiosk.get(kioskId.toUpperCase()) : null)
+  const session = resolvedId ? getSession(resolvedId) : null
+
+  if (session && session.state !== 'DONE' && session.state !== 'EXPIRED' && session.state !== 'CANCELLED') {
+    const now = Date.now()
+    session.currentSectionEnteredAt = now
+    session.lastPhoneActivityAt = now
+    session.lastActivityAt = now
+    saveSession(session)
+    console.log(`[KioskSession] ⏱️ Reset 1-minute timer for section on session ${session.sessionId}`)
+    return res.json({
+      success: true,
+      sessionId: session.sessionId,
+      currentSectionEnteredAt: now,
+      inactivityRemainingSec: 60,
+      resetAt: now + SECTION_INACTIVITY_TIMEOUT_MS,
+    })
+  }
+
+  res.json({ success: false, error: 'Session not active' })
 })
 
 /**
@@ -1005,7 +1050,7 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
   if (phase) session.phase = phase
   if (typeof phaseStep === 'number') session.phaseStep = phaseStep
   if (otp) session.otp = otp
-  if (orderId) session.orderId = orderId
+  if (orderId && !session.orderId) session.orderId = orderId
   if (fileName) session.fileName = fileName
   if (typeof totalPages === 'number') session.totalPages = totalPages
   if (typeof copies === 'number') session.copies = copies
@@ -1721,7 +1766,7 @@ export async function initiatePaymentForSession(
   session.amount = effectiveAmount
 
   // If session already has an active, valid UPI QR for this exact amount, reuse it without hitting gateway again!
-  if (isQrCurrentForAmount && session.upiIntentUrl && session.orderId) {
+  if (isQrCurrentForAmount && (session.upiIntentUrl || session.upiQrValue) && session.orderId) {
     console.log(`[KioskSession] Reusing active dynamic UPI QR for session ${session.sessionId} (order ${session.orderId}) for ₹${effectiveAmount}`)
     session.state = 'PAYING'
     session.phase = `Scan QR code on kiosk display to pay ₹${effectiveAmount.toFixed(2)}`
@@ -1739,8 +1784,9 @@ export async function initiatePaymentForSession(
   session.paymentUrl = ''
   session.paymentError = undefined
 
-  // Generate a guaranteed globally unique order ID (matching UPI Express format: PB- + 20 hex chars)
-  const orderId = generateUniqueClientTxnId('PB')
+  // Preserve existing orderId if one is already associated with this session or request!
+  const incomingOrderId = (req as any)?.body?.orderId
+  const orderId = session.orderId || incomingOrderId || generateUniqueClientTxnId('PB')
   const otp = session.otp || Math.floor(1000 + Math.random() * 9000).toString()
 
   session.orderId = orderId
@@ -1994,7 +2040,10 @@ kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) 
     })
   }
 
-  const { amount } = req.body
+  const { amount, orderId: reqOrderId } = req.body
+  if (reqOrderId && !session.orderId) {
+    session.orderId = reqOrderId
+  }
   await initiatePaymentForSession(session, req, amount)
 
   res.json({
@@ -2183,8 +2232,17 @@ kioskSessionsRouter.get('/:sessionId/status', (req: Request, res: Response) => {
   }
 
   const isPrePrintState = session.state !== 'PRINTING' && session.state !== 'DONE' && session.state !== 'CANCELLED' && session.state !== 'EXPIRED'
-  const lastActivity = session.lastActivityAt || session.lastPhoneActivityAt || session.claimedAt || session.createdAt
-  const isInactiveTimeout = isPrePrintState && Boolean(lastActivity) && (Date.now() - lastActivity >= SECTION_INACTIVITY_TIMEOUT_MS)
+  const lastPhoneActivity = Math.max(
+    session.lastPhoneActivityAt || 0,
+    session.currentSectionEnteredAt || 0,
+    session.claimedAt || 0,
+    session.createdAt || 0
+  )
+  const elapsedPhoneInactivity = Date.now() - lastPhoneActivity
+  const remainingInactivityMs = Math.max(0, SECTION_INACTIVITY_TIMEOUT_MS - elapsedPhoneInactivity)
+  const inactivityRemainingSec = Math.ceil(remainingInactivityMs / 1000)
+  const resetAt = lastPhoneActivity + SECTION_INACTIVITY_TIMEOUT_MS
+  const isInactiveTimeout = isPrePrintState && Boolean(lastPhoneActivity) && (elapsedPhoneInactivity >= SECTION_INACTIVITY_TIMEOUT_MS)
 
   if (isInactiveTimeout && session.state !== 'EXPIRED') {
     session.state = 'EXPIRED'
@@ -2197,6 +2255,7 @@ kioskSessionsRouter.get('/:sessionId/status', (req: Request, res: Response) => {
   }
 
   const isExpired = session.state === 'EXPIRED' || (session.state !== 'QR_READY' && session.state !== 'DONE' && Date.now() > session.expiresAt)
+  const isInactiveWarning = isPrePrintState && inactivityRemainingSec <= 15 && inactivityRemainingSec > 0
 
   res.json({
     success: true,
@@ -2207,6 +2266,9 @@ kioskSessionsRouter.get('/:sessionId/status', (req: Request, res: Response) => {
     isExpired,
     expiredReason: session.expiredReason,
     expiresAt: session.expiresAt,
+    inactivityRemainingSec: isPrePrintState ? inactivityRemainingSec : 60,
+    resetAt: isPrePrintState ? resetAt : Date.now() + SECTION_INACTIVITY_TIMEOUT_MS,
+    isInactiveWarning,
     document: session.document,
     files: session.files || session.document?.files || [],
     settings: session.settings,
