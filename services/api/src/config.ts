@@ -4,38 +4,15 @@ import type { Request } from 'express'
  * Resolves the public customer web URL (e.g. 'https://printbooth.in' or 'http://localhost:5200').
  * Reads environment variables: SITE_URL or CLIENT_WEB_URL, or derives from incoming request.
  */
-export function getPublicWebUrl(req?: Request): string {
+export function getPublicWebUrl(_req?: Request): string {
   const envUrl = process.env.SITE_URL || process.env.CLIENT_WEB_URL || process.env.VITE_SITE_URL || process.env.VITE_CLIENT_WEB_URL
-  if (envUrl) {
+  if (envUrl && envUrl.trim()) {
     const clean = envUrl.trim().replace(/\/+$/, '')
-    // Don't use legacy 5201 port default if it wasn't explicitly desired
-    if (clean && clean !== 'http://localhost:5201') {
+    if (clean && !clean.includes('192.168.') && clean !== 'http://localhost:5201' && clean !== 'http://localhost:5200') {
       return clean
     }
   }
-
-  // If request origin or referer header is provided from client browser
-  if (req) {
-    const origin = req.headers?.origin || req.headers?.referer
-    if (typeof origin === 'string' && origin) {
-      try {
-        const parsed = new URL(origin)
-        // Ensure not admin console (port 5174 or admin. subdomain)
-        if (!parsed.port.includes('5174') && !parsed.hostname.startsWith('admin.')) {
-          return `${parsed.protocol}//${parsed.host}`
-        }
-      } catch {}
-    }
-
-    // Try host header if reverse proxied
-    const host = req.headers?.host
-    if (host && !host.includes('5000') && !host.includes('5174')) {
-      const proto = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http'
-      return `${proto}://${host}`
-    }
-  }
-
-  return envUrl ? envUrl.trim().replace(/\/+$/, '') : 'http://localhost:5200'
+  return 'https://printbooth.co.in'
 }
 
 /**

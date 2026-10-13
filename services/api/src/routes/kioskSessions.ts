@@ -245,7 +245,7 @@ function generateSession(kioskId: string, webBaseUrl: string): KioskSession {
   const token = signPayload(payload)
 
   // The QR encodes the full web URL with the session embedded
-  const cleanBase = webBaseUrl.replace(/\/+$/, '')
+  const cleanBase = 'https://printbooth.co.in'
   const qrUrl = `${cleanBase}/print?id=${encodeURIComponent(kioskId)}&session=${encodeURIComponent(token)}`
   const kioskVariant = getKioskVariantSync(kioskId)
 
@@ -330,21 +330,9 @@ function getActiveSession(kioskId: string): KioskSession | null {
   return s
 }
 
-// Resolve web base URL from request or env
-function resolveWebBaseUrl(req: Request): string {
-  const envUrl = process.env.SITE_URL || process.env.CLIENT_WEB_URL || process.env.VITE_SITE_URL || process.env.VITE_CLIENT_WEB_URL
-  if (envUrl && envUrl.trim()) {
-    const clean = envUrl.trim().replace(/\/+$/, '')
-    if (!clean.includes('192.168.1.4:')) {
-      return clean
-    }
-  }
-  const host = req.get('host')
-  if (host && !host.includes('5000') && !host.includes('5174')) {
-    const proto = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http'
-    return `${proto}://${host}`
-  }
-  return 'http://localhost:5200'
+// Resolve web base URL from request or env (canonical: https://printbooth.co.in)
+function resolveWebBaseUrl(_req: Request): string {
+  return 'https://printbooth.co.in'
 }
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
@@ -359,13 +347,7 @@ kioskSessionsRouter.post('/create', kioskSessionCreateLimiter, (req: Request, re
     req.body?.kioskId || req.headers['x-kiosk-id'] || 'PB-001'
   ).toUpperCase().trim()
 
-  const requestedBase = req.body?.webBaseUrl
-  const envBase = (process.env.SITE_URL || process.env.CLIENT_WEB_URL || process.env.VITE_SITE_URL || process.env.VITE_CLIENT_WEB_URL)?.trim().replace(/\/+$/, '')
-  // If requestedBase contains the obsolete hardcoded IP (192.168.1.4:) or cloud domain mismatch, discard it and prioritize envBase
-  const isRequestedInvalid = !requestedBase || requestedBase.includes('192.168.1.4:') || (envBase && requestedBase.includes('printbooth.co.in') && !envBase.includes('printbooth.co.in'))
-  const webBase = (!isRequestedInvalid && requestedBase)
-    ? requestedBase.replace(/\/+$/, '')
-    : (envBase || resolveWebBaseUrl(req))
+  const webBase = 'https://printbooth.co.in'
   const force = Boolean(req.body?.force)
 
   // If an active session is currently underway (e.g. uploading, reviewing, configuring, paying),
@@ -374,11 +356,10 @@ kioskSessionsRouter.post('/create', kioskSessionCreateLimiter, (req: Request, re
   if (prevId && !force) {
     const prev = sessions.get(prevId)
     if (prev && prev.state !== 'DONE' && Date.now() < prev.expiresAt) {
-      // Sanitize stale qrUrl: if it contains the old IP or localhost, rebuild with current webBase
+      // Sanitize stale qrUrl: ensure it uses https://printbooth.co.in
       const prevQrUrl = prev.progressData?.qrUrl || ''
-      const hasStaleIp = prevQrUrl.includes('192.168.1.4:') || prevQrUrl.includes('localhost:5200')
-      if (hasStaleIp && prev.token) {
-        const freshQrUrl = `${webBase}/print?id=${encodeURIComponent(kioskId)}&session=${encodeURIComponent(prev.token)}`
+      if (!prevQrUrl.startsWith('https://printbooth.co.in') && prev.token) {
+        const freshQrUrl = `https://printbooth.co.in/print?id=${encodeURIComponent(kioskId)}&session=${encodeURIComponent(prev.token)}`
         if (prev.progressData) prev.progressData.qrUrl = freshQrUrl
         saveSession(prev)
         console.log(`[KioskSession] Refreshed stale qrUrl for session ${prev.sessionId}: ${freshQrUrl}`)

@@ -42,4 +42,4 @@ Thumbs.db
 .agents/
 
 # Standalone Embedded Pi Repository (tracked at https://github.com/Zazbhai/kiosk.git)
-kiosk/
+/kiosk/

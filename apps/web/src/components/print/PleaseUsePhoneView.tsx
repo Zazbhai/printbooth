@@ -15,22 +15,10 @@ export default function PleaseUsePhoneView({ kioskId, kioskName, onBypass }: Ple
 
   // Current page URL to encode into QR code so the user can immediately scan with phone camera
   const currentUrl = useMemo(() => {
-    const configuredBase = (import.meta.env.VITE_SITE_URL || import.meta.env.VITE_CLIENT_WEB_URL || '').trim().replace(/\/+$/, '')
-    if (typeof window !== 'undefined') {
-      let href = window.location.href
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        const lanBase = configuredBase && !configuredBase.includes('192.168.1.4:')
-          ? configuredBase
-          : `${window.location.protocol}//${window.location.hostname}:5200`
-        href = href.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, lanBase)
-      }
-      return href
-    }
-    const fallbackBase = configuredBase && !configuredBase.includes('192.168.1.4:')
-      ? configuredBase
-      : 'http://192.168.1.41:5200'
-    return `${fallbackBase}/print`
-  }, [])
+    const base = 'https://printbooth.co.in'
+    const id = kioskId ? encodeURIComponent(kioskId) : 'PB-001'
+    return `${base}/print?id=${id}`
+  }, [kioskId])
 
   const handleCopyLink = useCallback(() => {
     if (navigator?.clipboard?.writeText) {
