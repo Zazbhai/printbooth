@@ -289,13 +289,28 @@ function dispatchWindowsPrintJob(job: PrintJobState) {
   })
 }
 
+const recentlyDispatchedOrders = new Map<string, number>()
+
 /**
  * Dispatches a print job.
  * Prioritizes relaying the job to the connected Raspberry Pi kiosk (via WebSocket),
- * which controls the physical Brother CUPS printer.
+ * which controls the physical CUPS printer.
  * Never executes on the developer host machine unless explicitly opted in via ALLOW_HOST_WINDOWS_PRINT=true.
  */
-export function dispatchPrintJob(job: PrintJobState) {
+export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = false) {
+  const now = Date.now()
+  const lastDispatched = recentlyDispatchedOrders.get(job.orderId)
+  if (!forceReprint && lastDispatched && (now - lastDispatched) < 60000) {
+    console.log(`[Print Dispatch] ℹ Order ${job.orderId} was already dispatched ${Math.round((now - lastDispatched) / 1000)}s ago. Skipping duplicate dispatch.`)
+    return
+  }
+  recentlyDispatchedOrders.set(job.orderId, now)
+  if (recentlyDispatchedOrders.size > 200) {
+    for (const [k, t] of recentlyDispatchedOrders.entries()) {
+      if (now - t > 180000) recentlyDispatchedOrders.delete(k)
+    }
+  }
+
   const targetKiosk = job.kioskId || 'PB-001'
   if (isKioskRelayConnected(targetKiosk)) {
     job.status = 'PRINTING'
@@ -309,7 +324,7 @@ export function dispatchPrintJob(job: PrintJobState) {
         ...job,
         fileUrl: job.fileUrl || `/api/print/download/${job.orderId}`,
         immediate: true,
-        forceKioskPrint: true,
+        forceKioskPrint: false,
       },
     })
     return
@@ -571,8 +586,10 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
         masterOrderId: masterOrderId ? String(masterOrderId).trim() : undefined,
         fileIndex,
         totalFiles,
-        immediate: isImmediate,
-        isImmediate,
+        // PRINT_JOB_STAGED stages the file and pre-fetches the cache.
+        // For immediate execution, dispatchPrintJob below sends PRINT_EXECUTE.
+        immediate: false,
+        isImmediate: false,
         stagedAt: Date.now(),
       },
     })
