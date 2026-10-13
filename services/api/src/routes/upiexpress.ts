@@ -27,6 +27,38 @@ upiExpressRouter.use(paymentLimiter)
 const UPIEXPRESS_BASE_URL = 'https://upiexpress.com/api'
 
 /**
+ * In-memory deduplication store for UPI transaction IDs.
+ * Prevents duplicate print dispatches when UPIExpress fires the same payment webhook twice
+ * (same upi_transaction_id / bankReferenceNo with different client_txn_id values).
+ * TTL: 30 minutes — entries are auto-pruned after that window.
+ */
+const processedUpiTxnIds = new Map<string, number>() // upiTxnId -> processedAt timestamp
+const UPI_DEDUP_TTL_MS = 30 * 60 * 1000 // 30 minutes
+
+function isUpiTxnAlreadyProcessed(upiTxnId: string): boolean {
+  if (!upiTxnId) return false
+  const processedAt = processedUpiTxnIds.get(upiTxnId)
+  if (!processedAt) return false
+  if (Date.now() - processedAt > UPI_DEDUP_TTL_MS) {
+    processedUpiTxnIds.delete(upiTxnId)
+    return false
+  }
+  return true
+}
+
+function markUpiTxnProcessed(upiTxnId: string): void {
+  if (!upiTxnId) return
+  processedUpiTxnIds.set(upiTxnId, Date.now())
+  // Prune expired entries (keep Map size bounded)
+  if (processedUpiTxnIds.size > 1000) {
+    const cutoff = Date.now() - UPI_DEDUP_TTL_MS
+    for (const [k, v] of processedUpiTxnIds) {
+      if (v < cutoff) processedUpiTxnIds.delete(k)
+    }
+  }
+}
+
+/**
  * Generate a guaranteed globally unique client transaction ID.
  * Follows exact UPI Express / BharatPe format: 'PB-' + 20 hex characters (total 23 chars).
  * Example: 'PB-c8d62aa6abcb498b9504'
@@ -611,7 +643,8 @@ upiExpressRouter.post('/check-status', async (req: Request, res: Response) => {
                 status:     'CAPTURED',
                 capturedAt: details.paymentTimestamp,
                 method:     'upi',
-                amount:     details.amount || undefined,
+                // NOTE: 'amount' is intentionally omitted from $set to avoid
+                // ConflictingUpdateOperators when $setOnInsert also sets 'amount'
                 notes: {
                   gateway:         'upiexpress',
                   upiTxnId:        details.upiTxnId,
@@ -677,8 +710,15 @@ upiExpressRouter.post('/check-status', async (req: Request, res: Response) => {
         if (details.customerEmail) fb.customerEmail = details.customerEmail
       }
 
-      relayPaymentCaptured(effectiveClientTxnId, cleanKioskId, details)
-      triggerSessionPrintOnPayment(effectiveClientTxnId, cleanKioskId, details)
+      // Guard: only relay + dispatch print once per UPI transaction (even on repeated polling)
+      const csCanonicalUpiId = details.upiTxnId || details.bankReferenceNo || details.internalUtr || effectiveClientTxnId
+      if (!isUpiTxnAlreadyProcessed(csCanonicalUpiId)) {
+        markUpiTxnProcessed(csCanonicalUpiId)
+        relayPaymentCaptured(effectiveClientTxnId, cleanKioskId, details)
+        triggerSessionPrintOnPayment(effectiveClientTxnId, cleanKioskId, details)
+      } else {
+        console.log(`[UPIExpress check-status] ℹ️  Already processed UPI txn ${csCanonicalUpiId} — skipping duplicate relay/print`)
+      }
     }
 
     res.json({
@@ -707,6 +747,21 @@ upiExpressRouter.post('/webhook', async (req: Request, res: Response) => {
     const { clientTxnId, isSuccess } = details
 
     if (isSuccess && clientTxnId) {
+      // ── UPI Transaction Deduplication ────────────────────────────────────
+      // UPIExpress occasionally fires multiple webhooks for the same real payment
+      // (same upi_transaction_id) with different client_txn_id values.
+      // We deduplicate on the canonical UPI bank reference number to ensure only
+      // the FIRST webhook triggers the print dispatch.
+      const canonicalUpiId = details.upiTxnId || details.bankReferenceNo || details.internalUtr
+      const isDuplicateUpiTxn = canonicalUpiId ? isUpiTxnAlreadyProcessed(canonicalUpiId) : false
+
+      if (isDuplicateUpiTxn) {
+        console.warn(`[UPIExpress Webhook] ⚠️  Duplicate webhook for UPI txn ${canonicalUpiId} (client_txn_id: ${clientTxnId}) — skipping print dispatch (already processed)`)
+        return res.json({ success: true, received: true, clientTxnId, isSuccess, duplicate: true })
+      }
+
+      if (canonicalUpiId) markUpiTxnProcessed(canonicalUpiId)
+
       if (isDbConnected()) {
         try {
           const paymentRecordId = details.upiTxnId ? `UPIE-${details.upiTxnId}` : `UPIE-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
@@ -717,7 +772,8 @@ upiExpressRouter.post('/webhook', async (req: Request, res: Response) => {
                 status:     'CAPTURED',
                 capturedAt: details.paymentTimestamp,
                 method:     'upi',
-                amount:     details.amount || undefined,
+                // NOTE: 'amount' is intentionally omitted from $set to avoid
+                // ConflictingUpdateOperators when $setOnInsert also sets 'amount'
                 notes: {
                   gateway:         'upiexpress',
                   upiTxnId:        details.upiTxnId,
@@ -787,7 +843,7 @@ upiExpressRouter.post('/webhook', async (req: Request, res: Response) => {
             currency: 'INR',
             customerPhone: details.customerMobile,
             customerEmail: details.customerEmail,
-            customerIp: '192.168.1.4',
+            customerIp: '192.168.1.41',
             paymentConfirmation: {
               status: 'CONFIRMED',
               confirmedAt: details.paymentTimestamp,
