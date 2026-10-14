@@ -964,6 +964,7 @@ export default function UnifiedPrintPage() {
   const [stationOfflineReason, setStationOfflineReason] = useState('PRINTER OFFLINE')
   const [stationOfflineDetail, setStationOfflineDetail] = useState('')
   const [stationOfflineRecommendation, setStationOfflineRecommendation] = useState('')
+  const consecutiveFailuresRef = useRef<number>(0)
 
   const activeStationId = (printerId || urlId || savedKioskId || 'PB-001').trim().toUpperCase()
 
@@ -984,29 +985,42 @@ export default function UnifiedPrintPage() {
       if (isEnvTestMode) return
       const offlineKiosk = (payload?.kioskId || '').toUpperCase()
       if (!offlineKiosk || offlineKiosk === activeStationId) {
-        setIsStationOffline(true)
-        setIsPrinterBusy(false)
-        setMachineInUseState(null)
-        setStationOfflineReason(payload?.merchantError ? 'PAYMENT / PRINTER OFFLINE' : 'PRINTER OFFLINE')
-        setStationOfflineDetail(payload?.merchantError || payload?.reason || payload?.detail || 'Printing station is currently offline.')
-        setStationOfflineRecommendation(payload?.merchantRecommendation || payload?.recommendation || '')
+        if (hasActiveJob || hasVerifiedSession || Boolean(urlSessionToken)) {
+          return
+        }
+        consecutiveFailuresRef.current += 1
+        if (consecutiveFailuresRef.current >= 4) {
+          setIsStationOffline(true)
+          setIsPrinterBusy(false)
+          setMachineInUseState(null)
+          setStationOfflineReason(payload?.merchantError ? 'PAYMENT / PRINTER OFFLINE' : 'PRINTER OFFLINE')
+          setStationOfflineDetail(payload?.merchantError || payload?.reason || payload?.detail || 'Printing station is currently offline.')
+          setStationOfflineRecommendation(payload?.merchantRecommendation || payload?.recommendation || '')
+        }
       }
     }
     const handlePrinterError = (payload: any) => {
       if (isEnvTestMode) return
       const target = (payload?.kioskId || '').toUpperCase()
       if (!target || target === activeStationId) {
-        setIsStationOffline(true)
-        setIsPrinterBusy(false)
-        setMachineInUseState(null)
-        setStationOfflineReason('PRINTER ERROR')
-        setStationOfflineDetail(payload?.error || payload?.detail || payload?.reason || 'Printer hardware error reported. Station is temporarily paused.')
-        setStationOfflineRecommendation(payload?.merchantRecommendation || payload?.recommendation || '')
+        if (hasActiveJob || hasVerifiedSession || Boolean(urlSessionToken)) {
+          return
+        }
+        consecutiveFailuresRef.current += 1
+        if (consecutiveFailuresRef.current >= 4) {
+          setIsStationOffline(true)
+          setIsPrinterBusy(false)
+          setMachineInUseState(null)
+          setStationOfflineReason('PRINTER ERROR')
+          setStationOfflineDetail(payload?.error || payload?.detail || payload?.reason || 'Printer hardware error reported. Station is temporarily paused.')
+          setStationOfflineRecommendation(payload?.merchantRecommendation || payload?.recommendation || '')
+        }
       }
     }
     const handleKioskOnline = (payload: any) => {
       const onlineKiosk = (payload?.kioskId || '').toUpperCase()
       if (!onlineKiosk || onlineKiosk === activeStationId) {
+        consecutiveFailuresRef.current = 0
         setIsStationOffline(false)
         setStationOfflineDetail('')
         setStationOfflineRecommendation('')
@@ -1030,7 +1044,7 @@ export default function UnifiedPrintPage() {
       unsubOnline()
       unsubInit()
     }
-  }, [activeStationId, isEnvTestMode])
+  }, [activeStationId, isEnvTestMode, hasActiveJob, hasVerifiedSession, urlSessionToken])
 
   // 2. Continuous telemetry check for active station (polls every 3s)
   useEffect(() => {
@@ -1047,7 +1061,10 @@ export default function UnifiedPrintPage() {
 
       // Don't block kiosk selection step or history
       if (effectiveStep === 'kiosk' || effectiveStep === 'history') {
-        if (mounted) setIsStationOffline(false)
+        if (mounted) {
+          consecutiveFailuresRef.current = 0
+          setIsStationOffline(false)
+        }
         return
       }
 
@@ -1062,6 +1079,9 @@ export default function UnifiedPrintPage() {
         }
         return
       }
+
+      const isUserMidFlow = hasActiveJob || hasVerifiedSession || Boolean(urlSessionToken) || ['upload', 'confirm', 'settings', 'review', 'payment'].includes(effectiveStep)
+      const failureThreshold = isUserMidFlow ? 6 : 4
 
       // Check liveKiosks registry first if available
       if (liveKiosks && Array.isArray(liveKiosks) && liveKiosks.length > 0) {
@@ -1089,7 +1109,8 @@ export default function UnifiedPrintPage() {
             ))
           )
           if (hasErrorOrOffline) {
-            if (mounted) {
+            consecutiveFailuresRef.current += 1
+            if (consecutiveFailuresRef.current >= failureThreshold && mounted) {
               setIsStationOffline(true)
               setIsPrinterBusy(false)
               setMachineInUseState(null)
@@ -1111,6 +1132,13 @@ export default function UnifiedPrintPage() {
               setStationOfflineRecommendation(mRec || '')
             }
             return
+          } else {
+            consecutiveFailuresRef.current = 0
+            if (mounted && isStationOffline) {
+              setIsStationOffline(false)
+              setStationOfflineDetail('')
+              setStationOfflineRecommendation('')
+            }
           }
         }
       }
@@ -1120,25 +1148,34 @@ export default function UnifiedPrintPage() {
         const check = await checkPrinterHardwareStatus(activeStationId)
         if (!mounted) return
         if (!check.isAvailable) {
-          setIsStationOffline(true)
-          setIsPrinterBusy(false)
-          setMachineInUseState(null)
-          setStationOfflineReason(check.reason ? (check.reason.toUpperCase().includes('OFFLINE') ? 'PRINTER OFFLINE' : check.reason.toUpperCase()) : 'PRINTER OFFLINE')
-          setStationOfflineDetail(check.detail || `Station ${check.kioskName || activeStationId} is offline. Please wait or choose another kiosk.`)
-          setStationOfflineRecommendation((check as any).recommendation || '')
+          consecutiveFailuresRef.current += 1
+          if (consecutiveFailuresRef.current >= failureThreshold) {
+            setIsStationOffline(true)
+            setIsPrinterBusy(false)
+            setMachineInUseState(null)
+            setStationOfflineReason(check.reason ? (check.reason.toUpperCase().includes('OFFLINE') ? 'PRINTER OFFLINE' : check.reason.toUpperCase()) : 'PRINTER OFFLINE')
+            setStationOfflineDetail(check.detail || `Station ${check.kioskName || activeStationId} is offline. Please wait or choose another kiosk.`)
+            setStationOfflineRecommendation((check as any).recommendation || '')
+          }
         } else {
-          setIsStationOffline(false)
-          setStationOfflineDetail('')
-          setStationOfflineRecommendation('')
+          consecutiveFailuresRef.current = 0
+          if (isStationOffline) {
+            setIsStationOffline(false)
+            setStationOfflineDetail('')
+            setStationOfflineRecommendation('')
+          }
         }
       } catch {
         if (!mounted) return
-        setIsStationOffline(true)
-        setIsPrinterBusy(false)
-        setMachineInUseState(null)
-        setStationOfflineReason('PRINTER OFFLINE')
-        setStationOfflineDetail(`Station ${activeStationId} is offline or unreachable. Please choose another kiosk.`)
-        setStationOfflineRecommendation('')
+        consecutiveFailuresRef.current += 1
+        if (consecutiveFailuresRef.current >= failureThreshold) {
+          setIsStationOffline(true)
+          setIsPrinterBusy(false)
+          setMachineInUseState(null)
+          setStationOfflineReason('PRINTER OFFLINE')
+          setStationOfflineDetail(`Station ${activeStationId} is offline or unreachable. Please choose another kiosk.`)
+          setStationOfflineRecommendation('')
+        }
       }
     }
 
@@ -1148,7 +1185,7 @@ export default function UnifiedPrintPage() {
       mounted = false
       clearInterval(interval)
     }
-  }, [activeStationId, effectiveStep, liveKiosks])
+  }, [activeStationId, effectiveStep, liveKiosks, isEnvTestMode, hasActiveJob, hasVerifiedSession, urlSessionToken, isStationOffline])
 
   // Desktop Intercept: When accessing print terminal from a desktop PC or laptop
   if (!isMobileDevice) {

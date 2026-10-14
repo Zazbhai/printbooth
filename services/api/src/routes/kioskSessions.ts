@@ -1887,14 +1887,14 @@ export async function initiatePaymentForSession(
   // If session already has an active, valid UPI QR for this exact amount, reuse it without hitting gateway again!
   if (isQrCurrentForAmount && (session.upiIntentUrl || session.upiQrValue) && session.orderId) {
     const fresh = getSession(session.sessionId)
-    if (fresh && ['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(fresh.state)) {
+    if (fresh && (fresh.state === 'PRINTING' || fresh.state === 'DONE')) {
       console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${fresh.state}. Skipping state override to PAYING.`)
       return
     }
     console.log(`[KioskSession] Reusing active dynamic UPI QR for session ${session.sessionId} (order ${session.orderId}) for ₹${effectiveAmount}`)
     session.state = 'PAYING'
     session.phase = `Scan QR code on kiosk display to pay ₹${effectiveAmount.toFixed(2)}`
-    session.phaseStep = 4
+    session.phaseStep = 5
     saveSession(session)
     syncSessionToOrder(session)
     return
@@ -1917,7 +1917,7 @@ export async function initiatePaymentForSession(
   session.otp = otp
 
   const freshBeforeGate = getSession(session.sessionId)
-  if (freshBeforeGate && ['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(freshBeforeGate.state)) {
+  if (freshBeforeGate && (freshBeforeGate.state === 'PRINTING' || freshBeforeGate.state === 'DONE')) {
     console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${freshBeforeGate.state}. Not generating payment before user proceeds to pay.`)
     return
   }
@@ -2103,7 +2103,7 @@ export async function initiatePaymentForSession(
   }
 
   const freshAfterGate = getSession(session.sessionId)
-  if (freshAfterGate && (['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(freshAfterGate.state) || (typeof freshAfterGate.paymentEpoch === 'number' && freshAfterGate.paymentEpoch !== startEpoch))) {
+  if (freshAfterGate && (freshAfterGate.state === 'PRINTING' || freshAfterGate.state === 'DONE' || (typeof freshAfterGate.paymentEpoch === 'number' && freshAfterGate.paymentEpoch !== startEpoch))) {
     console.log(`[KioskSession] 🛑 Session ${session.sessionId} moved to ${freshAfterGate.state} (or epoch changed) during gateway generation. Preserving user phase!`)
     freshAfterGate.orderId = session.orderId
     freshAfterGate.otp = session.otp
@@ -2164,37 +2164,22 @@ kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) 
     return res.json({
       success: true,
       state: 'PRINTING',
-      message: 'Session is already printing. Payment already confirmed.',
+      message: 'Session is already in PRINTING',
       session,
     })
-  }
-
-  const freshCheck = getSession(session.sessionId)
-  if (freshCheck && ['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(freshCheck.state)) {
-    if (freshCheck.state === 'PRINTING' || freshCheck.state === 'DONE') {
-      return res.json({
-        success: true,
-        state: freshCheck.state,
-        message: `Session is already in ${freshCheck.state}`,
-        session: freshCheck,
-      })
-    }
-    const isExplicitPayStep = req.body?.force === true
-    if (!isExplicitPayStep) {
-      console.log(`[KioskSession] 🛑 /pay request ignored because session is currently in ${freshCheck.state}`)
-      return res.json({
-        success: true,
-        ignored: true,
-        state: freshCheck.state,
-        message: `Session is currently in ${freshCheck.state}`,
-      })
-    }
   }
 
   const { amount, orderId: reqOrderId } = req.body
   if (reqOrderId && !session.orderId) {
     session.orderId = reqOrderId
   }
+
+  // Explicit /pay transitions session into PAYING state
+  session.state = 'PAYING'
+  session.phase = 'Scan QR code on kiosk display to pay'
+  session.phaseStep = 5
+  saveSession(session)
+
   await initiatePaymentForSession(session, req, amount)
 
   res.json({

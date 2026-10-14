@@ -198,6 +198,10 @@ app.use('/api/razorpay', razorpayRouter)
 app.use('/api/upiexpress', upiExpressRouter)
 app.use('/api/print', printRouter)
 app.use('/print', printRouter)
+app.get('/download/:orderId', (req, res, next) => {
+  req.url = `/download/${req.params.orderId}`
+  printRouter(req, res, next)
+})
 app.use('/api/installations', installationsRouter)
 app.use('/api/admin/installations', installationsRouter)
 app.use('/installations', installationsRouter)
