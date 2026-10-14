@@ -112,8 +112,7 @@ export async function setKioskPaper(
     fb.paper = rawPages
     if (!Array.isArray(fb.paperHistory)) fb.paperHistory = []
     fb.paperHistory.push(historyItem)
-    if (rawPages === 0) fb.printerStatus = 'PAPER_EMPTY'
-    else if (fb.printerStatus === 'PAPER_EMPTY') fb.printerStatus = 'READY'
+    if (fb.printerStatus === 'PAPER_EMPTY' && rawPages > 0) fb.printerStatus = 'READY'
   }
 
   // Update MongoDB
@@ -122,7 +121,7 @@ export async function setKioskPaper(
       $set: {
         remainingPages: rawPages,
         paperLevel: Math.min(100, Math.max(0, Math.round((rawPages / (newCapacity || fb?.paperTrayCapacity || DEFAULT_TRAY_CAPACITY)) * 100))),
-        printerStatus: rawPages === 0 ? 'PAPER_EMPTY' : 'READY',
+        ...(rawPages > 0 ? { printerStatus: 'READY' } : {}),
       },
       $push: {
         paperHistory: {
@@ -186,8 +185,7 @@ export async function adjustKioskPaper(
     fb.paper = newPages
     if (!Array.isArray(fb.paperHistory)) fb.paperHistory = []
     fb.paperHistory.push(historyItem)
-    if (newPages === 0) fb.printerStatus = 'PAPER_EMPTY'
-    else if (fb.printerStatus === 'PAPER_EMPTY') fb.printerStatus = 'READY'
+    if (fb.printerStatus === 'PAPER_EMPTY' && newPages > 0) fb.printerStatus = 'READY'
   }
 
   // Update MongoDB
@@ -201,7 +199,7 @@ export async function adjustKioskPaper(
         $set: {
           remainingPages: newPages,
           paperLevel: newLevel,
-          printerStatus: newPages === 0 ? 'PAPER_EMPTY' : 'READY',
+          ...(newPages > 0 ? { printerStatus: 'READY' } : {}),
         },
         $push: {
           paperHistory: {
@@ -247,6 +245,7 @@ export async function consumePaperForOrder(
   }
 
   // Update in-memory fallback
+  // Update in-memory fallback
   const fb = fallbackKiosks.find((k) => k.kioskId === cleanId || k.id === cleanId)
   if (fb) {
     fb.remainingPages = newPages
@@ -255,7 +254,7 @@ export async function consumePaperForOrder(
     fb.paper = newPages
     if (!Array.isArray(fb.paperHistory)) fb.paperHistory = []
     fb.paperHistory.push(historyItem)
-    if (newPages === 0) fb.printerStatus = 'PAPER_EMPTY'
+    // Never falsely lock hardware printer with PAPER_EMPTY from software estimation
   }
 
   // Update MongoDB
@@ -269,7 +268,6 @@ export async function consumePaperForOrder(
         $set: {
           remainingPages: newPages,
           paperLevel: newLevel,
-          ...(newPages === 0 ? { printerStatus: 'PAPER_EMPTY' } : {}),
         },
         $push: {
           paperHistory: {

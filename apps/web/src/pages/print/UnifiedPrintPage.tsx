@@ -1104,7 +1104,6 @@ export default function UnifiedPrintPage() {
             pStat === 'OFFLINE' ||
             pStat === 'ERROR' ||
             pStat === 'PAPER_JAM' ||
-            pStat === 'PAPER_EMPTY' ||
             pStat === 'STOPPED' ||
             pStat === 'DISCONNECTED' ||
             pStat === 'PAUSED' ||

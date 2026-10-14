@@ -312,7 +312,7 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
       const isMaintenance = String(kiosk.status || '').toUpperCase() === 'MAINTENANCE'
       const isKioskOffline = String(kiosk.status || '').toUpperCase() !== 'ONLINE'
       const pStatus = String(kiosk.printerStatus || '').toUpperCase()
-      const isPrinterProblem = pStatus === 'ERROR' || pStatus === 'OFFLINE' || pStatus === 'PAPER_JAM' || pStatus === 'PAPER_EMPTY' || pStatus === 'STOPPED' || pStatus === 'DISCONNECTED' || pStatus === 'PAUSED'
+      const isPrinterProblem = pStatus === 'ERROR' || pStatus === 'OFFLINE' || pStatus === 'PAPER_JAM' || pStatus === 'STOPPED' || pStatus === 'DISCONNECTED' || pStatus === 'PAUSED'
       const isUsbDisconnected = (kiosk as any).usbConnected === false
 
       if (isMaintenance) {
@@ -340,7 +340,7 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
       if (isKioskOffline || isPrinterProblem || isHwUnavailable) {
         return {
           isAvailable: false,
-          reason: pStatus === 'PAPER_JAM' ? 'PAPER JAM' : (pStatus === 'PAPER_EMPTY' ? 'OUT OF PAPER' : 'PRINTER OFFLINE'),
+          reason: pStatus === 'PAPER_JAM' ? 'PAPER JAM' : 'PRINTER OFFLINE',
           detail: `Station ${kiosk.name || kiosk.kioskId || targetKioskId} is currently offline. Please choose another station.`,
           kioskName: kiosk.name,
           printerName: kiosk.printerModel || kiosk.printer,
@@ -350,7 +350,7 @@ export async function checkPrinterHardwareStatus(kioskId?: string, preferredPrin
       // Kiosk is ONLINE and printer is ready/available according to IoT heartbeat & hardware telemetry
       const isKioskOnline = String(kiosk.status || '').toUpperCase() === 'ONLINE'
       const isPrinterReady =
-        ['READY', 'IDLE', 'PRINTING', 'ONLINE', 'AVAILABLE'].includes(pStatus) ||
+        ['READY', 'IDLE', 'PRINTING', 'ONLINE', 'AVAILABLE', 'PAPER_EMPTY'].includes(pStatus) ||
         Boolean(kiosk.hardwareDetails?.isHardwareReady) ||
         Boolean(kiosk.hardwareDetails?.isAvailable)
 

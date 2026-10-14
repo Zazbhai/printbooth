@@ -106,7 +106,7 @@ kiosksRouter.get('/', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:list:'
         const isOffline = isHost ? !livePrinter.isOnline : (k.status === 'OFFLINE' || k.printerStatus === 'OFFLINE')
         const printerStatus = isHost
           ? (livePrinter.isOnline ? 'READY' : (livePrinter.statusLabels?.[0] || 'OFFLINE'))
-          : k.printerStatus
+          : (k.printerStatus === 'PAPER_EMPTY' ? 'READY' : (k.printerStatus || 'READY'))
         const isMaintenance = String(k.status || '').toUpperCase() === 'MAINTENANCE'
         const status = isMaintenance ? 'MAINTENANCE' : (isOffline ? 'OFFLINE' : 'ONLINE')
 
@@ -175,14 +175,15 @@ kiosksRouter.get('/', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:list:'
              isUsbDisconnected ||
              k.status === 'OFFLINE' ||
              k.printerStatus === 'OFFLINE' ||
-             k.printerStatus === 'ERROR' ||
              k.printerStatus === 'STOPPED' ||
              k.printerStatus === 'DISCONNECTED' ||
              (k.kioskId === 'PB-001' && !livePrinter.isOnline))
 
+        const rawPStatus = k.printerStatus || 'READY'
+        const resolvedPStatus = (rawPStatus === 'PAPER_EMPTY' && (isTestMode || isPiAlive || isRelayConnected)) ? 'READY' : rawPStatus
         const printerStatus = isTestMode
           ? 'READY'
-          : (isOffline ? 'OFFLINE' : (k.printerStatus || 'READY'))
+          : (isOffline ? 'OFFLINE' : resolvedPStatus)
 
         const isMaintenance = String(k.status || '').toUpperCase() === 'MAINTENANCE'
         const status = isMaintenance
@@ -339,7 +340,7 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
               ? (!isRelayActive || hasLiveError
                   ? (livePrinter.statusLabels?.find((l) => /error/i.test(l)) ? 'ERROR' : 'OFFLINE')
                   : (livePrinter.statusLabels?.[0] || 'READY'))
-              : fb.printerStatus)
+              : (fb.printerStatus === 'PAPER_EMPTY' ? 'READY' : (fb.printerStatus || 'READY')))
         const isMaintenance = String(fb.status || '').toUpperCase() === 'MAINTENANCE'
         return res.json({
           success: true,
@@ -404,11 +405,14 @@ kiosksRouter.get('/:id', cacheMiddleware({ ttlSeconds: 5, keyPrefix: 'kiosks:det
              kDoc.printerStatus === 'DISCONNECTED' ||
              (cleanId === 'PB-001' && !livePrinter.isOnline)))
 
+    const rawPStatus = kDoc.printerStatus || 'READY'
+    const resolvedPStatus = (rawPStatus === 'PAPER_EMPTY' && (isTestMode || isPiAlive || isRelayActive)) ? 'READY' : rawPStatus
+
     const printerStatus = isMerchantBlocked
       ? 'OFFLINE'
       : (isTestMode
           ? 'READY'
-          : (isOffline ? 'OFFLINE' : (kDoc.printerStatus || 'READY')))
+          : (isOffline ? 'OFFLINE' : resolvedPStatus))
 
     const isMaintenance = String(kDoc.status || '').toUpperCase() === 'MAINTENANCE'
     res.json({
