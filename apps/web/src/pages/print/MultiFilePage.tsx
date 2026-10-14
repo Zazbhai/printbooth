@@ -1000,7 +1000,7 @@ export default function MultiFilePage() {
             <div className="mfp-formats">
               <span className="mfp-format-tag pdf">PDF</span>
               <span className="mfp-format-tag img">PNG / JPG / WEBP</span>
-              <span className="mfp-format-tag cap">Max {MAX_FILES} files · 50MB</span>
+              <span className="mfp-format-tag cap">Max {MAX_FILES} files · 10MB</span>
             </div>
           </div>
         </div>
@@ -1038,7 +1038,7 @@ export default function MultiFilePage() {
         </div>
         <div className="mfp-hint-divider" />
         <div className="mfp-hint-item">
-          <span>Max 50MB per file</span>
+          <span>Max 10MB per file</span>
         </div>
         <div className="mfp-hint-divider" />
         <div className="mfp-hint-item">

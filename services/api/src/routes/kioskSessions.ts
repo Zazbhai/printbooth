@@ -58,8 +58,8 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
-    fieldSize: 50 * 1024 * 1024, // 50MB
+    fileSize: 10 * 1024 * 1024, // 10MB max
+    fieldSize: 25 * 1024 * 1024,
   },
 })
 
@@ -1253,7 +1253,7 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
       return res.status(400).json({
         success: false,
         error: err.code === 'LIMIT_FILE_SIZE'
-          ? 'File too large (max 100MB)'
+          ? 'File too large (maximum size is 10MB)'
           : err.code === 'LIMIT_FIELD_VALUE'
           ? 'Form field value too large'
           : err.message || 'File upload failed',

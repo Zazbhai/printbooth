@@ -21,7 +21,7 @@ import { Skeleton, UploadDropzoneBoneyardFallback } from '../../components/ui/Pr
 import { kioskSession } from '../../lib/kioskSession'
 import './UploadPage.css'
 
-const MAX_SIZE_MB = 50
+const MAX_SIZE_MB = 10
 
 interface UploadState {
   file: File | null

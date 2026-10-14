@@ -220,10 +220,8 @@ export function getFileType(file: File): FileType {
   return 'unknown'
 }
 
-export function getMaxFileSizeMB(type: FileType): number {
-  if (type === 'image') return 20
-  if (type === 'pdf') return 50
-  return 30
+export function getMaxFileSizeMB(_type?: FileType): number {
+  return 10
 }
 
 export function isSupportedFileType(type: FileType): boolean {
