@@ -2956,6 +2956,20 @@ export function findSessionFilePath(orderOrSessionId: string, kioskId?: string):
           if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
             return targetFile.filePath
           }
+          if (targetFile?.fileUrl && fs.existsSync(targetFile.fileUrl)) {
+            return targetFile.fileUrl
+          }
+          if (targetFile?.fileName) {
+            const cleanName = targetFile.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+            try {
+              const uploads = fs.readdirSync(KIOSK_UPLOADS_DIR)
+              const matched = uploads.find(u => u.includes(cleanName) || (u.includes(s.sessionId) && u.includes(cleanName.slice(0, 8))))
+              if (matched) {
+                const fullP = path.join(KIOSK_UPLOADS_DIR, matched)
+                if (fs.existsSync(fullP) && fs.statSync(fullP).size > 0) return fullP
+              }
+            } catch {}
+          }
         }
         if (s.document?.filePath && fs.existsSync(s.document.filePath)) {
           return s.document.filePath
@@ -2975,6 +2989,20 @@ export function findSessionFilePath(orderOrSessionId: string, kioskId?: string):
         const targetFile = active.files[subIdx] || active.files[0]
         if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
           return targetFile.filePath
+        }
+        if (targetFile?.fileUrl && fs.existsSync(targetFile.fileUrl)) {
+          return targetFile.fileUrl
+        }
+        if (targetFile?.fileName) {
+          const cleanName = targetFile.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+          try {
+            const uploads = fs.readdirSync(KIOSK_UPLOADS_DIR)
+            const matched = uploads.find(u => u.includes(cleanName))
+            if (matched) {
+              const fullP = path.join(KIOSK_UPLOADS_DIR, matched)
+              if (fs.existsSync(fullP) && fs.statSync(fullP).size > 0) return fullP
+            }
+          } catch {}
         }
       }
       if (active.document?.filePath && fs.existsSync(active.document.filePath)) {

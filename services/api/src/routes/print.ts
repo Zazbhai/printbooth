@@ -909,22 +909,23 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
       }
     }
 
-    // 0. Strict Privacy & Security Check: If file is marked deleted, expired (> 24 hours), or already printed, block permanently
-    const isDeletedOrPrinted =
-      (job && (job.fileDeleted || job.status === 'PRINTED')) ||
-      (order && (order.fileDeleted || order.status === 'PRINTED' || order.status === 'COMPLETED' || order.status === 'EXPIRED'))
+    // 0. Strict Privacy & Security Check: If file is marked deleted or expired (> 24 hours limit)
+    const isSubOrder = orderId.includes('_sub_')
+    const isExplicitlyDeleted = Boolean(
+      (job && job.fileDeleted) ||
+      (order && order.fileDeleted && !isSubOrder)
+    )
+    const isExpired = Boolean(
+      (job && isOrderFileExpired(job)) ||
+      (order && isOrderFileExpired(order))
+    )
 
-    const isExpired = (job && isOrderFileExpired(job)) || (order && isOrderFileExpired(order))
-
-    if (isDeletedOrPrinted || isExpired) {
-      if (orderId) {
-        permanentlyDeleteOrderFiles(orderId, 'DOWNLOAD_AFTER_PRINT_OR_EXPIRY').catch(() => {})
-      }
+    if (isExplicitlyDeleted || isExpired) {
       return res.status(410).json({
         success: false,
         expired: true,
         fileDeleted: true,
-        error: 'This document has already been printed or has expired (> 24-hour limit) and was permanently deleted.',
+        error: 'This document has expired (> 24-hour limit) or was removed.',
       })
     }
 
