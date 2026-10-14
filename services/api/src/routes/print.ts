@@ -939,10 +939,11 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
     }
 
     const sessionDocPath =
-      findSessionFilePath(orderId) ||
-      findSessionFilePath(masterOrderId) ||
-      (order?.orderNumber ? findSessionFilePath(order.orderNumber) : null) ||
-      (order?.orderId ? findSessionFilePath(order.orderId) : null)
+      findSessionFilePath(orderId, reqKioskId) ||
+      findSessionFilePath(masterOrderId, reqKioskId) ||
+      (order?.orderNumber ? findSessionFilePath(order.orderNumber, reqKioskId) : null) ||
+      (order?.orderId ? findSessionFilePath(order.orderId, reqKioskId) : null) ||
+      (reqKioskId ? findSessionFilePath('', reqKioskId) : null)
 
     if (sessionDocPath && fs.existsSync(sessionDocPath)) {
       return res.sendFile(path.resolve(sessionDocPath))
@@ -970,6 +971,24 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
 
     if (order?.fileUrl && fs.existsSync(order.fileUrl)) {
       return res.sendFile(path.resolve(order.fileUrl))
+    }
+
+    // Direct filename search fallback in kiosk uploads directory
+    const targetFileName = (order?.fileName || job?.fileName || '').replace(/[^a-zA-Z0-9._-]/g, '_')
+    if (targetFileName) {
+      const kioskUploadsDir = path.resolve(__dirname, '../../uploads/kiosk_sessions')
+      if (fs.existsSync(kioskUploadsDir)) {
+        try {
+          const filesInDir = fs.readdirSync(kioskUploadsDir)
+          const matchedFile = filesInDir.filter(f => f.endsWith(`_${targetFileName}`) || f === targetFileName).pop()
+          if (matchedFile) {
+            const resolvedUploadPath = path.join(kioskUploadsDir, matchedFile)
+            if (fs.existsSync(resolvedUploadPath) && fs.statSync(resolvedUploadPath).size > 0) {
+              return res.sendFile(resolvedUploadPath)
+            }
+          }
+        } catch {}
+      }
     }
 
     // Only allow test sample in test mode if order was not deleted or expired

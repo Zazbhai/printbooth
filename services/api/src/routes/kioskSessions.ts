@@ -336,7 +336,7 @@ function saveSession(session: KioskSession) {
   cacheSet(`ks:${session.sessionId}`, session, ttl + 60).catch(() => {})
 }
 
-function getActiveSession(kioskId: string): KioskSession | null {
+export function getActiveSession(kioskId: string): KioskSession | null {
   const id = activeSessionByKiosk.get(kioskId)
   if (!id) return null
   const s = getSession(id)
@@ -2920,40 +2920,60 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
 
 /**
  * Searches in-memory kiosk sessions for a file path associated with the order ID, session ID, or short hash.
+ * Also checks the active session on the specified kiosk if direct ID match is not found.
  */
-export function findSessionFilePath(orderOrSessionId: string): string | null {
-  if (!orderOrSessionId) return null
-  const cleanId = orderOrSessionId.includes('_sub_') ? orderOrSessionId.split('_sub_')[0] : orderOrSessionId
-  const subIdx = orderOrSessionId.includes('_sub_') ? (parseInt(orderOrSessionId.split('_sub_')[1], 10) - 1) : 0
+export function findSessionFilePath(orderOrSessionId: string, kioskId?: string): string | null {
+  if (!orderOrSessionId && !kioskId) return null
+  const cleanId = orderOrSessionId ? (orderOrSessionId.includes('_sub_') ? orderOrSessionId.split('_sub_')[0] : orderOrSessionId) : ''
+  const subIdx = orderOrSessionId && orderOrSessionId.includes('_sub_') ? (parseInt(orderOrSessionId.split('_sub_')[1], 10) - 1) : 0
 
-  for (const s of sessions.values()) {
-    const isMatch =
-      s.orderId === orderOrSessionId ||
-      s.orderId === cleanId ||
-      s.orderNumber === orderOrSessionId ||
-      s.orderNumber === cleanId ||
-      s.sessionId === orderOrSessionId ||
-      s.sessionId === cleanId ||
-      (orderOrSessionId && orderOrSessionId.includes(s.sessionId.slice(-6))) ||
-      (s.orderId && orderOrSessionId.includes(s.orderId)) ||
-      (s.orderNumber && orderOrSessionId.includes(s.orderNumber))
+  if (cleanId) {
+    for (const s of sessions.values()) {
+      const isMatch =
+        s.orderId === orderOrSessionId ||
+        s.orderId === cleanId ||
+        s.orderNumber === orderOrSessionId ||
+        s.orderNumber === cleanId ||
+        s.sessionId === orderOrSessionId ||
+        s.sessionId === cleanId ||
+        (orderOrSessionId && orderOrSessionId.includes(s.sessionId.slice(-6))) ||
+        (s.orderId && orderOrSessionId.includes(s.orderId)) ||
+        (s.orderNumber && orderOrSessionId.includes(s.orderNumber))
 
-    if (isMatch) {
-      // Check multi-file array first if sub-index specified
-      if (Array.isArray(s.files) && s.files.length > 0) {
-        const targetFile = s.files[subIdx] || s.files[0]
+      if (isMatch) {
+        // Check multi-file array first if sub-index specified
+        if (Array.isArray(s.files) && s.files.length > 0) {
+          const targetFile = s.files[subIdx] || s.files[0]
+          if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
+            return targetFile.filePath
+          }
+        }
+        if (s.document?.filePath && fs.existsSync(s.document.filePath)) {
+          return s.document.filePath
+        }
+        if (s.files && s.files[0]?.filePath && fs.existsSync(s.files[0].filePath)) {
+          return s.files[0].filePath
+        }
+      }
+    }
+  }
+
+  // Fallback: If kioskId provided, check active session on that station
+  if (kioskId) {
+    const active = getActiveSession(kioskId.trim().toUpperCase())
+    if (active) {
+      if (Array.isArray(active.files) && active.files.length > 0) {
+        const targetFile = active.files[subIdx] || active.files[0]
         if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
           return targetFile.filePath
         }
       }
-      if (s.document?.filePath && fs.existsSync(s.document.filePath)) {
-        return s.document.filePath
-      }
-      if (s.files && s.files[0]?.filePath && fs.existsSync(s.files[0].filePath)) {
-        return s.files[0].filePath
+      if (active.document?.filePath && fs.existsSync(active.document.filePath)) {
+        return active.document.filePath
       }
     }
   }
+
   return null
 }
 

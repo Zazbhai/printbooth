@@ -227,6 +227,49 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       createdAt: new Date(),
     }
 
+    // Resolve local file path from active kiosk session or request body
+    let resolvedFilePath = req.body.filePath || req.body.fileUrl || ''
+    try {
+      const { getActiveSession } = await import('./kioskSessions.js')
+      const activeSession = getActiveSession(cleanKioskId)
+      if (activeSession) {
+        activeSession.orderId = orderId
+        activeSession.orderNumber = orderNumber
+        activeSession.releasePin = releasePin
+        activeSession.otp = releasePin
+        activeSession.pickupCode = releasePin
+        if (!resolvedFilePath) {
+          resolvedFilePath = activeSession.document?.filePath || (activeSession.files && activeSession.files[0]?.filePath) || ''
+        }
+      }
+    } catch {}
+
+    if (resolvedFilePath) {
+      orderData.filePath = resolvedFilePath
+      try {
+        const { syncJobState } = await import('./print.js')
+        syncJobState({
+          orderId,
+          orderNumber,
+          releasePin,
+          fileName,
+          filePath: resolvedFilePath,
+          copies,
+          colourMode,
+          pageRange: normPageRange,
+          duplex,
+          paperSize,
+          scaling: normScaling,
+          status: 'PRINTING',
+          printedPages: 0,
+          totalPages: docPages,
+          percent: 0,
+          startedAt: Date.now(),
+          kioskId: cleanKioskId,
+        } as any)
+      } catch {}
+    }
+
     // Keep in-memory cache synchronized
     fallbackOrders.unshift(orderData)
 
