@@ -186,6 +186,8 @@ export interface KioskSession {
   merchantRecommendation?: string
   qrAmount?: number
   paymentEpoch?: number
+  isSyncing?: boolean
+  syncMessage?: string
 }
 
 export type KioskSessionState =
@@ -668,6 +670,8 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
       paymentError: session.paymentError,
       merchantError: session.merchantError,
       merchantRecommendation: session.merchantRecommendation,
+      isSyncing: session.isSyncing,
+      syncMessage: session.syncMessage,
     },
   })
 })
@@ -1170,6 +1174,11 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
 
   if (typeof newAmount === 'number') {
     session.amount = newAmount
+  }
+
+  if (req.body.isSyncing !== undefined) {
+    session.isSyncing = Boolean(req.body.isSyncing)
+    session.syncMessage = req.body.syncMessage || session.phase || 'Syncing with phone…'
   }
 
   if (progressData) session.progressData = { ...session.progressData, ...progressData }

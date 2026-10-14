@@ -74,6 +74,8 @@ interface SessionProgressPayload {
   colourMode?: string
   amount?: number
   isBackwardNav?: boolean
+  isSyncing?: boolean
+  syncMessage?: string
   progressData?: Record<string, any>
   settings?: Record<string, any>
   files?: Array<{
@@ -543,6 +545,10 @@ export async function reportKioskProgress(payload: SessionProgressPayload): Prom
 
   if (!sessionId) return
 
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('pb:kiosk-sync', { detail: { isSyncing: true, ...payload } }))
+  }
+
   const clientClaimToken = getClientClaimSecret(sessionId)
   try {
     const res = await fetch(`${apiBase}/api/kiosk-sessions/${sessionId}/progress`, {
@@ -551,7 +557,12 @@ export async function reportKioskProgress(payload: SessionProgressPayload): Prom
         'Content-Type': 'application/json',
         'x-client-claim-token': clientClaimToken,
       },
-      body: JSON.stringify({ ...payload, clientClaimToken }),
+      body: JSON.stringify({
+        ...payload,
+        isSyncing: payload.isSyncing !== undefined ? payload.isSyncing : true,
+        syncMessage: payload.syncMessage || payload.phase,
+        clientClaimToken,
+      }),
     })
     if (res.status === 410 || res.status === 404) {
       const data = await parseJsonResponse(res)
@@ -563,6 +574,12 @@ export async function reportKioskProgress(payload: SessionProgressPayload): Prom
     }
   } catch {
     // Silently ignore — kiosk display is best-effort
+  } finally {
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('pb:kiosk-sync', { detail: { isSyncing: false } }))
+      }, 900)
+    }
   }
 }
 

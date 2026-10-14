@@ -604,4 +604,53 @@ body.printer-offline-active #header-recent-prints-btn {
   }
 }
 
+/* ── Kiosk Live Synchronization Banner (Phone Screen) ── */
+.print-kiosk-sync-banner {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(220, 38, 38, 0.28);
+  border-radius: 9999px;
+  box-shadow: 0 8px 24px -4px rgba(220, 38, 38, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-family: var(--font-sans, -apple-system, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: #09090b;
+  pointer-events: none;
+  animation: pks-sync-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.print-kiosk-sync-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(220, 38, 38, 0.2);
+  border-top-color: #dc2626;
+  animation: pks-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+.print-kiosk-sync-text {
+  letter-spacing: -0.01em;
+  color: #1e293b;
+}
+
+@keyframes pks-sync-pop {
+  0% { opacity: 0; transform: translate(-50%, -10px) scale(0.95); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes pks-spin {
+  to { transform: rotate(360deg); }
+}
+
 

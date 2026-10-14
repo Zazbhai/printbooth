@@ -35,6 +35,19 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
   const printFlow = React.useContext(PrintFlowContext)
   const navigate = useNavigate()
   const [showClearModal, setShowClearModal] = useState(false)
+  const [isSyncingWithKiosk, setIsSyncingWithKiosk] = useState(false)
+
+  React.useEffect(() => {
+    const handleSync = (e: any) => {
+      if (e.detail?.isSyncing) {
+        setIsSyncingWithKiosk(true)
+      } else {
+        setIsSyncingWithKiosk(false)
+      }
+    }
+    window.addEventListener('pb:kiosk-sync', handleSync)
+    return () => window.removeEventListener('pb:kiosk-sync', handleSync)
+  }, [])
 
   const activeStep = printFlow?.currentStep || 'upload'
   const isTerminal = ['status', 'success'].includes(activeStep)
@@ -185,6 +198,14 @@ export default function PrintLayout({ children }: { children?: React.ReactNode }
           <ArrowLeft size={16} strokeWidth={2.5} className="print-top-back-icon" />
           <span className="print-top-back-text">Back</span>
         </button>
+      )}
+
+      {/* Kiosk Synchronization Pill */}
+      {isSyncingWithKiosk && kioskSession.isKioskSession() && (
+        <div className="print-kiosk-sync-banner" role="status" aria-live="polite">
+          <span className="print-kiosk-sync-spinner" />
+          <span className="print-kiosk-sync-text">Syncing with kiosk screen…</span>
+        </div>
       )}
 
       {/* Floating Header with Breadcrumbs & Companion Help Mascot */}
