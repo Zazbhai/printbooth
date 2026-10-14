@@ -623,6 +623,7 @@ export const kioskSession = {
       phaseStep: 1,
       ...(fileName ? { fileName } : {}),
       progressData: {
+        isUploading: true,
         ...(uploadPercent !== undefined ? { uploadPercent } : {}),
         ...(progressData || {}),
       },

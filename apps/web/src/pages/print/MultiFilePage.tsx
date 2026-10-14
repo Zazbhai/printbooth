@@ -246,8 +246,10 @@ export default function MultiFilePage() {
   useEffect(() => {
     if (kioskSession.isKioskSession()) {
       const ready = getAllFiles().filter(f => f.status === 'ready')
-      const initialFileName = ready.length > 0 ? (ready.length > 1 ? `${ready.length} files` : ready[0].fileName) : undefined
-      kioskSession.reportUploading(initialFileName)
+      if (ready.length > 0) {
+        const initialFileName = ready.length > 1 ? `${ready.length} files` : ready[0].fileName
+        kioskSession.reportUploading(initialFileName)
+      }
     }
   }, [])
 

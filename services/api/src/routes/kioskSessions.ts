@@ -776,7 +776,7 @@ kioskSessionsRouter.post('/:token/claim', kioskSessionClaimLimiter, (req: Reques
   session.phoneDisconnectedAt = undefined
   if (session.state === 'QR_READY') {
     session.state = 'CLAIMED'
-    session.phase = 'User scanning and opening upload page…'
+    session.phase = 'Phone connected. Select your document on phone.'
     session.phaseStep = 1
   }
   saveSession(session)
