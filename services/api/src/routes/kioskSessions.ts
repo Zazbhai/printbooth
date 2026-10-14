@@ -204,7 +204,7 @@ export type KioskSessionState =
 const SESSION_TTL_SECONDS = 24 * 60 * 60  // Fixed QR code on screen while in QR_READY: valid until customer scans it
 const SESSION_DONE_TTL_SECONDS = 30  // Keep DONE state visible briefly
 const HMAC_SECRET = process.env.KIOSK_SESSION_SECRET || 'pb_kiosk_session_hmac_secret_2024'
-const SECTION_INACTIVITY_TIMEOUT_MS = 60 * 1000 // 1 minute (60s) inactivity timeout per section
+const SECTION_INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes inactivity timeout per section
 
 // Per-kiosk active session index: kioskId → sessionId
 const activeSessionByKiosk = new Map<string, string>()
@@ -513,7 +513,7 @@ kioskSessionsRouter.get('/active/:kioskId', async (req: Request, res: Response) 
   // Check phone disconnect timeout (when user went back from their phone):
   if (isPrePrintState && session.phoneDisconnected && session.phoneDisconnectedAt) {
     // If a document has already been uploaded or user is in active flow, NEVER disconnect or reset!
-    if (session.document || session.state === 'CONFIRMING' || session.state === 'CONFIGURING' || session.state === 'REVIEWING' || session.state === 'PAYING') {
+    if (session.document || (session.files && session.files.length > 0) || session.state === 'CONFIRMING' || session.state === 'CONFIGURING' || session.state === 'REVIEWING' || session.state === 'PAYING') {
       session.phoneDisconnected = false
       session.phoneDisconnectedAt = undefined
       saveSession(session)
