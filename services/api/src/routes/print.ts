@@ -356,10 +356,16 @@ const recentlyDispatchedOrders = new Map<string, number>()
  */
 export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = false) {
   const now = Date.now()
+  const isSubOrder = Boolean(job.orderId && job.orderId.includes('_sub_'))
+
+  // For sub-orders (e.g. ORD-123_sub_1, ORD-123_sub_2), deduplication must strictly use job.orderId only!
+  // NEVER include masterOrderId or orderNumber for sub-orders, otherwise sub_2, sub_3... are blocked because sub_1 already recorded the masterOrderId!
   const checkKeys = [job.orderId]
-  if (job.orderNumber && job.orderNumber !== job.orderId) checkKeys.push(job.orderNumber)
-  if (job.masterOrderId && job.masterOrderId !== job.orderId) checkKeys.push(job.masterOrderId)
-  if (job.releasePin) checkKeys.push(job.releasePin)
+  if (!isSubOrder) {
+    if (job.orderNumber && job.orderNumber !== job.orderId) checkKeys.push(job.orderNumber)
+    if (job.masterOrderId && job.masterOrderId !== job.orderId) checkKeys.push(job.masterOrderId)
+    if (job.releasePin) checkKeys.push(job.releasePin)
+  }
 
   const isDuplicate = !forceReprint && checkKeys.some(k => {
     const t = recentlyDispatchedOrders.get(k)
