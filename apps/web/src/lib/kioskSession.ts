@@ -983,6 +983,7 @@ export async function initiateKioskPayment(amount: number, orderId?: string): Pr
  */
 export async function uploadDocumentToKiosk(opts: {
   file?: File | null
+  filesList?: File[] | null
   fileName: string
   fileSize: number
   fileType: string
@@ -1045,6 +1046,13 @@ export async function uploadDocumentToKiosk(opts: {
   }
   const formData = new FormData()
 
+  // Multi-file binary upload: append each physical file to formData so every document is received on server
+  if (opts.filesList && opts.filesList.length > 0) {
+    for (let i = 0; i < opts.filesList.length; i++) {
+      const f = opts.filesList[i]
+      formData.append('fileBinaries', f, f.name)
+    }
+  }
   if (opts.file) {
     formData.append('file', opts.file, opts.fileName)
   }
@@ -1076,7 +1084,9 @@ export async function uploadDocumentToKiosk(opts: {
       const { previews, ...rest } = f as any
       return rest
     })
-    formData.append('files', JSON.stringify(cleanFiles))
+    const filesJson = JSON.stringify(cleanFiles)
+    formData.append('files', filesJson)
+    formData.append('filesMetadata', filesJson)
   }
 
   const clientClaimToken = getClientClaimSecret(sessionId)

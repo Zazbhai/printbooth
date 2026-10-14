@@ -939,32 +939,52 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
       return res.sendFile(path.resolve(job.filePath))
     }
 
-    // Check alias job in printJobs map
-    const aliasJob = (order?.orderNumber && printJobs.get(order.orderNumber)) || (masterOrderId && printJobs.get(masterOrderId))
-    if (aliasJob?.filePath && fs.existsSync(aliasJob.filePath)) {
-      return res.sendFile(path.resolve(aliasJob.filePath))
-    }
+    const subIdx = isSubOrder ? (parseInt(orderId.split('_sub_')[1], 10) - 1) : 0
 
-    const sessionDocPath =
-      findSessionFilePath(orderId, reqKioskId) ||
-      findSessionFilePath(masterOrderId, reqKioskId) ||
-      (order?.orderNumber ? findSessionFilePath(order.orderNumber, reqKioskId) : null) ||
-      (order?.orderId ? findSessionFilePath(order.orderId, reqKioskId) : null) ||
-      (reqKioskId ? findSessionFilePath('', reqKioskId) : null)
-
-    if (sessionDocPath && fs.existsSync(sessionDocPath)) {
-      return res.sendFile(path.resolve(sessionDocPath))
-    }
-
-    const orderFileList = order?.files || order?.printSettings?.files
-    if (Array.isArray(orderFileList) && orderFileList.length > 0) {
-      const subIdx = orderId.includes('_sub_') ? (parseInt(orderId.split('_sub_')[1], 10) - 1) : 0
-      const targetFile = orderFileList[subIdx] || orderFileList[0]
-      if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
-        return res.sendFile(path.resolve(targetFile.filePath))
+    // For sub-orders, resolve strictly the designated sub-file
+    if (isSubOrder) {
+      const subSessionDocPath = findSessionFilePath(orderId, reqKioskId)
+      if (subSessionDocPath && fs.existsSync(subSessionDocPath)) {
+        return res.sendFile(path.resolve(subSessionDocPath))
       }
-      if (targetFile?.fileUrl && fs.existsSync(targetFile.fileUrl)) {
-        return res.sendFile(path.resolve(targetFile.fileUrl))
+
+      const orderFileList = order?.files || order?.printSettings?.files
+      if (Array.isArray(orderFileList) && orderFileList.length > subIdx) {
+        const targetFile = orderFileList[subIdx]
+        if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
+          return res.sendFile(path.resolve(targetFile.filePath))
+        }
+        if (targetFile?.fileUrl && fs.existsSync(targetFile.fileUrl)) {
+          return res.sendFile(path.resolve(targetFile.fileUrl))
+        }
+      }
+    } else {
+      // Check alias job in printJobs map
+      const aliasJob = (order?.orderNumber && printJobs.get(order.orderNumber)) || (masterOrderId && printJobs.get(masterOrderId))
+      if (aliasJob?.filePath && fs.existsSync(aliasJob.filePath)) {
+        return res.sendFile(path.resolve(aliasJob.filePath))
+      }
+
+      const sessionDocPath =
+        findSessionFilePath(orderId, reqKioskId) ||
+        findSessionFilePath(masterOrderId, reqKioskId) ||
+        (order?.orderNumber ? findSessionFilePath(order.orderNumber, reqKioskId) : null) ||
+        (order?.orderId ? findSessionFilePath(order.orderId, reqKioskId) : null) ||
+        (reqKioskId ? findSessionFilePath('', reqKioskId) : null)
+
+      if (sessionDocPath && fs.existsSync(sessionDocPath)) {
+        return res.sendFile(path.resolve(sessionDocPath))
+      }
+
+      const orderFileList = order?.files || order?.printSettings?.files
+      if (Array.isArray(orderFileList) && orderFileList.length > 0) {
+        const targetFile = orderFileList[0]
+        if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
+          return res.sendFile(path.resolve(targetFile.filePath))
+        }
+        if (targetFile?.fileUrl && fs.existsSync(targetFile.fileUrl)) {
+          return res.sendFile(path.resolve(targetFile.fileUrl))
+        }
       }
     }
 

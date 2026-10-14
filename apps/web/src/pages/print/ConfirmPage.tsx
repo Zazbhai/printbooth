@@ -334,8 +334,10 @@ export default function ConfirmPage() {
               duplex: f.settings?.duplex || 'SINGLE',
             }))
 
+            const filesBinaries = ready.map(f => f.file).filter(Boolean) as File[]
             kioskSession.uploadDocument({
               file,
+              filesList: filesBinaries.length > 0 ? filesBinaries : undefined,
               fileName: combinedFileName || 'Document.pdf',
               fileSize: totalSize,
               fileType: ready.length > 1 ? 'multifile' : (primary as any).fileType || 'pdf',
@@ -449,8 +451,10 @@ export default function ConfirmPage() {
           url: p.url,
           title: p.title || `Page ${idx + 1}`,
         }))
+        const filesBinaries = ready.map(f => f.file).filter(Boolean) as File[]
         kioskSession.uploadDocument({
           file: first.file,
+          filesList: filesBinaries.length > 0 ? filesBinaries : undefined,
           fileName: ready.length > 1 ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}` : first.fileName,
           fileSize: ready.reduce((acc, f) => acc + (f.fileSize || 0), 0),
           fileType: ready.length > 1 ? 'multifile' : first.fileType,

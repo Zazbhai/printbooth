@@ -1247,7 +1247,7 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
  * Passes the document and pre-rendered preview pages to the kiosk display.
  */
 kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, next) => {
-  upload.single('file')(req, res, (err: any) => {
+  upload.any()(req, res, (err: any) => {
     if (err) {
       console.error('[KioskSession] Multer upload error:', err)
       return res.status(400).json({
@@ -1297,7 +1297,14 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     session.claimSecret = clientClaimToken || session.claimSecret || crypto.randomBytes(16).toString('hex')
   }
 
-  const file = req.file
+  // Extract all uploaded files from Multer
+  const uploadedFiles: Express.Multer.File[] = Array.isArray(req.files)
+    ? (req.files as Express.Multer.File[])
+    : req.file
+    ? [req.file]
+    : []
+
+  const file = uploadedFiles.find(f => f.fieldname === 'file') || uploadedFiles[0]
   const fileName = file?.originalname || req.body.fileName || 'Document.pdf'
   const fileSize = file?.size || Number(req.body.fileSize) || 0
   const fileType = req.body.fileType || 'pdf'
@@ -1317,10 +1324,11 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     } catch {}
   }
 
+  const rawFilesData = req.body.filesMetadata || req.body.files
   let filesList: KioskDocumentItem[] = []
-  if (req.body.files) {
+  if (rawFilesData) {
     try {
-      const rawFiles = typeof req.body.files === 'string' ? JSON.parse(req.body.files) : req.body.files
+      const rawFiles = typeof rawFilesData === 'string' ? JSON.parse(rawFilesData) : rawFilesData
       if (Array.isArray(rawFiles)) {
         filesList = rawFiles.map((f: any) => ({
           id: f.id,
@@ -1349,9 +1357,33 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     } catch {}
   }
 
+  // Correlate each item in filesList with its distinct uploaded binary
+  const binaryFiles = uploadedFiles.filter(uf => uf.fieldname === 'fileBinaries' || uf.fieldname === 'files')
+  const multiUploadPool = binaryFiles.length > 0 ? binaryFiles : uploadedFiles
+
+  filesList = filesList.map((f, idx) => {
+    const matched =
+      multiUploadPool.find(uf => uf.originalname === f.fileName) ||
+      uploadedFiles.find(uf => uf.originalname === f.fileName) ||
+      multiUploadPool[idx] ||
+      uploadedFiles[idx] ||
+      file
+
+    const resolvedPath = matched?.path || f.filePath || ''
+    const resolvedUrl = matched ? `/api/kiosk-sessions/${sessionId}/file/${idx}` : f.fileUrl
+    const resolvedSize = f.fileSize || matched?.size || 0
+
+    return {
+      ...f,
+      filePath: resolvedPath,
+      fileUrl: resolvedUrl,
+      fileSize: resolvedSize,
+    }
+  })
+
   const pageCount = Math.max(1, !isNaN(rawPageCount) && rawPageCount > 0 ? rawPageCount : (previews.length || 1))
-  const filePath = file?.path || ''
-  const fileUrl = file ? `/api/kiosk-sessions/${sessionId}/file` : undefined
+  const filePath = (filesList.length > 0 && filesList[0]?.filePath) ? filesList[0].filePath : (file?.path || '')
+  const fileUrl = file ? `/api/kiosk-sessions/${sessionId}/file` : (filesList[0]?.filePath ? `/api/kiosk-sessions/${sessionId}/file/0` : undefined)
 
   // Auto-generate preview from uploaded image file if previews array has no valid non-empty previews
   const hasValidPreviews = Array.isArray(previews) && previews.some((p: any) => p && typeof p.url === 'string' && p.url.trim().length > 0)
@@ -1575,12 +1607,26 @@ kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], asyn
 
 /**
  * GET /api/kiosk-sessions/:sessionId/file
- * Downloads or serves the uploaded document for this kiosk session.
+ * GET /api/kiosk-sessions/:sessionId/file/:index
+ * Downloads or serves the uploaded document for this kiosk session (or specific file for multi-file).
  */
-kioskSessionsRouter.get('/:sessionId/file', (req: Request, res: Response) => {
-  const { sessionId } = req.params
+kioskSessionsRouter.get(['/:sessionId/file', '/:sessionId/file/:index'], (req: Request, res: Response) => {
+  const { sessionId, index } = req.params
   const session = getSession(sessionId)
-  if (!session || !session.document?.filePath || !fs.existsSync(session.document.filePath)) {
+  let targetPath = session?.document?.filePath
+
+  const targetIdx = index !== undefined
+    ? Number(index)
+    : (req.query.index !== undefined ? Number(req.query.index) : (req.query.sub !== undefined ? Number(req.query.sub) - 1 : undefined))
+
+  if (targetIdx !== undefined && !isNaN(targetIdx) && session?.files && session.files[targetIdx]) {
+    const specificFile = session.files[targetIdx]
+    if (specificFile.filePath && fs.existsSync(specificFile.filePath)) {
+      targetPath = specificFile.filePath
+    }
+  }
+
+  if (!targetPath || !fs.existsSync(targetPath)) {
     const sample = path.resolve(__dirname, '../../../../test_sample.pdf')
     if (fs.existsSync(sample)) {
       res.setHeader('Content-Type', 'application/pdf')
@@ -1590,7 +1636,7 @@ kioskSessionsRouter.get('/:sessionId/file', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'File not found' })
   }
 
-  const ext = path.extname(session.document.filePath).toLowerCase()
+  const ext = path.extname(targetPath).toLowerCase()
   const mimeTypes: Record<string, string> = {
     '.pdf': 'application/pdf',
     '.png': 'image/png',
@@ -1605,7 +1651,7 @@ kioskSessionsRouter.get('/:sessionId/file', (req: Request, res: Response) => {
     res.setHeader('Content-Type', mimeTypes[ext])
   }
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.sendFile(session.document.filePath)
+  res.sendFile(targetPath)
 })
 
 /**
@@ -2384,7 +2430,8 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
         fileIndex: idx + 1,
         totalFiles: files.length,
         fileName: f.fileName || `Document_${idx + 1}.pdf`,
-        filePath: f.filePath || session.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf'),
+        filePath: f.filePath || (session.files && session.files[idx]?.filePath) || (idx === 0 ? session.document?.filePath : '') || path.resolve(__dirname, '../../../../test_sample.pdf'),
+        fileUrl: f.fileUrl || (session.files && session.files[idx]?.fileUrl) || `/api/print/download/${subOrderId}`,
         copies: fCopies,
         colourMode: fColour === 'COLOUR' ? 'COLOUR' : 'BW',
         pageRange: fPageRange,
@@ -2819,8 +2866,8 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
         fileIndex: idx + 1,
         totalFiles: files.length,
         fileName: f.fileName || `Document_${idx + 1}.pdf`,
-        filePath: f.filePath || targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf'),
-        fileUrl: f.fileUrl || targetSession.document?.fileUrl || `/api/print/download/${subOrderId}`,
+        filePath: f.filePath || (targetSession.files && targetSession.files[idx]?.filePath) || (idx === 0 ? targetSession.document?.filePath : '') || path.resolve(__dirname, '../../../../test_sample.pdf'),
+        fileUrl: f.fileUrl || (targetSession.files && targetSession.files[idx]?.fileUrl) || `/api/print/download/${subOrderId}`,
         copies: fCopies,
         colourMode: fColour === 'COLOUR' ? 'COLOUR' : 'BW',
         pageRange: fPageRange,
@@ -2952,7 +2999,7 @@ export function findSessionFilePath(orderOrSessionId: string, kioskId?: string):
       if (isMatch) {
         // Check multi-file array first if sub-index specified
         if (Array.isArray(s.files) && s.files.length > 0) {
-          const targetFile = s.files[subIdx] || s.files[0]
+          const targetFile = s.files[subIdx]
           if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
             return targetFile.filePath
           }
@@ -2970,12 +3017,18 @@ export function findSessionFilePath(orderOrSessionId: string, kioskId?: string):
               }
             } catch {}
           }
+          // Do NOT fall back to File 1 if this is a sub-job > 0
+          if (subIdx > 0) {
+            return null
+          }
         }
-        if (s.document?.filePath && fs.existsSync(s.document.filePath)) {
-          return s.document.filePath
-        }
-        if (s.files && s.files[0]?.filePath && fs.existsSync(s.files[0].filePath)) {
-          return s.files[0].filePath
+        if (subIdx === 0) {
+          if (s.document?.filePath && fs.existsSync(s.document.filePath)) {
+            return s.document.filePath
+          }
+          if (s.files && s.files[0]?.filePath && fs.existsSync(s.files[0].filePath)) {
+            return s.files[0].filePath
+          }
         }
       }
     }
@@ -2986,7 +3039,7 @@ export function findSessionFilePath(orderOrSessionId: string, kioskId?: string):
     const active = getActiveSession(kioskId.trim().toUpperCase())
     if (active) {
       if (Array.isArray(active.files) && active.files.length > 0) {
-        const targetFile = active.files[subIdx] || active.files[0]
+        const targetFile = active.files[subIdx]
         if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
           return targetFile.filePath
         }
@@ -3004,8 +3057,11 @@ export function findSessionFilePath(orderOrSessionId: string, kioskId?: string):
             }
           } catch {}
         }
+        if (subIdx > 0) {
+          return null
+        }
       }
-      if (active.document?.filePath && fs.existsSync(active.document.filePath)) {
+      if (subIdx === 0 && active.document?.filePath && fs.existsSync(active.document.filePath)) {
         return active.document.filePath
       }
     }

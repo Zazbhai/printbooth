@@ -419,6 +419,12 @@ export default function MultiFilePage() {
       settings: f.settings,
     }))
 
+    // Gather all physical File binaries across all ready documents for full multi-file transfer
+    const filesBinaries: File[] = []
+    for (const f of ready) {
+      if (f.file) filesBinaries.push(f.file)
+    }
+
     // Fire upload to kiosk display
     try {
       setKioskUploadProgress({
@@ -431,6 +437,7 @@ export default function MultiFilePage() {
       })
       const result = await kioskSession.uploadDocument({
         file,
+        filesList: filesBinaries.length > 0 ? filesBinaries : undefined,
         fileName: combinedFileName,
         fileSize: totalSize,
         fileType: ready.length > 1 ? 'multifile' : primary.fileType,
