@@ -16,6 +16,9 @@ type DuplexMode = 'SINGLE' | 'DOUBLE'
 type DuplexBinding = 'LONG_EDGE' | 'SHORT_EDGE'
 type PagesMode = 'ALL' | 'FIRST' | 'ODD' | 'EVEN' | 'CUSTOM'
 
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/api$/, '').replace(/\/+$/, '')
+const KIOSK_ID = 'PB-001'
+
 export default function PrintSettingsScreen() {
   const navigate = useNavigate()
   const [fileName, setFileName] = useState<string>(() => sessionStorage.getItem('pb_file_name') ?? 'document.pdf')
@@ -199,26 +202,50 @@ export default function PrintSettingsScreen() {
   }
 
   function handleContinue() {
+    const computedPageRange = pagesMode === 'ALL' ? 'ALL' : (customRange.trim() || selectedPages.join(','))
     sessionStorage.setItem('pb_file_name', fileName)
     sessionStorage.setItem('pb_page_count', String(selectedPages.length))
     sessionStorage.setItem('pb_doc_page_count', String(estimatedPages))
     sessionStorage.setItem('pb_selected_pages', JSON.stringify(selectedPages))
-    sessionStorage.setItem('pb_page_range', pagesMode === 'ALL' ? 'ALL' : customRange || String(selectedPages.join(',')))
+    sessionStorage.setItem('pb_page_range', computedPageRange)
     sessionStorage.setItem('pb_copies', String(copies))
     sessionStorage.setItem('pb_colour_mode', colour)
     sessionStorage.setItem('pb_total_price', String(pageDetails.totalAmount))
-    sessionStorage.setItem('pb_settings', JSON.stringify({
+    const updatedSettings = {
       copies,
       colour,
       duplex,
       duplexBinding,
       pagesMode,
       selectedPages,
+      pages: computedPageRange,
+      pageRange: computedPageRange,
       printDpi,
       paperSize: 'A4',
       isPerPage: isPerPageOpen,
       pageColours,
-    }))
+      totalAmount: pageDetails.totalAmount,
+    }
+    sessionStorage.setItem('pb_settings', JSON.stringify(updatedSettings))
+
+    // Sync settings to active backend session so hardware print execution respects selected pages
+    try {
+      const sessionId = sessionStorage.getItem('pb_kiosk_session_id')
+      const targetUrl = sessionId
+        ? `${API_BASE}/api/kiosk-sessions/${sessionId}/settings`
+        : `${API_BASE}/api/kiosk-sessions/kiosk/${KIOSK_ID}/settings`
+      fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...updatedSettings,
+          kioskId: KIOSK_ID,
+          totalAmount: pageDetails.totalAmount,
+          nextState: 'REVIEWING',
+        }),
+      }).catch(() => {})
+    } catch {}
+
     navigate('/review')
   }
 
@@ -565,7 +592,7 @@ export default function PrintSettingsScreen() {
         <button
           type="button"
           className="ks-bottom-back-btn"
-          onClick={() => navigate('/upload')}
+          onClick={() => navigate('/confirm')}
         >
           <ArrowLeft size={18} weight="bold" />
           Back

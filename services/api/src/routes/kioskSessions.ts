@@ -80,6 +80,7 @@ export interface KioskDocumentItem {
   duplex?: string
   pages?: string
   pageRange?: string
+  selectedPages?: number[]
   paperSize?: string
   scaling?: string
   pagesPerSheet?: number
@@ -101,6 +102,8 @@ export interface KioskDocumentData {
   filePath?: string
   fileUrl?: string
   pages?: KioskDocumentPreview[]
+  pageRange?: string
+  selectedPages?: number[]
   uploadedAt: number
   files?: KioskDocumentItem[]
 }
@@ -110,6 +113,8 @@ export interface KioskPrintSettingsData {
   duplex: 'SINGLE' | 'DOUBLE'
   copies: number
   pageRange: string
+  pages?: string
+  selectedPages?: number[]
   paperSize: string
   pricePerPage: number
   totalAmount: number
@@ -118,6 +123,14 @@ export interface KioskPrintSettingsData {
   duplexBinding?: 'LONG_EDGE' | 'SHORT_EDGE'
   printDpi?: '600' | '1200'
   paperWeight?: '75GSM' | '100GSM'
+  scaling?: string
+  orientation?: string
+  dpi?: string
+  margins?: string
+  contrastMode?: string
+  pageBorder?: boolean
+  pageColours?: Record<number, string>
+  pageCopies?: Record<number, number>
   pageCustomizations?: Record<number, {
     colour: 'BW' | 'COLOUR'
     skipped: boolean
@@ -332,6 +345,37 @@ function getActiveSession(kioskId: string): KioskSession | null {
     return null
   }
   return s
+}
+
+// Helper to resolve the effective page range from multiple candidates,
+// prioritizing specific page selections over generic defaults like 'ALL', '*', or empty strings.
+export function resolveEffectivePageRange(...candidates: any[]): string {
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    if (Array.isArray(candidate)) {
+      const valid = candidate.map(Number).filter(n => !isNaN(n) && n > 0).sort((a, b) => a - b)
+      if (valid.length > 0) return valid.join(',')
+      continue
+    }
+    const str = String(candidate).trim()
+    if (!str || str.toUpperCase() === 'ALL' || str === '*') continue
+    if (str.startsWith('[') && str.endsWith(']')) {
+      try {
+        const arr = JSON.parse(str)
+        if (Array.isArray(arr)) {
+          const valid = arr.map(Number).filter(n => !isNaN(n) && n > 0).sort((a, b) => a - b)
+          if (valid.length > 0) return valid.join(',')
+        }
+      } catch {}
+    }
+    return str
+  }
+  return 'ALL'
+}
+
+// Helper to normalize page ranges (strings, numbers, arrays, or JSON strings) into standard comma-delimited ranges e.g. "1,2,3"
+export function formatPageRange(candidate: any): string {
+  return resolveEffectivePageRange(candidate)
 }
 
 // Resolve web base URL from request or env (canonical: https://printbooth.co.in)
@@ -1100,6 +1144,17 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
     session.settings = { ...session.settings, ...settings }
   }
 
+  const rawIncomingPages = req.body.pageRange || req.body.pages || req.body.selectedPages || settings?.pageRange || settings?.pages || settings?.selectedPages
+  if (rawIncomingPages) {
+    const formattedPages = formatPageRange(rawIncomingPages)
+    session.settings = {
+      ...(session.settings || {}),
+      pageRange: formattedPages,
+      pages: formattedPages,
+      ...(Array.isArray(rawIncomingPages) ? { selectedPages: rawIncomingPages } : {}),
+    } as KioskPrintSettingsData
+  }
+
   if (files && Array.isArray(files) && files.length > 0) {
     session.files = files
     if (session.document) {
@@ -1466,7 +1521,7 @@ kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], asyn
     sessionId: session.sessionId,
     state: session.state,
     phase: session.phase,
-    nextStep: nextState === 'CONFIRMING' || nextState === 'CONFIGURING' ? 'settings' : (nextState === 'PAYING' ? 'payment' : 'review'),
+    nextStep: nextState === 'CONFIRMING' ? 'confirm' : (nextState === 'CONFIGURING' ? 'settings' : (nextState === 'PAYING' ? 'payment' : 'review')),
     document: session.document,
     files: session.files,
     session,
@@ -1512,9 +1567,15 @@ kioskSessionsRouter.get('/:sessionId/file', (req: Request, res: Response) => {
  * POST /api/kiosk-sessions/:sessionId/settings
  * Called by kiosk touchscreen when user configures print options (Colour, Sides, Copies, Pages).
  */
-kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) => {
-  const { sessionId } = req.params
-  const session = getSession(sessionId)
+const handleUpdateKioskSessionSettings = (req: Request, res: Response) => {
+  const { sessionId, kioskId: paramKioskId } = req.params
+  let session = sessionId ? getSession(sessionId) : null
+  if (!session && paramKioskId) {
+    session = getActiveSession(paramKioskId.toUpperCase().trim())
+  }
+  if (!session && req.body?.kioskId) {
+    session = getActiveSession(String(req.body.kioskId).toUpperCase().trim())
+  }
   if (!session) {
     return res.status(404).json({ success: false, error: 'Session not found' })
   }
@@ -1524,6 +1585,8 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
     duplex,
     copies,
     pageRange,
+    pages,
+    selectedPages,
     paperSize,
     pricePerPage,
     totalAmount,
@@ -1540,12 +1603,27 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
   const resolvedCopies = Math.max(1, Number(copies) || 1)
   const resolvedPrice = Number(pricePerPage) || (colour === 'COLOUR' ? 8 : 2)
   const computedTotal = Number(totalAmount) || (resolvedPrice * resolvedCopies * totalPages)
+  const resolvedPageRange = resolveEffectivePageRange(
+    selectedPages,
+    pages,
+    pageRange,
+    session.settings?.selectedPages,
+    session.settings?.pages,
+    session.settings?.pageRange
+  )
+
+  const effectiveSelectedPages = Array.isArray(selectedPages)
+    ? selectedPages
+    : (Array.isArray(session.settings?.selectedPages) ? session.settings.selectedPages : undefined)
 
   session.settings = {
+    ...(session.settings || {}),
     colour: colour === 'COLOUR' ? 'COLOUR' : 'BW',
     duplex: duplex === 'DOUBLE' ? 'DOUBLE' : 'SINGLE',
     copies: resolvedCopies,
-    pageRange: pageRange || 'ALL',
+    pageRange: resolvedPageRange,
+    pages: resolvedPageRange,
+    ...(effectiveSelectedPages ? { selectedPages: effectiveSelectedPages } : {}),
     paperSize: paperSize || 'A4',
     pricePerPage: resolvedPrice,
     totalAmount: computedTotal,
@@ -1564,9 +1642,9 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
     }
   }
 
-  session.copies = session.settings.copies
-  session.colourMode = session.settings.colour
-  session.amount = session.settings.totalAmount
+  session.copies = session.settings!.copies
+  session.colourMode = session.settings!.colour
+  session.amount = session.settings!.totalAmount
 
   if (typeof session.qrAmount === 'number' && session.qrAmount !== computedTotal) {
     session.upiQrValue = ''
@@ -1612,7 +1690,10 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
 
   saveSession(session)
   res.json({ success: true, session })
-})
+}
+
+kioskSessionsRouter.post('/:sessionId/settings', handleUpdateKioskSessionSettings)
+kioskSessionsRouter.post('/kiosk/:kioskId/settings', handleUpdateKioskSessionSettings)
 
 /**
  * POST /api/kiosk-sessions/:sessionId/state
@@ -1706,6 +1787,8 @@ export async function syncSessionToOrder(session: KioskSession) {
             colourMode,
             duplex,
             paperSize,
+            pageRange: formatPageRange(session.settings?.pageRange || session.settings?.pages || session.settings?.selectedPages || 'ALL'),
+            pages: formatPageRange(session.settings?.pages || session.settings?.pageRange || session.settings?.selectedPages || 'ALL'),
             amount,
             merchantCut,
             pickupCode: session.otp,
@@ -1715,6 +1798,8 @@ export async function syncSessionToOrder(session: KioskSession) {
             files: session.files || session.document?.files,
             printSettings: {
               ...(session.settings || {}),
+              pageRange: formatPageRange(session.settings?.pageRange || session.settings?.pages || session.settings?.selectedPages || 'ALL'),
+              pages: formatPageRange(session.settings?.pages || session.settings?.pageRange || session.settings?.selectedPages || 'ALL'),
               files: session.files || session.document?.files,
             },
             paidAt: session.state === 'PAYING' ? undefined : new Date(),
@@ -2239,7 +2324,17 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
       const fCopies = Math.max(1, Number(fileSettings.copies || f.copies || session.settings?.copies || 1))
       const fColour = String(fileSettings.colour || f.colour || session.settings?.colour || 'BW').toUpperCase()
       const fDuplex = String(fileSettings.duplex || f.duplex || session.settings?.duplex || 'SINGLE').toUpperCase()
-      const fPageRange = String(fileSettings.pages || fileSettings.pageRange || f.pageRange || f.pages || session.settings?.pageRange || 'ALL').trim()
+      const fPageRange = resolveEffectivePageRange(
+        fileSettings.selectedPages,
+        fileSettings.pages,
+        fileSettings.pageRange,
+        f.selectedPages,
+        f.pages,
+        f.pageRange,
+        session.settings?.selectedPages,
+        session.settings?.pages,
+        session.settings?.pageRange,
+      )
       const fPaperSize = String(fileSettings.paperSize || f.paperSize || session.settings?.paperSize || 'A4').trim()
       const fScaling = String(fileSettings.scaling || f.scaling || 'FIT').trim()
       const fPagesPerSheet = Number(fileSettings.pagesPerSheet || f.pagesPerSheet || 1)
@@ -2282,13 +2377,30 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
       }
     }
   } else {
-    const fileName = session.document?.fileName || session.fileName || 'PrintBooth_Document.pdf'
-    const filePath = session.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
-    const copies = session.settings?.copies || session.copies || 1
-    const colourMode = session.settings?.colour || session.colourMode || 'BW'
-    const duplex = session.settings?.duplex || 'SINGLE'
-    const pageRange = session.settings?.pageRange || 'ALL'
-    const totalPages = session.document?.pageCount || session.totalPages || 1
+    const f0: any = (files && files.length > 0) ? files[0] : (session.files && session.files.length > 0 ? session.files[0] : (session.document?.files && session.document.files.length > 0 ? session.document.files[0] : null))
+    const f0Settings: any = f0?.settings || {}
+    const fileName = f0?.fileName || session.document?.fileName || session.fileName || 'PrintBooth_Document.pdf'
+    const filePath = f0?.filePath || session.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
+    const copies = session.settings?.copies || session.copies || f0Settings.copies || 1
+    const colourMode = session.settings?.colour || session.colourMode || f0Settings.colour || 'BW'
+    const duplex = session.settings?.duplex || f0Settings.duplex || 'SINGLE'
+    const pageRange = resolveEffectivePageRange(
+      f0Settings.selectedPages,
+      f0Settings.pages,
+      f0Settings.pageRange,
+      f0?.selectedPages,
+      f0?.pages,
+      f0?.pageRange,
+      session.settings?.selectedPages,
+      session.settings?.pages,
+      session.settings?.pageRange,
+      session.document?.selectedPages,
+      session.document?.pages,
+      session.document?.pageRange,
+      (session as any).selectedPages,
+      (session as any).pages,
+    )
+    const totalPages = session.document?.pageCount || session.totalPages || f0?.pageCount || 1
 
     const jobState: PrintJobState = {
       orderId,
@@ -2649,7 +2761,17 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
       const fCopies = Math.max(1, Number(fileSettings.copies || f.copies || targetSession.settings?.copies || 1))
       const fColour = String(fileSettings.colour || f.colour || targetSession.settings?.colour || 'BW').toUpperCase()
       const fDuplex = String(fileSettings.duplex || f.duplex || targetSession.settings?.duplex || 'SINGLE').toUpperCase()
-      const fPageRange = String(fileSettings.pages || fileSettings.pageRange || f.pageRange || f.pages || targetSession.settings?.pageRange || 'ALL').trim()
+      const fPageRange = resolveEffectivePageRange(
+        fileSettings.selectedPages,
+        fileSettings.pages,
+        fileSettings.pageRange,
+        f.selectedPages,
+        f.pages,
+        f.pageRange,
+        targetSession.settings?.selectedPages,
+        targetSession.settings?.pages,
+        targetSession.settings?.pageRange,
+      )
       const fPaperSize = String(fileSettings.paperSize || f.paperSize || targetSession.settings?.paperSize || 'A4').trim()
       const fScaling = String(fileSettings.scaling || f.scaling || 'FIT').trim()
       const fPagesPerSheet = Number(fileSettings.pagesPerSheet || f.pagesPerSheet || 1)
@@ -2691,7 +2813,7 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
       }
     }
   } else {
-    const f0: any = (files && files.length > 0) ? files[0] : null
+    const f0: any = (files && files.length > 0) ? files[0] : (targetSession.files && targetSession.files.length > 0 ? targetSession.files[0] : (targetSession.document?.files && targetSession.document.files.length > 0 ? targetSession.document.files[0] : null))
     const f0Settings: any = f0?.settings || {}
     const sSettings: any = targetSession.settings || {}
 
@@ -2703,7 +2825,22 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
     const rawCol = String(f0Settings.colour || f0?.colour || sSettings.colour || targetSession.colourMode || 'BW').toUpperCase()
     const colourMode = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
     const duplex = String(f0Settings.duplex || f0?.duplex || sSettings.duplex || 'SINGLE').toUpperCase()
-    const pageRange = String(f0Settings.pages || f0Settings.pageRange || f0?.pageRange || f0?.pages || sSettings.pageRange || sSettings.pages || 'ALL').trim()
+    const pageRange = resolveEffectivePageRange(
+      f0Settings.selectedPages,
+      f0Settings.pages,
+      f0Settings.pageRange,
+      f0?.selectedPages,
+      f0?.pages,
+      f0?.pageRange,
+      sSettings.selectedPages,
+      sSettings.pages,
+      sSettings.pageRange,
+      targetSession.document?.selectedPages,
+      targetSession.document?.pages,
+      targetSession.document?.pageRange,
+      (targetSession as any).selectedPages,
+      (targetSession as any).pages,
+    )
     const paperSize = String(f0Settings.paperSize || sSettings.paperSize || 'A4').trim()
     const scaling = String(f0Settings.scaling || sSettings.scaling || 'FIT').trim()
     const pagesPerSheet = Number(f0Settings.pagesPerSheet || sSettings.pagesPerSheet || 1)

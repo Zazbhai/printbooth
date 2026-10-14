@@ -5,6 +5,7 @@ import EnterPinScreen from './screens/EnterPinScreen'
 import UploadMethodScreen from './screens/UploadMethodScreen'
 import QRUploadScreen from './screens/QRUploadScreen'
 import USBSelectScreen from './screens/USBSelectScreen'
+import ConfirmDocumentScreen from './screens/ConfirmDocumentScreen'
 import PrintSettingsScreen from './screens/PrintSettingsScreen'
 import ReviewScreen from './screens/ReviewScreen'
 import PaymentScreen from './screens/PaymentScreen'
@@ -29,6 +30,7 @@ export default function App() {
     location.pathname === '/enter-pin'
 
   const isSessionSection =
+    location.pathname === '/confirm' ||
     location.pathname === '/settings' ||
     location.pathname === '/review' ||
     location.pathname === '/payment' ||
@@ -111,7 +113,15 @@ export default function App() {
             sessionStorage.setItem('pb_total_price', String(s.amount))
           }
           if (s.settings) {
-            sessionStorage.setItem('pb_settings', JSON.stringify(s.settings))
+            if (location.pathname !== '/settings') {
+              sessionStorage.setItem('pb_settings', JSON.stringify(s.settings))
+              if (s.settings.pageRange || s.settings.pages) {
+                sessionStorage.setItem('pb_page_range', String(s.settings.pageRange || s.settings.pages))
+              }
+              if (s.settings.selectedPages) {
+                sessionStorage.setItem('pb_selected_pages', JSON.stringify(s.settings.selectedPages))
+              }
+            }
           }
           if (s.sessionId) {
             sessionStorage.setItem('pb_kiosk_session_id', s.sessionId)
@@ -165,16 +175,23 @@ export default function App() {
               return
             }
 
-            if (s.state === 'CONFIRMING' || s.state === 'CONFIGURING') {
+            if (s.state === 'CONFIGURING') {
               if (location.pathname !== '/settings') {
                 navigate('/settings')
               }
               return
             }
 
+            if (s.state === 'CONFIRMING') {
+              if (location.pathname !== '/confirm') {
+                navigate('/confirm')
+              }
+              return
+            }
+
             // When phone user uploads a document while kiosk is on home, welcome, upload, or qr screen
             if ((s.document || s.fileName) && isUploadFromPhonePage) {
-              navigate('/settings')
+              navigate('/confirm')
               return
             }
           }
@@ -199,6 +216,7 @@ export default function App() {
       <Route path="/upload" element={<UploadMethodScreen />} />
       <Route path="/upload/qr" element={<QRUploadScreen />} />
       <Route path="/upload/usb" element={<USBSelectScreen />} />
+      <Route path="/confirm" element={<ConfirmDocumentScreen />} />
       <Route path="/settings" element={<PrintSettingsScreen />} />
       <Route path="/review" element={<ReviewScreen />} />
       <Route path="/payment" element={<PaymentScreen />} />

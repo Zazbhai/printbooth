@@ -119,12 +119,21 @@ export default function QRUploadScreen() {
             return
           }
 
-          if (s.state === 'CONFIRMING' || s.state === 'CONFIGURING' || s.document || s.fileName) {
+          if (s.state === 'CONFIGURING') {
             sessionStorage.setItem('pb_file_name', s.fileName || s.document?.fileName || 'document.pdf')
             sessionStorage.setItem('pb_doc_page_count', String(s.totalPages || s.document?.pageCount || 1))
             sessionStorage.setItem('pb_page_count', String(s.totalPages || s.document?.pageCount || 1))
             sessionStorage.setItem('pb_kiosk_session_id', s.sessionId)
             navigate('/settings')
+            return
+          }
+
+          if (s.state === 'CONFIRMING' || s.document || s.fileName) {
+            sessionStorage.setItem('pb_file_name', s.fileName || s.document?.fileName || 'document.pdf')
+            sessionStorage.setItem('pb_doc_page_count', String(s.totalPages || s.document?.pageCount || 1))
+            sessionStorage.setItem('pb_page_count', String(s.totalPages || s.document?.pageCount || 1))
+            sessionStorage.setItem('pb_kiosk_session_id', s.sessionId)
+            navigate('/confirm')
             return
           }
 

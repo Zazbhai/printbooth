@@ -10,6 +10,7 @@ import { relayToKiosk } from '../modules/wsRelay.js'
 
 import { isUserBlocked, normalizeIp } from '../modules/blocklist.js'
 import { printJobs, usedPinsRegistry, parsePageRangeList } from './print.js'
+import { resolveEffectivePageRange } from './kioskSessions.js'
 import { permanentlyDeleteOrderFiles } from '../modules/fileLifecycle.js'
 import { verifyKioskSecret, safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
@@ -70,7 +71,14 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
     const baseColourMode = (cleanColStr === 'COLOUR' || cleanColStr === 'COLOR') ? 'COLOUR' : 'BW'
     const colourMode = (hasAnyColorPage || baseColourMode === 'COLOUR') ? 'COLOUR' : 'BW'
 
-    const normPageRange = String(pageRange || pages || printSettings?.pageRange || printSettings?.pages || 'ALL').trim()
+    const normPageRange = resolveEffectivePageRange(
+      req.body.selectedPages,
+      printSettings?.selectedPages,
+      pageRange,
+      pages,
+      printSettings?.pageRange,
+      printSettings?.pages
+    )
     const normScaling = String(scaling || printSettings?.scaling || 'FIT').trim()
     const normPagesPerSheet = Number(pagesPerSheet || printSettings?.pagesPerSheet || 1)
 

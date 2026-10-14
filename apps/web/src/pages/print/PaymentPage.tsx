@@ -398,11 +398,38 @@ export default function PaymentPage() {
         copies: settings.copies,
         colourMode: settings.colour,
         duplex: settings.duplex,
+        pages: settings.pages || 'ALL',
+        pageRange: settings.pages || 'ALL',
         amount: totalPrice,
         orderId,
+        settings: {
+          ...settings,
+          pages: settings.pages || 'ALL',
+          pageRange: settings.pages || 'ALL',
+        },
+        files: isMultiFile
+          ? multiFiles.map(f => ({
+              id: f.id,
+              fileName: f.fileName,
+              fileSize: f.fileSize,
+              fileType: f.fileType,
+              pageCount: f.pageCount || 1,
+              copies: f.settings?.copies || settings.copies || 1,
+              colour: f.settings?.colour || settings.colour || 'BW',
+              duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
+              pages: f.settings?.pages || settings.pages || 'ALL',
+              pageRange: f.settings?.pages || settings.pages || 'ALL',
+              paperSize: f.settings?.paperSize || 'A4',
+              scaling: f.settings?.scaling || 'FIT',
+              pagesPerSheet: f.settings?.pagesPerSheet || 1,
+              orientation: f.settings?.orientation || 'AUTO',
+              dpi: f.settings?.dpi || '600',
+              settings: f.settings,
+            }))
+          : undefined,
       })
     }
-  }, [fileName, pageCount, settings.copies, settings.colour, settings.duplex, totalPrice, orderId, isMultiFile, multiFiles, status])
+  }, [fileName, pageCount, settings.copies, settings.colour, settings.duplex, settings.pages, totalPrice, orderId, isMultiFile, multiFiles, status, settings])
 
   useEffect(() => {
     if (!kioskSession.isKioskSession() || status === 'SUCCESS') return

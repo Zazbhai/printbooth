@@ -172,6 +172,16 @@ export default function ReviewPage() {
           fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
           totalPages: pageCount,
           amount: totalPrice,
+          copies: settings.copies,
+          colourMode: settings.colour,
+          duplex: settings.duplex,
+          pages: settings.pages || 'ALL',
+          pageRange: settings.pages || 'ALL',
+          settings: {
+            ...settings,
+            pages: settings.pages || 'ALL',
+            pageRange: settings.pages || 'ALL',
+          },
           files: multiFiles.map(f => ({
             id: f.id,
             fileName: f.fileName,

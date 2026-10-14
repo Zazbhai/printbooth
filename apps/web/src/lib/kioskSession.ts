@@ -639,10 +639,14 @@ export const kioskSession = {
     colourMode?: string
     duplex?: string
     amount?: number
+    pages?: string
+    pageRange?: string
+    selectedPages?: number[]
     settings?: Record<string, any>
     files?: any[]
   }) {
     abortPendingPayment()
+    const effectivePages = opts?.pages || opts?.pageRange || opts?.settings?.pages || opts?.settings?.pageRange
     reportKioskProgress({
       state: 'CONFIGURING',
       phase: 'Configuring print settings on mobile…',
@@ -653,11 +657,15 @@ export const kioskSession = {
       ...(opts?.colourMode ? { colourMode: opts.colourMode } : {}),
       ...(opts?.amount ? { amount: opts.amount } : {}),
       ...(opts?.files ? { files: opts.files } : {}),
+      ...(effectivePages ? { pageRange: effectivePages, pages: effectivePages } : {}),
+      ...(opts?.selectedPages ? { selectedPages: opts.selectedPages } : {}),
       settings: {
         ...(opts?.colourMode ? { colour: opts.colourMode } : {}),
         ...(opts?.duplex ? { duplex: opts.duplex } : {}),
         ...(opts?.copies ? { copies: opts.copies } : {}),
         ...(opts?.amount ? { totalAmount: opts.amount } : {}),
+        ...(effectivePages ? { pageRange: effectivePages, pages: effectivePages } : {}),
+        ...(opts?.selectedPages ? { selectedPages: opts.selectedPages } : {}),
         ...(opts?.settings || {}),
       },
     })
@@ -671,10 +679,14 @@ export const kioskSession = {
     duplex?: string
     amount?: number
     orderId?: string
+    pages?: string
+    pageRange?: string
+    selectedPages?: number[]
     settings?: Record<string, any>
     files?: any[]
   }) {
     abortPendingPayment()
+    const effectivePages = opts?.pages || opts?.pageRange || opts?.settings?.pages || opts?.settings?.pageRange
     reportKioskProgress({
       state: 'REVIEWING',
       phase: 'Reviewing order on mobile…',
@@ -686,11 +698,15 @@ export const kioskSession = {
       ...(opts?.amount ? { amount: opts.amount } : {}),
       ...(opts?.orderId ? { orderId: opts.orderId } : {}),
       ...(opts?.files ? { files: opts.files } : {}),
+      ...(effectivePages ? { pageRange: effectivePages, pages: effectivePages } : {}),
+      ...(opts?.selectedPages ? { selectedPages: opts.selectedPages } : {}),
       settings: {
         ...(opts?.colourMode ? { colour: opts.colourMode } : {}),
         ...(opts?.duplex ? { duplex: opts.duplex } : {}),
         ...(opts?.copies ? { copies: opts.copies } : {}),
         ...(opts?.amount ? { totalAmount: opts.amount } : {}),
+        ...(effectivePages ? { pageRange: effectivePages, pages: effectivePages } : {}),
+        ...(opts?.selectedPages ? { selectedPages: opts.selectedPages } : {}),
         ...(opts?.settings || {}),
       },
     })
@@ -704,12 +720,18 @@ export const kioskSession = {
     colourMode?: string
     copies?: number
     duplex?: string
+    pages?: string
+    pageRange?: string
+    selectedPages?: number[]
+    settings?: Record<string, any>
     files?: any[]
   }) {
     const effectiveOrderId = opts?.orderId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_order_id') || undefined : undefined)
     if (effectiveOrderId && typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem('pb_order_id', effectiveOrderId)
     }
+
+    const effectivePages = opts?.pages || opts?.pageRange || opts?.settings?.pages || opts?.settings?.pageRange
 
     reportKioskProgress({
       state: 'PAYING',
@@ -722,11 +744,15 @@ export const kioskSession = {
       ...(opts?.amount ? { amount: opts.amount } : {}),
       ...(effectiveOrderId ? { orderId: effectiveOrderId } : {}),
       ...(opts?.files ? { files: opts.files } : {}),
+      ...(effectivePages ? { pageRange: effectivePages, pages: effectivePages } : {}),
       settings: {
         ...(opts?.colourMode ? { colour: opts.colourMode } : {}),
         ...(opts?.duplex ? { duplex: opts.duplex } : {}),
         ...(opts?.copies ? { copies: opts.copies } : {}),
         ...(opts?.amount ? { totalAmount: opts.amount } : {}),
+        ...(effectivePages ? { pageRange: effectivePages, pages: effectivePages } : {}),
+        ...(opts?.selectedPages ? { selectedPages: opts.selectedPages } : {}),
+        ...(opts?.settings || {}),
       },
     })
 

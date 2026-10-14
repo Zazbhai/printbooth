@@ -17,7 +17,7 @@ import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.j
 import { getKioskPiPrinters, isKioskUsbPrinterConnected } from '../modules/kioskPiPrinters.js'
 import { permanentlyDeleteOrderFiles, isOrderFileExpired, RETENTION_MS } from '../modules/fileLifecycle.js'
 import { safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
-import { advanceSessionOnPinVerified, findSessionFilePath } from './kioskSessions.js'
+import { advanceSessionOnPinVerified, findSessionFilePath, resolveEffectivePageRange } from './kioskSessions.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -62,6 +62,7 @@ export interface PrintJobState {
   copies: number
   colourMode: string
   pageRange: string
+  selectedPages?: number[] | string
   pageCopies?: string
   pageColours?: string
   duplex: string
@@ -395,6 +396,9 @@ export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = fal
         orderNumber: job.orderNumber || job.masterOrderId || job.orderId,
         releasePin: job.releasePin,
         fileUrl: job.fileUrl || `/api/print/download/${job.orderId}`,
+        pageRange: job.pageRange,
+        pages: job.pageRange,
+        selectedPages: (job as any).selectedPages,
         immediate: true,
         forceKioskPrint: false,
       },
@@ -502,7 +506,11 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
     const copies = Math.max(1, Math.min(Number(req.body.copies) || 1, 99))
     const rawCol = String(req.body.colourMode || req.body.colour || 'BW').toUpperCase().replace('&', '')
     const colourMode = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
-    const pageRange = req.body.pageRange || req.body.pages || 'ALL'
+    const pageRange = resolveEffectivePageRange(
+      req.body.selectedPages,
+      req.body.pages,
+      req.body.pageRange
+    )
     const rawDuplex = req.body.duplex
     const duplex = (
       typeof rawDuplex === 'boolean'
@@ -557,6 +565,7 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       copies,
       colourMode,
       pageRange,
+      selectedPages: Array.isArray(req.body.selectedPages) ? req.body.selectedPages : undefined,
       pageCopies,
       pageColours,
       duplex,
@@ -647,6 +656,8 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
         duplex,
         paperSize,
         pageRange,
+        pages: pageRange,
+        selectedPages: req.body.selectedPages,
         scaling,
         orientation,
         pagesPerSheet,

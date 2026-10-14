@@ -17,7 +17,7 @@ export default function USBSelectScreen() {
   function handleContinue() {
     if (!selected) return
     sessionStorage.setItem('pb_file_name', selected)
-    navigate('/settings')
+    navigate('/confirm')
   }
 
   return (

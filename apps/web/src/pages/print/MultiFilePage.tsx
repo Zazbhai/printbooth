@@ -455,26 +455,22 @@ export default function MultiFilePage() {
       sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
     }
 
-    // In Kiosk QR Mode: proceed to settings
-    if (isKioskMode) {
-      sessionStorage.setItem('pb_print_step', 'settings')
-      if (flow?.goToStep) {
-        flow.goToStep('settings')
-      } else {
-        navigate('/print/settings')
-      }
-      return
-    }
-
     sessionStorage.setItem('pb_confirm_mode', 'doc')
     sessionStorage.setItem('pb_print_step', 'confirm')
+
+    if (kioskSession.isKioskSession()) {
+      kioskSession.reportConfirming({
+        fileName: combinedFileName,
+        totalPages: totalSheets,
+      })
+    }
 
     if (flow?.goToStep) {
       flow.goToStep('confirm')
     } else {
       navigate('/print/confirm')
     }
-  }, [flow, navigate, isKioskMode])
+  }, [flow, navigate])
 
   const handleTransferToKiosk = useCallback(async () => {
     if (isSendingToKiosk) return

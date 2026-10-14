@@ -42,8 +42,12 @@ export default function PaymentScreen() {
             navigate('/review')
             return
           }
-          if (s.state === 'CONFIRMING' || s.state === 'CONFIGURING') {
+          if (s.state === 'CONFIGURING') {
             navigate('/settings')
+            return
+          }
+          if (s.state === 'CONFIRMING') {
+            navigate('/confirm')
             return
           }
 
