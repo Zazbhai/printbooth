@@ -329,10 +329,13 @@ export default function PaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Cleanup polling on unmount ──
+  // ── Cleanup polling and pending payment on unmount ──
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current)
+      if (kioskSession.isKioskSession()) {
+        kioskSession.abortPendingPayment()
+      }
     }
   }, [])
 
@@ -380,8 +383,12 @@ export default function PaymentPage() {
   }, [orderId, kioskId])
 
   // ── In Kiosk Companion Mode: Notify Kiosk & Listen for Hardware Printing ──
+  const hasReportedPayingRef = useRef<string | null>(null)
   useEffect(() => {
     if (kioskSession.isKioskSession()) {
+      const paySig = `${orderId}_${totalPrice}`
+      if (hasReportedPayingRef.current === paySig) return
+      hasReportedPayingRef.current = paySig
       kioskSession.reportPaying({
         fileName: isMultiFile ? `${multiFiles.length} files` : fileName,
         totalPages: isMultiFile
@@ -394,7 +401,7 @@ export default function PaymentPage() {
         orderId,
       })
     }
-  }, [fileName, pageCount, settings.copies, totalPrice, orderId, isMultiFile, multiFiles])
+  }, [fileName, pageCount, settings.copies, settings.colour, settings.duplex, totalPrice, orderId, isMultiFile, multiFiles])
 
   useEffect(() => {
     if (!kioskSession.isKioskSession() || status === 'SUCCESS') return

@@ -565,11 +565,30 @@ export async function reportKioskProgress(payload: SessionProgressPayload): Prom
   }
 }
 
+// Abort controller and in-flight promise for kiosk payment initiation
+let activePaymentAbortController: AbortController | null = null
+let activePaymentKey: string | null = null
+let activePaymentPromise: Promise<any> | null = null
+
+export function abortPendingPayment(): void {
+  if (activePaymentAbortController) {
+    try {
+      activePaymentAbortController.abort()
+    } catch {}
+    activePaymentAbortController = null
+  }
+  activePaymentKey = null
+  activePaymentPromise = null
+}
+
 /**
  * Convenience helpers for each print flow step
  */
 export const kioskSession = {
+  abortPendingPayment,
+
   reportUploading(fileName?: string, customPhase?: string) {
+    abortPendingPayment()
     const isPpt = fileName && /\.(pptx?)$/i.test(fileName)
     const isDocx = fileName && /\.(docx?)$/i.test(fileName)
     const defaultPhase = isPpt
@@ -587,6 +606,7 @@ export const kioskSession = {
   },
 
   reportProcessing(fileName?: string, format?: 'PPT' | 'DOCX' | string) {
+    abortPendingPayment()
     const fmt = format || (fileName && /\.(pptx?)$/i.test(fileName) ? 'PPT' : 'DOCX')
     reportKioskProgress({
       state: 'UPLOADING',
@@ -601,6 +621,7 @@ export const kioskSession = {
     totalPages?: number
     files?: any[]
   }) {
+    abortPendingPayment()
     reportKioskProgress({
       state: 'CONFIRMING',
       phase: 'Reviewing document on mobile…',
@@ -621,6 +642,7 @@ export const kioskSession = {
     settings?: Record<string, any>
     files?: any[]
   }) {
+    abortPendingPayment()
     reportKioskProgress({
       state: 'CONFIGURING',
       phase: 'Configuring print settings on mobile…',
@@ -652,6 +674,7 @@ export const kioskSession = {
     settings?: Record<string, any>
     files?: any[]
   }) {
+    abortPendingPayment()
     reportKioskProgress({
       state: 'REVIEWING',
       phase: 'Reviewing order on mobile…',
@@ -860,21 +883,45 @@ export async function initiateKioskPayment(amount: number, orderId?: string): Pr
     return { success: false, error: 'No active kiosk session' }
   }
 
-  const clientClaimToken = getClientClaimSecret(sessionId)
-  try {
-    const res = await fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/pay`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-client-claim-token': clientClaimToken,
-      },
-      body: JSON.stringify({ amount, orderId, clientClaimToken }),
-    })
-    const data = await parseJsonResponse(res)
-    return data
-  } catch (err: any) {
-    return { success: false, error: err.message }
+  const payKey = `${sessionId}_${amount}_${orderId || ''}`
+  if (activePaymentKey === payKey && activePaymentPromise) {
+    return activePaymentPromise
   }
+  abortPendingPayment()
+
+  const controller = new AbortController()
+  activePaymentAbortController = controller
+  activePaymentKey = payKey
+
+  activePaymentPromise = (async () => {
+    const clientClaimToken = getClientClaimSecret(sessionId!)
+    try {
+      const res = await fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId!)}/pay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-claim-token': clientClaimToken,
+        },
+        body: JSON.stringify({ amount, orderId, clientClaimToken, state: 'PAYING' }),
+        signal: controller.signal,
+      })
+      const data = await parseJsonResponse(res)
+      return data
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        return { success: false, aborted: true }
+      }
+      return { success: false, error: err.message }
+    } finally {
+      if (activePaymentKey === payKey) {
+        activePaymentAbortController = null
+        activePaymentKey = null
+        activePaymentPromise = null
+      }
+    }
+  })()
+
+  return activePaymentPromise
 }
 
 /**

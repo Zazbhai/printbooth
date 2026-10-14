@@ -71,6 +71,7 @@ interface InFlightFile {
 
 const clients = new Map<string, WsClientInfo>()
 const inFlightFiles = new Map<string, InFlightFile>()
+const kioskDisconnectTimers = new Map<string, NodeJS.Timeout>()
 
 export {
   type KioskPiPrintersData,
@@ -280,12 +281,20 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
       },
     })
 
-    // If a kiosk connected, immediately sync with latest hardware and record online state
+    // If a kiosk connected, cancel any pending disconnect grace timer, immediately sync hardware and record online state
     if (role === 'kiosk' && kioskId) {
-      recordKioskHeartbeat(kioskId, { status: 'ONLINE', printerStatus: 'READY' }).catch(() => {})
-      notifyKioskConnected(kioskId, clientInfo)
-      broadcastToKioskUsers(kioskId, 'KIOSK_ONLINE', {
-        kioskId,
+      const cleanKioskId = kioskId.toUpperCase()
+      const pendingDisconnect = kioskDisconnectTimers.get(cleanKioskId)
+      if (pendingDisconnect) {
+        clearTimeout(pendingDisconnect)
+        kioskDisconnectTimers.delete(cleanKioskId)
+        console.log(`[WSS Relay] 🔌 Cancelled pending disconnect timer for ${cleanKioskId} (reconnected within grace period).`)
+      }
+
+      recordKioskHeartbeat(cleanKioskId, { status: 'ONLINE', printerStatus: 'READY' }).catch(() => {})
+      notifyKioskConnected(cleanKioskId, clientInfo)
+      broadcastToKioskUsers(cleanKioskId, 'KIOSK_ONLINE', {
+        kioskId: cleanKioskId,
         status: 'ONLINE',
         printerStatus: 'READY',
         connectedAt: Date.now(),
@@ -328,18 +337,33 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
       )
 
       if (role === 'kiosk' && kioskId) {
-        broadcastToAdmins('KIOSK_DISCONNECTED', { kioskId, clientId, disconnectedAt: Date.now() })
-        // If no other kiosk socket exists for this machine, mark it offline immediately (unless in test mode)
+        const cleanKioskId = kioskId.toUpperCase()
+        broadcastToAdmins('KIOSK_DISCONNECTED', { kioskId: cleanKioskId, clientId, disconnectedAt: Date.now() })
+
+        // If no other kiosk socket exists for this machine, start debounce timer before marking offline
         const isTestMode = (process.env.PRINT_MODE || '').toLowerCase() === 'test' || process.env.MOCK_PRINTER === 'true'
-        if (!isKioskRelayConnected(kioskId) && !isTestMode) {
-          markKioskOffline(kioskId, 'Kiosk WebSocket disconnected / Raspberry Pi powered off').catch(() => {})
-          broadcastToKioskUsers(kioskId, 'KIOSK_OFFLINE', {
-            kioskId,
-            status: 'OFFLINE',
-            printerStatus: 'OFFLINE',
-            reason: 'Station supervisor disconnected / Raspberry Pi powered off',
-            disconnectedAt: Date.now(),
-          })
+        if (!isKioskRelayConnected(cleanKioskId) && !isTestMode) {
+          // Clear any previous timer
+          const existingTimer = kioskDisconnectTimers.get(cleanKioskId)
+          if (existingTimer) clearTimeout(existingTimer)
+
+          // 12-second debounce grace period: allows Pi to reconnect without flipping system to OFFLINE
+          const timer = setTimeout(() => {
+            kioskDisconnectTimers.delete(cleanKioskId)
+            if (!isKioskRelayConnected(cleanKioskId) && !isTestMode) {
+              console.log(`[WSS Relay] ⏰ Grace period expired for ${cleanKioskId}. Marking OFFLINE.`)
+              markKioskOffline(cleanKioskId, 'Kiosk WebSocket disconnected / Raspberry Pi powered off').catch(() => {})
+              broadcastToKioskUsers(cleanKioskId, 'KIOSK_OFFLINE', {
+                kioskId: cleanKioskId,
+                status: 'OFFLINE',
+                printerStatus: 'OFFLINE',
+                reason: 'Station supervisor disconnected / Raspberry Pi powered off',
+                disconnectedAt: Date.now(),
+              })
+            }
+          }, 12000)
+
+          kioskDisconnectTimers.set(cleanKioskId, timer)
         }
       }
     })

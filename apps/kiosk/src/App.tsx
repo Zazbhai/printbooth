@@ -71,6 +71,7 @@ export default function App() {
           sessionStorage.removeItem('pb_doc_page_count')
           sessionStorage.removeItem('pb_page_count')
           sessionStorage.removeItem('pb_kiosk_session_id')
+          sessionStorage.removeItem('pb_upi_qr_value')
           setInactivityRemaining(null)
           setResetAt(null)
           if (location.pathname !== '/' && location.pathname !== '/welcome') {
@@ -96,32 +97,73 @@ export default function App() {
             setResetAt(null)
           }
 
-          // When phone user uploads a document while kiosk is on home, welcome, upload, or qr screen
-          if ((s.document || s.state === 'CONFIRMING' || s.state === 'CONFIGURING') && isUploadFromPhonePage) {
-            sessionStorage.setItem('pb_file_name', s.fileName || s.document?.fileName || 'document.pdf')
-            sessionStorage.setItem('pb_doc_page_count', String(s.totalPages || s.document?.pageCount || 1))
-            sessionStorage.setItem('pb_page_count', String(s.totalPages || s.document?.pageCount || 1))
+          // Always sync document, pricing, and settings into sessionStorage so all screens have live data
+          const fileName = s.fileName || s.document?.fileName
+          if (fileName) {
+            sessionStorage.setItem('pb_file_name', fileName)
+          }
+          const pageCount = s.totalPages || s.document?.pageCount
+          if (pageCount) {
+            sessionStorage.setItem('pb_doc_page_count', String(pageCount))
+            sessionStorage.setItem('pb_page_count', String(pageCount))
+          }
+          if (typeof s.amount === 'number' && s.amount > 0) {
+            sessionStorage.setItem('pb_total_price', String(s.amount))
+          }
+          if (s.settings) {
+            sessionStorage.setItem('pb_settings', JSON.stringify(s.settings))
+          }
+          if (s.sessionId) {
             sessionStorage.setItem('pb_kiosk_session_id', s.sessionId)
-            navigate('/settings')
-            return
+          }
+          const qr = s.upiQrValue || s.upiIntentUrl || s.paymentUrl
+          if (qr) {
+            sessionStorage.setItem('pb_upi_qr_value', qr)
           }
 
-          // When phone advances to payment
-          if (s.state === 'PAYING' && (location.pathname === '/settings' || location.pathname === '/review')) {
-            navigate('/payment')
-            return
-          }
+          // Global Bidirectional Phase Sync between Mobile and Kiosk Display
+          const isHardwareLockout = location.pathname === '/error' || location.pathname === '/offline' || location.pathname === '/upload/usb'
+          if (!isHardwareLockout) {
+            if (s.state === 'PRINTING') {
+              if (location.pathname !== '/printing') {
+                navigate('/printing')
+              }
+              return
+            }
 
-          // When print is triggered
-          if (s.state === 'PRINTING' && location.pathname !== '/printing') {
-            navigate('/printing')
-            return
-          }
+            if (s.state === 'DONE') {
+              if (location.pathname !== '/collect') {
+                navigate('/collect')
+              }
+              return
+            }
 
-          // When print is complete
-          if (s.state === 'DONE' && location.pathname !== '/collect') {
-            navigate('/collect')
-            return
+            if (s.state === 'PAYING') {
+              if (location.pathname !== '/payment') {
+                navigate('/payment')
+              }
+              return
+            }
+
+            if (s.state === 'REVIEWING') {
+              if (location.pathname !== '/review') {
+                navigate('/review')
+              }
+              return
+            }
+
+            if (s.state === 'CONFIRMING' || s.state === 'CONFIGURING') {
+              if (location.pathname !== '/settings') {
+                navigate('/settings')
+              }
+              return
+            }
+
+            // When phone user uploads a document while kiosk is on home, welcome, upload, or qr screen
+            if ((s.document || s.fileName) && isUploadFromPhonePage) {
+              navigate('/settings')
+              return
+            }
           }
         } else {
           setInactivityRemaining(null)

@@ -343,12 +343,19 @@ export async function handleJobPoll(req: Request, res: Response) {
 
     let orders: any[] = []
     if (isDbConnected()) {
-      // Find orders that are PAID or PRINTING, not yet printed or completed
+      // Auto-complete stale PRINTING orders older than 5 minutes so they never block subsequent jobs
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
+      await Order.updateMany(
+        { kioskId, status: 'PRINTING', updatedAt: { $lt: fiveMinsAgo } },
+        { $set: { status: 'COMPLETED', completedAt: new Date() } }
+      ).catch(() => {})
+
+      // Find orders that are PAID or recent PRINTING, prioritizing PAID first so newly paid jobs are picked up immediately
       orders = await Order.find({
         kioskId,
         status: { $in: ['PAID', 'PRINTING'] },
       })
-        .sort({ createdAt: 1 })
+        .sort({ status: 1, createdAt: 1 })
         .limit(5)
         .lean()
     }
@@ -366,56 +373,59 @@ export async function handleJobPoll(req: Request, res: Response) {
       return res.json({ success: true, jobs: [] })
     }
 
-    // Pick the oldest paid order
-    const o = orders[0]
-    const jobState = printJobs.get(o.orderId) || (o.orderNumber ? printJobs.get(o.orderNumber) : undefined)
-    const ps = o.printSettings || {}
+    const jobs = []
+    for (const o of orders) {
+      const jobState = printJobs.get(o.orderId) || (o.orderNumber ? printJobs.get(o.orderNumber) : undefined)
+      const ps = o.printSettings || {}
 
-    const job = {
-      job_id: o.orderId,
-      orderId: o.orderId,
-      orderNumber: o.orderNumber,
-      filename: o.fileName || 'PrintBooth_Document.pdf',
-      fileName: o.fileName || 'PrintBooth_Document.pdf',
-      download_url: `/api/print/download/${o.orderId}`,
-      fileUrl: `/api/print/download/${o.orderId}`,
-      copies: jobState?.copies || o.copies || ps.copies || 1,
-      colourMode: jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW',
-      colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
-      duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
-      paperSize: jobState?.paperSize || o.paperSize || ps.paperSize || 'A4',
-      pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'ALL',
-      scaling: jobState?.scaling || o.scaling || ps.scaling || 'FIT',
-      orientation: jobState?.orientation || o.orientation || ps.orientation || 'AUTO',
-      pagesPerSheet: jobState?.pagesPerSheet || o.pagesPerSheet || ps.pagesPerSheet || 1,
-      pageColours: jobState?.pageColours || o.pageColours || ps.pageColours,
-      pageCopies: jobState?.pageCopies || o.pageCopies || ps.pageCopies,
-      pages: o.pageCount || ps.pageCount || 1,
-      files: o.files || ps.files,
-      status: o.status,
-      metadata: {
-        print_settings: {
-          copies: jobState?.copies || o.copies || ps.copies || 1,
-          colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
-          orientation: (jobState?.orientation || o.orientation || ps.orientation || 'AUTO').toLowerCase(),
-          scaling: (jobState?.scaling || o.scaling || ps.scaling || 'FIT').toLowerCase(),
-          pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'all',
-          duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+      const job = {
+        job_id: o.orderId,
+        orderId: o.orderId,
+        orderNumber: o.orderNumber,
+        filename: o.fileName || 'PrintBooth_Document.pdf',
+        fileName: o.fileName || 'PrintBooth_Document.pdf',
+        download_url: `/api/print/download/${o.orderId}`,
+        fileUrl: `/api/print/download/${o.orderId}`,
+        copies: jobState?.copies || o.copies || ps.copies || 1,
+        colourMode: jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW',
+        colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
+        duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+        paperSize: jobState?.paperSize || o.paperSize || ps.paperSize || 'A4',
+        pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'ALL',
+        scaling: jobState?.scaling || o.scaling || ps.scaling || 'FIT',
+        orientation: jobState?.orientation || o.orientation || ps.orientation || 'AUTO',
+        pagesPerSheet: jobState?.pagesPerSheet || o.pagesPerSheet || ps.pagesPerSheet || 1,
+        pageColours: jobState?.pageColours || o.pageColours || ps.pageColours,
+        pageCopies: jobState?.pageCopies || o.pageCopies || ps.pageCopies,
+        pages: o.pageCount || ps.pageCount || 1,
+        files: o.files || ps.files,
+        status: o.status,
+        metadata: {
+          print_settings: {
+            copies: jobState?.copies || o.copies || ps.copies || 1,
+            colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
+            orientation: (jobState?.orientation || o.orientation || ps.orientation || 'AUTO').toLowerCase(),
+            scaling: (jobState?.scaling || o.scaling || ps.scaling || 'FIT').toLowerCase(),
+            pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'all',
+            duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+          }
         }
       }
-    }
 
-    // Mark as PRINTING in DB to indicate it is claimed by Pi
-    if (isDbConnected() && o.status === 'PAID') {
-      await Order.findOneAndUpdate(
-        { orderId: o.orderId },
-        { status: 'PRINTING', updatedAt: new Date() }
-      )
+      // Mark as PRINTING in DB to indicate it is claimed by Pi
+      if (isDbConnected() && o.status === 'PAID') {
+        await Order.findOneAndUpdate(
+          { orderId: o.orderId },
+          { status: 'PRINTING', updatedAt: new Date() }
+        ).catch(() => {})
+      }
+
+      jobs.push(job)
     }
 
     return res.json({
       success: true,
-      jobs: [job],
+      jobs,
     })
   } catch (err: any) {
     console.error('[Job Poll] Error handling poll:', err)

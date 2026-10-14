@@ -171,6 +171,7 @@ export interface KioskSession {
   merchantError?: string
   merchantRecommendation?: string
   qrAmount?: number
+  paymentEpoch?: number
 }
 
 export type KioskSessionState =
@@ -858,16 +859,30 @@ kioskSessionsRouter.post(['/:sessionId/section', '/kiosk/:kioskId/section'], (re
   const resolvedId = sessionId || (kioskId ? activeSessionByKiosk.get(kioskId.toUpperCase()) : null)
   const session = resolvedId ? getSession(resolvedId) : null
 
-  if (session && session.state !== 'DONE' && session.state !== 'EXPIRED' && session.state !== 'CANCELLED') {
+  if (session && session.state !== 'DONE' && session.state !== 'EXPIRED' && session.state !== 'CANCELLED' && session.state !== 'PRINTING') {
     const now = Date.now()
     session.currentSectionEnteredAt = now
     session.lastPhoneActivityAt = now
     session.lastActivityAt = now
+
+    const section = req.body?.section
+    if (section === '/review' && session.state !== 'REVIEWING') {
+      session.state = 'REVIEWING'
+      console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state REVIEWING from section ${section}`)
+    } else if (section === '/settings' && session.state !== 'CONFIGURING') {
+      session.state = 'CONFIGURING'
+      console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state CONFIGURING from section ${section}`)
+    } else if (section === '/payment' && session.state !== 'PAYING') {
+      session.state = 'PAYING'
+      console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state PAYING from section ${section}`)
+    }
+
     saveSession(session)
     console.log(`[KioskSession] ⏱️ Reset 1-minute timer for section on session ${session.sessionId}`)
     return res.json({
       success: true,
       sessionId: session.sessionId,
+      state: session.state,
       currentSectionEnteredAt: now,
       inactivityRemainingSec: 60,
       resetAt: now + SECTION_INACTIVITY_TIMEOUT_MS,
@@ -1072,6 +1087,7 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
     session.upiIntentUrl = ''
     session.paymentUrl = ''
     session.qrAmount = undefined
+    session.paymentEpoch = (session.paymentEpoch || 0) + 1
   }
 
   if (progressData) session.progressData = { ...session.progressData, ...progressData }
@@ -1271,9 +1287,14 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
   session.currentSectionEnteredAt = now
   session.phoneDisconnected = false
   session.phoneDisconnectedAt = undefined
-  session.state = 'CONFIRMING'
-  session.phase = 'Document uploaded. Review document on mobile.'
-  session.phaseStep = 2
+
+  // Only transition to CONFIRMING if session hasn't already advanced past it
+  const isPastConfirming = ['CONFIGURING', 'REVIEWING', 'PAYING', 'PRINTING', 'DONE'].includes(session.state)
+  if (!isPastConfirming) {
+    session.state = 'CONFIRMING'
+    session.phase = 'Document uploaded. Review document on mobile.'
+    session.phaseStep = 2
+  }
 
   saveSession(session)
 
@@ -1749,6 +1770,7 @@ export async function initiatePaymentForSession(
   const reqAmount = typeof amount === 'number' && amount > 0 ? amount : undefined
   const existingAmount = typeof session.amount === 'number' && session.amount > 0 ? session.amount : undefined
   const effectiveAmount = reqAmount || existingAmount || 2
+  const startEpoch = session.paymentEpoch || 0
 
   // An active QR is valid only if it was explicitly generated for this exact amount
   const isQrCurrentForAmount =
@@ -1760,6 +1782,11 @@ export async function initiatePaymentForSession(
 
   // If session already has an active, valid UPI QR for this exact amount, reuse it without hitting gateway again!
   if (isQrCurrentForAmount && (session.upiIntentUrl || session.upiQrValue) && session.orderId) {
+    const fresh = getSession(session.sessionId)
+    if (fresh && ['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(fresh.state)) {
+      console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${fresh.state}. Skipping state override to PAYING.`)
+      return
+    }
     console.log(`[KioskSession] Reusing active dynamic UPI QR for session ${session.sessionId} (order ${session.orderId}) for ₹${effectiveAmount}`)
     session.state = 'PAYING'
     session.phase = `Scan QR code on kiosk display to pay ₹${effectiveAmount.toFixed(2)}`
@@ -1785,9 +1812,11 @@ export async function initiatePaymentForSession(
   session.orderId = orderId
   session.otp = otp
 
-  session.state = 'PAYING'
-  session.phase = `Scan QR code on kiosk display to pay ₹${effectiveAmount.toFixed(2)}`
-  session.phaseStep = 4
+  const freshBeforeGate = getSession(session.sessionId)
+  if (freshBeforeGate && ['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(freshBeforeGate.state)) {
+    console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${freshBeforeGate.state}. Not generating payment before user proceeds to pay.`)
+    return
+  }
 
   const gwInfo = await resolveGatewayForKiosk(session.kioskId)
   session.gateway = gwInfo.gateway
@@ -1969,6 +1998,21 @@ export async function initiatePaymentForSession(
     }
   }
 
+  const freshAfterGate = getSession(session.sessionId)
+  if (freshAfterGate && (['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(freshAfterGate.state) || (typeof freshAfterGate.paymentEpoch === 'number' && freshAfterGate.paymentEpoch !== startEpoch))) {
+    console.log(`[KioskSession] 🛑 Session ${session.sessionId} moved to ${freshAfterGate.state} (or epoch changed) during gateway generation. Preserving user phase!`)
+    freshAfterGate.orderId = session.orderId
+    freshAfterGate.otp = session.otp
+    freshAfterGate.gateway = session.gateway
+    saveSession(freshAfterGate)
+    syncSessionToOrder(freshAfterGate)
+    return
+  }
+
+  session.state = 'PAYING'
+  session.phase = `Scan QR code on kiosk display to pay ₹${effectiveAmount.toFixed(2)}`
+  session.phaseStep = 5
+
   saveSession(session)
   syncSessionToOrder(session)
 }
@@ -2005,6 +2049,20 @@ kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) 
       code: 'SESSION_EXPIRED',
       message: 'This print session has expired or ended. Please scan the current live QR code on the kiosk screen.',
     })
+  }
+
+  const freshCheck = getSession(session.sessionId)
+  if (freshCheck && ['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(freshCheck.state)) {
+    const isExplicitPayStep = req.body?.force === true
+    if (!isExplicitPayStep) {
+      console.log(`[KioskSession] 🛑 /pay request ignored because session is currently in ${freshCheck.state}`)
+      return res.json({
+        success: true,
+        ignored: true,
+        state: freshCheck.state,
+        message: `Session is currently in ${freshCheck.state}`,
+      })
+    }
   }
 
   const { amount, orderId: reqOrderId } = req.body
@@ -2643,13 +2701,29 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
  */
 export function findSessionFilePath(orderOrSessionId: string): string | null {
   if (!orderOrSessionId) return null
+  const cleanId = orderOrSessionId.includes('_sub_') ? orderOrSessionId.split('_sub_')[0] : orderOrSessionId
+  const subIdx = orderOrSessionId.includes('_sub_') ? (parseInt(orderOrSessionId.split('_sub_')[1], 10) - 1) : 0
+
   for (const s of sessions.values()) {
-    if (
+    const isMatch =
       s.orderId === orderOrSessionId ||
+      s.orderId === cleanId ||
+      s.orderNumber === orderOrSessionId ||
+      s.orderNumber === cleanId ||
       s.sessionId === orderOrSessionId ||
+      s.sessionId === cleanId ||
       (orderOrSessionId && orderOrSessionId.includes(s.sessionId.slice(-6))) ||
-      (s.orderId && orderOrSessionId.includes(s.orderId))
-    ) {
+      (s.orderId && orderOrSessionId.includes(s.orderId)) ||
+      (s.orderNumber && orderOrSessionId.includes(s.orderNumber))
+
+    if (isMatch) {
+      // Check multi-file array first if sub-index specified
+      if (Array.isArray(s.files) && s.files.length > 0) {
+        const targetFile = s.files[subIdx] || s.files[0]
+        if (targetFile?.filePath && fs.existsSync(targetFile.filePath)) {
+          return targetFile.filePath
+        }
+      }
       if (s.document?.filePath && fs.existsSync(s.document.filePath)) {
         return s.document.filePath
       }

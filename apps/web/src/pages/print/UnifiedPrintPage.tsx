@@ -551,11 +551,13 @@ export default function UnifiedPrintPage() {
       const poppedStep = sp.get('step') as PrintStep | null
       const validList: PrintStep[] = ['upload', 'confirm', 'settings', 'review', 'payment', 'status', 'success', 'kiosk']
       if (poppedStep && validList.includes(poppedStep)) {
+        lastTargetStepRef.current = poppedStep
         setCurrentStep(poppedStep)
         sessionStorage.setItem('pb_print_step', poppedStep)
       } else if (!poppedStep) {
         const hasFiles = hasRealUploadedDoc() || hasAnyReadyFile() || Boolean(typeof window !== 'undefined' && sessionStorage.getItem('pb_files'))
         const target: PrintStep = hasFiles ? 'upload' : 'kiosk'
+        lastTargetStepRef.current = target
         setCurrentStep(target)
         sessionStorage.setItem('pb_print_step', target)
       }
@@ -805,8 +807,9 @@ export default function UnifiedPrintPage() {
         return
       }
       if (paramStep !== currentStep) {
-        // If currentStep was just explicitly updated via goToStep and paramStep is lagging behind in searchParams, do not revert!
-        if (lastTargetStepRef.current && paramStep !== lastTargetStepRef.current) {
+        // If currentStep was just explicitly updated via goToStep or popstate and paramStep is lagging behind in searchParams, do not revert!
+        const storedStep = typeof window !== 'undefined' ? (sessionStorage.getItem('pb_print_step') as PrintStep | null) : null
+        if (storedStep === currentStep || (lastTargetStepRef.current && paramStep !== lastTargetStepRef.current)) {
           return
         }
         lastTargetStepRef.current = null

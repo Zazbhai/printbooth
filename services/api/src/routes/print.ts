@@ -103,9 +103,18 @@ export const usedPinsRegistry = new Set<string>()
  */
 export function syncJobState(job: PrintJobState) {
   printJobs.set(job.orderId, job)
+  if (job.orderNumber && job.orderNumber !== job.orderId) {
+    printJobs.set(job.orderNumber, job)
+  }
+  if (job.masterOrderId && job.masterOrderId !== job.orderId) {
+    printJobs.set(job.masterOrderId, job)
+  }
   cacheSet(`print:job:${job.orderId}`, job, 86400).catch((err) => {
     console.warn(`[Redis Print Sync] Error caching job ${job.orderId}:`, err)
   })
+  if (job.orderNumber && job.orderNumber !== job.orderId) {
+    cacheSet(`print:job:${job.orderNumber}`, job, 86400).catch(() => {})
+  }
 }
 
 // Path to windows printer Python engine
@@ -160,12 +169,56 @@ function simulateTestPrintJob(job: PrintJobState) {
   }, 400)
 }
 
+interface WindowsQueueItem {
+  job: PrintJobState
+}
+
+const windowsPrintQueue: WindowsQueueItem[] = []
+let isWindowsPrintingActive = false
+
+function enqueueWindowsPrintJob(job: PrintJobState) {
+  windowsPrintQueue.push({ job })
+  console.log(`[Windows Spooler Queue] 📋 Job ${job.orderId} enqueued for synchronous printing (Pending in queue: ${windowsPrintQueue.length})`)
+  processNextWindowsPrintJob()
+}
+
+function processNextWindowsPrintJob() {
+  if (isWindowsPrintingActive || windowsPrintQueue.length === 0) {
+    return
+  }
+
+  const next = windowsPrintQueue.shift()
+  if (!next) return
+
+  isWindowsPrintingActive = true
+  const { job } = next
+
+  dispatchWindowsPrintJobInternal(job, () => {
+    isWindowsPrintingActive = false
+    // Advance to next print job strictly synchronously
+    setImmediate(processNextWindowsPrintJob)
+  })
+}
+
 /**
- * Spawns the Windows GDI print engine subprocess and monitors stdout telemetry
+ * Spawns the Windows GDI print engine subprocess and monitors stdout telemetry.
+ * Wrapped by synchronous queue to ensure only ONE job prints at a time.
  */
 function dispatchWindowsPrintJob(job: PrintJobState) {
+  enqueueWindowsPrintJob(job)
+}
+
+function dispatchWindowsPrintJobInternal(job: PrintJobState, onDone?: () => void) {
+  let doneCalled = false
+  const finish = () => {
+    if (!doneCalled) {
+      doneCalled = true
+      onDone?.()
+    }
+  }
+
   job.status = 'PRINTING'
-  console.log(`\n[Print Dispatch] 🖨 Starting print for Order ${job.orderId}: ${job.fileName}`)
+  console.log(`\n[Print Dispatch] 🖨 Starting synchronous print for Order ${job.orderId}: ${job.fileName}`)
   console.log(
     `[Print Dispatch] Settings: ${job.copies} copies | ${job.colourMode} | Pages: ${job.pageRange} | ` +
     `Duplex: ${job.duplex} | Paper: ${job.paperSize || 'A4'} | DPI: ${job.dpi || '600'} | ` +
@@ -272,6 +325,7 @@ function dispatchWindowsPrintJob(job: PrintJobState) {
     job.error = `Failed to start Python print engine: ${err.message}`
     syncJobState(job)
     updateDbOrderStatus(job.orderId, 'FAILED')
+    finish()
   })
 
   pyProcess.on('close', (code) => {
@@ -287,6 +341,7 @@ function dispatchWindowsPrintJob(job: PrintJobState) {
       syncJobState(job)
       updateDbOrderStatus(job.orderId, 'FAILED')
     }
+    finish()
   })
 }
 
@@ -866,7 +921,18 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
       return res.sendFile(path.resolve(job.filePath))
     }
 
-    const sessionDocPath = findSessionFilePath(orderId)
+    // Check alias job in printJobs map
+    const aliasJob = (order?.orderNumber && printJobs.get(order.orderNumber)) || (masterOrderId && printJobs.get(masterOrderId))
+    if (aliasJob?.filePath && fs.existsSync(aliasJob.filePath)) {
+      return res.sendFile(path.resolve(aliasJob.filePath))
+    }
+
+    const sessionDocPath =
+      findSessionFilePath(orderId) ||
+      findSessionFilePath(masterOrderId) ||
+      (order?.orderNumber ? findSessionFilePath(order.orderNumber) : null) ||
+      (order?.orderId ? findSessionFilePath(order.orderId) : null)
+
     if (sessionDocPath && fs.existsSync(sessionDocPath)) {
       return res.sendFile(path.resolve(sessionDocPath))
     }

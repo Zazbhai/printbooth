@@ -733,6 +733,7 @@ def print_file(
                     for item in s["items"]:
                         item["dib"].draw(dc.GetHandleOutput(), item["rect"])
                     dc.EndPage()
+                    time.sleep(0.12)  # Synchronous pacing pause so printer hardware receives pages in sync
 
                     completed += 1
                     if on_progress:
@@ -746,6 +747,7 @@ def print_file(
                     for item in s["items"]:
                         item["dib"].draw(dc.GetHandleOutput(), item["rect"])
                     dc.EndPage()
+                    time.sleep(0.12)  # Synchronous pacing pause so printer hardware receives pages in sync
 
                     completed += 1
                     if on_progress:

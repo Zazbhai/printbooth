@@ -8,11 +8,6 @@ import './KioskScreens.css'
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/api$/, '').replace(/\/+$/, '')
 const KIOSK_ID = 'PB-001'
 
-/** Returns the canonical domain https://printbooth.co.in for web uploads */
-function resolveWebBase(): string {
-  return 'https://printbooth.co.in'
-}
-
 interface KioskSessionData {
   sessionId: string
   token: string
@@ -104,12 +99,13 @@ export default function QRUploadScreen() {
           const s = data.session
           setPhoneState(s.state || 'WAITING')
 
-          if (s.document || s.state === 'CONFIRMING' || s.state === 'CONFIGURING') {
-            sessionStorage.setItem('pb_file_name', s.fileName || s.document?.fileName || 'document.pdf')
-            sessionStorage.setItem('pb_doc_page_count', String(s.totalPages || s.document?.pageCount || 1))
-            sessionStorage.setItem('pb_page_count', String(s.totalPages || s.document?.pageCount || 1))
-            sessionStorage.setItem('pb_kiosk_session_id', s.sessionId)
-            navigate('/settings')
+          if (s.state === 'PRINTING') {
+            navigate('/printing')
+            return
+          }
+
+          if (s.state === 'DONE') {
+            navigate('/collect')
             return
           }
 
@@ -118,13 +114,17 @@ export default function QRUploadScreen() {
             return
           }
 
-          if (s.state === 'PRINTING') {
-            navigate('/printing')
+          if (s.state === 'REVIEWING') {
+            navigate('/review')
             return
           }
 
-          if (s.state === 'DONE') {
-            navigate('/collect')
+          if (s.state === 'CONFIRMING' || s.state === 'CONFIGURING' || s.document || s.fileName) {
+            sessionStorage.setItem('pb_file_name', s.fileName || s.document?.fileName || 'document.pdf')
+            sessionStorage.setItem('pb_doc_page_count', String(s.totalPages || s.document?.pageCount || 1))
+            sessionStorage.setItem('pb_page_count', String(s.totalPages || s.document?.pageCount || 1))
+            sessionStorage.setItem('pb_kiosk_session_id', s.sessionId)
+            navigate('/settings')
             return
           }
 
@@ -192,11 +192,18 @@ export default function QRUploadScreen() {
                 📱 Phone Connected! Uploading documents…
               </span>
             </>
-          ) : phoneState === 'CONFIRMING' || phoneState === 'CONFIGURING' || phoneState === 'REVIEWING' ? (
+          ) : phoneState === 'CONFIRMING' || phoneState === 'CONFIGURING' ? (
             <>
               <div className="kiosk-waiting__dot" style={{ background: '#c8ff00' }} />
               <span style={{ color: '#ffffff', fontWeight: 600 }}>
                 ⚙️ User configuring print settings on phone…
+              </span>
+            </>
+          ) : phoneState === 'REVIEWING' ? (
+            <>
+              <div className="kiosk-waiting__dot" style={{ background: '#38bdf8' }} />
+              <span style={{ color: '#38bdf8', fontWeight: 600 }}>
+                📑 Reviewing order on phone…
               </span>
             </>
           ) : phoneState === 'PAYING' ? (

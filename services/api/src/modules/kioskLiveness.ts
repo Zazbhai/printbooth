@@ -91,12 +91,10 @@ export async function isKioskPiReachable(rawKioskId?: string): Promise<KioskReac
     try {
       const kDoc: any = await Kiosk.findOne({ kioskId }).lean()
       if (kDoc) {
-        if (kDoc.status === 'OFFLINE' || kDoc.printerStatus === 'OFFLINE') {
+        if (kDoc.merchantError) {
           return {
             isReachable: false,
-            reason: kDoc.merchantError
-              ? `Station ${kioskId} printer is offline due to payment gateway error: ${kDoc.merchantError}`
-              : `Station ${kioskId} is marked OFFLINE in system.`,
+            reason: `Station ${kioskId} printer is offline due to payment gateway error: ${kDoc.merchantError}`,
             via: 'none',
             kioskId,
           }
@@ -408,15 +406,30 @@ export async function recordKioskHeartbeat(
   let hasMerchantError = false
   if (isDbConnected()) {
     try {
-      const existing: any = await Kiosk.findOne({ kioskId }).select('merchantError').lean()
+      const existing: any = await Kiosk.findOne({ kioskId }).select('merchantError merchantErrorAt').lean()
       if (existing?.merchantError) {
-        hasMerchantError = true
+        const errAge = existing.merchantErrorAt ? Date.now() - new Date(existing.merchantErrorAt).getTime() : Infinity
+        if (errAge > 15 * 60 * 1000 && !isPrinterOffline) {
+          hasMerchantError = false
+          await Kiosk.updateOne(
+            { kioskId },
+            { $set: { merchantError: null, merchantErrorAt: null, merchantRecommendation: null } }
+          ).catch(() => {})
+        } else {
+          hasMerchantError = true
+        }
       }
     } catch {}
   }
   const fb = fallbackKiosks.find((k) => (k.kioskId || k.id) === kioskId)
   if (fb?.merchantError) {
-    hasMerchantError = true
+    const errAge = fb.merchantErrorAt ? Date.now() - new Date(fb.merchantErrorAt).getTime() : Infinity
+    if (errAge > 15 * 60 * 1000 && !isPrinterOffline) {
+      fb.merchantError = null
+      fb.merchantErrorAt = null
+    } else {
+      hasMerchantError = true
+    }
   }
 
   const onlineStatus = (isPrinterOffline || hasMerchantError) ? 'OFFLINE' : 'ONLINE'

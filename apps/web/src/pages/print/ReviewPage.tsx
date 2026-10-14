@@ -164,39 +164,39 @@ export default function ReviewPage() {
   function handlePay() {
     sessionStorage.setItem('pb_print_step', 'payment')
     sessionStorage.setItem('pb_total_price', String(totalPrice))
-    if (kioskSession.isKioskSession()) {
-      kioskSession.reportPaying({
-        fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
-        totalPages: pageCount,
-        amount: totalPrice,
-        files: multiFiles.map(f => ({
-          id: f.id,
-          fileName: f.fileName,
-          fileSize: f.fileSize,
-          fileType: f.fileType,
-          pageCount: f.pageCount || 1,
-          copies: f.settings?.copies || settings.copies || 1,
-          colour: f.settings?.colour || settings.colour || 'BW',
-          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
-          pages: f.settings?.pages || 'ALL',
-          pageRange: f.settings?.pages || 'ALL',
-          paperSize: f.settings?.paperSize || 'A4',
-          scaling: f.settings?.scaling || 'FIT',
-          pagesPerSheet: f.settings?.pagesPerSheet || 1,
-          orientation: f.settings?.orientation || 'AUTO',
-          dpi: f.settings?.dpi || '600',
-          margins: f.settings?.margins || 'STANDARD',
-          contrastMode: f.settings?.contrastMode || 'BALANCED',
-          pageBorder: Boolean(f.settings?.pageBorder),
-          pageCopies: f.settings?.pageCopies,
-          pageColours: f.settings?.pageColours,
-          settings: f.settings,
-        })),
-      })
-    }
     if (flow?.goToStep) {
       flow.goToStep('payment')
     } else {
+      if (kioskSession.isKioskSession()) {
+        kioskSession.reportPaying({
+          fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
+          totalPages: pageCount,
+          amount: totalPrice,
+          files: multiFiles.map(f => ({
+            id: f.id,
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            fileType: f.fileType,
+            pageCount: f.pageCount || 1,
+            copies: f.settings?.copies || settings.copies || 1,
+            colour: f.settings?.colour || settings.colour || 'BW',
+            duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
+            pages: f.settings?.pages || 'ALL',
+            pageRange: f.settings?.pages || 'ALL',
+            paperSize: f.settings?.paperSize || 'A4',
+            scaling: f.settings?.scaling || 'FIT',
+            pagesPerSheet: f.settings?.pagesPerSheet || 1,
+            orientation: f.settings?.orientation || 'AUTO',
+            dpi: f.settings?.dpi || '600',
+            margins: f.settings?.margins || 'STANDARD',
+            contrastMode: f.settings?.contrastMode || 'BALANCED',
+            pageBorder: Boolean(f.settings?.pageBorder),
+            pageCopies: f.settings?.pageCopies,
+            pageColours: f.settings?.pageColours,
+            settings: f.settings,
+          })),
+        })
+      }
       navigate('/print/payment')
     }
   }
