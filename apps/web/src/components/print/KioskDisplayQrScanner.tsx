@@ -291,39 +291,143 @@ export default function KioskDisplayQrScanner({
     }
   }, [scannedSuccess, processQrContent])
 
-  // Initialize camera stream
+  // Direct fallback station connection without camera scan
+  const [isConnectingDirectly, setIsConnectingDirectly] = useState<boolean>(false)
+
+  const handleDirectConnect = useCallback(async () => {
+    setIsConnectingDirectly(true)
+    setStatusMessage(`Connecting to ${kioskId}…`)
+    try {
+      const apiBase = getApiBase()
+      const res = await fetch(`${apiBase}/api/kiosk-sessions/active/${encodeURIComponent(kioskId)}`)
+      const data = await res.json()
+      if (data.success && data.session?.token) {
+        processQrContent(data.session.token)
+      } else {
+        setStatusMessage(`Could not find an active session on ${kioskId}. Please make sure the kiosk screen is turned on.`)
+      }
+    } catch (err) {
+      console.warn('[KioskDisplayQrScanner] Direct connect error:', err)
+      setStatusMessage('Connection failed. Please check your network connection.')
+    } finally {
+      setIsConnectingDirectly(false)
+    }
+  }, [kioskId, processQrContent])
+
+  // Multi-tier camera initialization with progressive constraints fallback
+  const startingCameraRef = useRef<boolean>(false)
+
   const startCamera = useCallback(async (mode: 'environment' | 'user') => {
+    if (startingCameraRef.current) return
+    startingCameraRef.current = true
     setCameraError(null)
     setIsScanning(true)
 
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
+      try {
+        streamRef.current.getTracks().forEach(t => t.stop())
+      } catch {}
       streamRef.current = null
+    }
+
+    if (typeof window === 'undefined') {
+      startingCameraRef.current = false
+      return
+    }
+
+    if (window.isSecureContext === false && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setHasCamera(false)
+      setCameraError('Camera access requires an HTTPS connection. You can connect to the kiosk station directly below.')
+      startingCameraRef.current = false
+      return
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setHasCamera(false)
-      setCameraError('Camera access is required to scan the kiosk screen QR code. Please enable camera permissions in your browser.')
+      setCameraError('Camera access is not supported on this browser. You can connect to the kiosk station directly below.')
+      startingCameraRef.current = false
       return
     }
 
-    try {
-      const constraints: MediaStreamConstraints = {
+    const tieredConstraints: MediaStreamConstraints[] = [
+      {
         video: {
           facingMode: { ideal: mode },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
         audio: false,
-      }
+      },
+      {
+        video: {
+          facingMode: { ideal: mode },
+        },
+        audio: false,
+      },
+      {
+        video: {
+          facingMode: mode,
+        },
+        audio: false,
+      },
+      {
+        video: true,
+        audio: false,
+      },
+    ]
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    let stream: MediaStream | null = null
+    let lastErr: any = null
+
+    for (const constraints of tieredConstraints) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+        if (stream) break
+      } catch (err: any) {
+        lastErr = err
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          break
+        }
+      }
+    }
+
+    if (!stream) {
+      console.warn('[KioskDisplayQrScanner] All camera constraints exhausted:', lastErr)
+      setHasCamera(false)
+      if (lastErr?.name === 'NotAllowedError' || lastErr?.name === 'PermissionDeniedError') {
+        setCameraError('Camera permission was denied. Please allow camera access in your browser settings, or connect directly below.')
+      } else {
+        setCameraError('Unable to open camera on this device. Please check camera permissions in your browser, or connect directly below.')
+      }
+      startingCameraRef.current = false
+      return
+    }
+
+    try {
       streamRef.current = stream
+      setHasCamera(true)
+      setCameraError(null)
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.setAttribute('playsinline', 'true')
-        await videoRef.current.play()
+        const video = videoRef.current
+        video.srcObject = stream
+        video.muted = true
+        video.volume = 0
+        video.playsInline = true
+        video.setAttribute('playsinline', 'true')
+        video.setAttribute('webkit-playsinline', 'true')
+        video.setAttribute('muted', 'true')
+        video.setAttribute('autoplay', 'true')
+
+        video.onloadedmetadata = () => {
+          video.play().catch(e => console.warn('[KioskDisplayQrScanner] Play deferred:', e))
+        }
+
+        try {
+          await video.play()
+        } catch (playErr) {
+          console.warn('[KioskDisplayQrScanner] Play promise caught:', playErr)
+        }
       }
 
       // Check for torch capability
@@ -335,13 +439,11 @@ export default function KioskDisplayQrScanner({
 
       animFrameRef.current = requestAnimationFrame(scanFrame)
     } catch (err: any) {
-      console.warn('[KioskDisplayQrScanner] Camera error:', err)
+      console.warn('[KioskDisplayQrScanner] Video attach error:', err)
       setHasCamera(false)
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setCameraError('Camera permission denied. Please allow camera access in your browser settings to scan the kiosk QR code.')
-      } else {
-        setCameraError('Unable to open camera on this device. Please check camera permissions in your browser.')
-      }
+      setCameraError('Unable to display camera feed. You can connect to the kiosk station directly below.')
+    } finally {
+      startingCameraRef.current = false
     }
   }, [scanFrame])
 
@@ -479,25 +581,79 @@ export default function KioskDisplayQrScanner({
 
         {/* Viewfinder Camera Box */}
         <div className={`pb-scanner-viewport ${scannedSuccess ? 'success' : ''}`}>
-          {hasCamera ? (
-            <video
-              ref={videoRef}
-              className="pb-scanner-video"
-              muted
-              playsInline
-              autoPlay
-            />
-          ) : (
+          <video
+            ref={videoRef}
+            className="pb-scanner-video"
+            muted
+            playsInline
+            autoPlay
+            style={{ display: hasCamera && !cameraError ? 'block' : 'none' }}
+          />
+
+          {(!hasCamera || cameraError) && (
             <div className="pb-scanner-placeholder">
-              <WarningCircle size={42} weight="fill" color="#dc2626" />
+              <WarningCircle size={40} weight="fill" color="#dc2626" />
               <p className="pb-scanner-placeholder-text">
-                {cameraError || 'Camera unavailable'}
+                {cameraError || 'Camera unavailable on this device'}
               </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, width: '100%', maxWidth: 280, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHasCamera(true)
+                    setCameraError(null)
+                    startCamera(facingMode)
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    width: '100%',
+                    padding: '11px 16px',
+                    background: '#dc2626',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderRadius: 10,
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.25)',
+                  }}
+                >
+                  <ArrowsClockwise size={16} weight="bold" />
+                  <span>Try Camera Again</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDirectConnect}
+                  disabled={isConnectingDirectly}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    width: '100%',
+                    padding: '11px 16px',
+                    background: '#1e293b',
+                    color: '#f8fafc',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderRadius: 10,
+                    border: '1px solid #334155',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Lightning size={16} weight="fill" color="#fbbf24" />
+                  <span>{isConnectingDirectly ? 'Connecting…' : `Connect to ${kioskId} Directly`}</span>
+                </button>
+              </div>
             </div>
           )}
 
           {/* Viewfinder Target HUD Overlay */}
-          <div className="pb-scanner-hud">
+          <div className="pb-scanner-hud" style={{ display: hasCamera && !cameraError ? 'block' : 'none' }}>
             <div className="pb-scanner-corner pb-corner-tl" />
             <div className="pb-scanner-corner pb-corner-tr" />
             <div className="pb-scanner-corner pb-corner-bl" />
@@ -518,7 +674,7 @@ export default function KioskDisplayQrScanner({
           </div>
 
           {/* In-Viewfinder Camera Controls */}
-          {hasCamera && !scannedSuccess && (
+          {hasCamera && !cameraError && !scannedSuccess && (
             <div className="pb-scanner-hud-controls">
               {torchAvailable && (
                 <button
@@ -549,6 +705,31 @@ export default function KioskDisplayQrScanner({
         <div className={`pb-scanner-status-bar ${scannedSuccess ? 'success' : ''}`}>
           <span className="pb-scanner-status-dot" />
           <span className="pb-scanner-status-text">{statusMessage}</span>
+        </div>
+
+        {/* Direct Connection Shortcut — always available so users never get stuck */}
+        <div style={{ textAlign: 'center', padding: '2px 0' }}>
+          <button
+            type="button"
+            onClick={handleDirectConnect}
+            disabled={isConnectingDirectly}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#dc2626',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '6px 12px',
+              borderRadius: 6,
+            }}
+          >
+            <Lightning size={15} weight="fill" color="#dc2626" />
+            <span>{isConnectingDirectly ? `Connecting to ${kioskId}…` : `Camera issue? Tap to connect to ${kioskId} directly →`}</span>
+          </button>
         </div>
 
         {/* Security & Zero-Touch Assurance */}
