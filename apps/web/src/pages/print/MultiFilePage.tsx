@@ -12,6 +12,7 @@ import {
   FilePpt,
   File as FileIcon,
   ArrowsClockwise,
+  CloudArrowUp,
 } from '@phosphor-icons/react'
 import {
   addFile,
@@ -87,6 +88,21 @@ export default function MultiFilePage() {
   const [isTransferredToKiosk, setIsTransferredToKiosk] = useState(false)
   const [isSendingToKiosk, setIsSendingToKiosk] = useState(false)
   const [kioskLiveStatus, setKioskLiveStatus] = useState<any>(null)
+  const [kioskUploadProgress, setKioskUploadProgress] = useState<{
+    isUploading: boolean
+    percent: number
+    loadedBytes: number
+    totalBytes: number
+    fileName: string
+    phase: string
+  }>({
+    isUploading: false,
+    percent: 0,
+    loadedBytes: 0,
+    totalBytes: 0,
+    fileName: '',
+    phase: '',
+  })
 
   useEffect(() => {
     if (!isTransferredToKiosk) return
@@ -293,7 +309,13 @@ export default function MultiFilePage() {
     )
 
     try {
-      const pages = await renderFilePages(file, fileType, () => {})
+      const pages = await renderFilePages(file, fileType, (current, total) => {
+        const pct = Math.round((current / Math.max(1, total)) * 100)
+        setProcessingStatus(`Rendering pages for ${file.name}… ${pct}% (${current}/${total})`)
+        if (kioskSession.isKioskSession()) {
+          kioskSession.reportUploading(file.name, `Preparing ${file.name} (${pct}%)`, pct)
+        }
+      })
       const safePages = pages && pages.length > 0 ? pages : generateDocumentPages(file.name, 1)
       updateFile(entry.id, {
         status: 'ready',
@@ -397,6 +419,14 @@ export default function MultiFilePage() {
 
     // Fire upload to kiosk display
     try {
+      setKioskUploadProgress({
+        isUploading: true,
+        percent: 0,
+        loadedBytes: 0,
+        totalBytes: totalSize,
+        fileName: combinedFileName,
+        phase: 'Preparing upload to station…',
+      })
       const result = await kioskSession.uploadDocument({
         file,
         fileName: combinedFileName,
@@ -405,7 +435,18 @@ export default function MultiFilePage() {
         pageCount: totalSheets,
         previews: allPreviews,
         files: filesMetadata,
+        onProgress: ({ loaded, total, percent }) => {
+          setKioskUploadProgress({
+            isUploading: true,
+            percent,
+            loadedBytes: loaded,
+            totalBytes: total,
+            fileName: combinedFileName,
+            phase: `Uploading to station… ${percent}%`,
+          })
+        },
       })
+      setKioskUploadProgress(p => ({ ...p, isUploading: false, percent: 100 }))
       if ((result as any)?.machineInUse) {
         window.dispatchEvent(new CustomEvent('kiosk:machine_in_use', {
           detail: { kioskId: kioskSession.getKioskId() || 'PB-001' }
@@ -1049,6 +1090,39 @@ export default function MultiFilePage() {
         confirmText="Clear All"
         cancelText="Keep Files"
       />
+
+      {/* Live Upload Progress Overlay */}
+      {kioskUploadProgress.isUploading && (
+        <div className="mfp-upload-overlay" role="dialog" aria-modal="true">
+          <div className="mfp-upload-modal">
+            <div className="mfp-upload-modal-icon-wrap">
+              <div className="mfp-upload-modal-pulse-ring" />
+              <div className="mfp-upload-modal-icon-circle">
+                <CloudArrowUp size={36} weight="duotone" color="#dc2626" />
+              </div>
+            </div>
+
+            <div className="mfp-upload-modal-pct">{kioskUploadProgress.percent}%</div>
+            <h2 className="mfp-upload-modal-title">Uploading to Print Station</h2>
+            <p className="mfp-upload-modal-sub">
+              Transferring <strong>{kioskUploadProgress.fileName}</strong> directly to Station {flow?.printerId || 'PB-001'}
+            </p>
+
+            <div className="mfp-upload-modal-bar-track">
+              <div
+                className="mfp-upload-modal-bar-fill"
+                style={{ width: `${Math.max(5, kioskUploadProgress.percent)}%` }}
+              >
+                <span className="mfp-upload-modal-bar-glow" />
+              </div>
+            </div>
+
+            <div className="mfp-upload-modal-bytes">
+              {(kioskUploadProgress.loadedBytes / (1024 * 1024)).toFixed(1)} MB of {(kioskUploadProgress.totalBytes / (1024 * 1024)).toFixed(1)} MB transferred
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -588,7 +588,7 @@ export function abortPendingPayment(): void {
 export const kioskSession = {
   abortPendingPayment,
 
-  reportUploading(fileName?: string, customPhase?: string) {
+  reportUploading(fileName?: string, customPhase?: string, uploadPercent?: number, progressData?: Record<string, any>) {
     abortPendingPayment()
     const isPpt = fileName && /\.(pptx?)$/i.test(fileName)
     const isDocx = fileName && /\.(docx?)$/i.test(fileName)
@@ -596,13 +596,19 @@ export const kioskSession = {
       ? 'Processing PPT… Converting presentation to PDF'
       : isDocx
       ? 'Processing DOCX… Converting Word document to PDF'
-      : (fileName ? `Uploading ${fileName}…` : 'Uploading your document…')
+      : (uploadPercent !== undefined
+        ? `Uploading ${fileName || 'document'} (${uploadPercent}%)…`
+        : (fileName ? `Uploading ${fileName}…` : 'Uploading your document…'))
 
     reportKioskProgress({
       state: 'UPLOADING',
       phase: customPhase || defaultPhase,
       phaseStep: 1,
       ...(fileName ? { fileName } : {}),
+      progressData: {
+        ...(uploadPercent !== undefined ? { uploadPercent } : {}),
+        ...(progressData || {}),
+      },
     })
   },
 
@@ -974,6 +980,7 @@ export async function uploadDocumentToKiosk(opts: {
     duplex?: string
     previews?: Array<{ pageNumber: number; url: string; title?: string }>
   }>
+  onProgress?: (progress: { loaded: number; total: number; percent: number }) => void
 }): Promise<{ success: boolean; error?: string; session?: any; machineInUse?: boolean }> {
   let { sessionId } = getActiveKioskSession()
   const apiBase = getApiBase()
@@ -1056,44 +1063,85 @@ export async function uploadDocumentToKiosk(opts: {
   const clientClaimToken = getClientClaimSecret(sessionId)
   formData.append('clientClaimToken', clientClaimToken)
 
-  try {
-    const res = await fetch(`${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/upload`, {
-      method: 'POST',
-      headers: {
-        'x-client-claim-token': clientClaimToken,
-      },
-      body: formData,
-    })
-    const data = await parseJsonResponse(res)
-    if (res.status === 409 || data.code === 'MACHINE_ALREADY_IN_USE') {
-      clearActiveKioskSession()
-      return { success: false, machineInUse: true, error: 'Machine already in use' }
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${apiBase}/api/kiosk-sessions/${encodeURIComponent(sessionId)}/upload`)
+    xhr.setRequestHeader('x-client-claim-token', clientClaimToken)
+
+    let lastReportTime = 0
+    xhr.upload.onprogress = (evt) => {
+      if (evt.lengthComputable) {
+        const percent = Math.min(100, Math.max(0, Math.round((evt.loaded / evt.total) * 100)))
+        opts.onProgress?.({ loaded: evt.loaded, total: evt.total, percent })
+
+        const now = Date.now()
+        if (now - lastReportTime > 350 || percent === 100) {
+          lastReportTime = now
+          const loadedMB = (evt.loaded / (1024 * 1024)).toFixed(1)
+          const totalMB = (evt.total / (1024 * 1024)).toFixed(1)
+          reportKioskProgress({
+            state: 'UPLOADING',
+            phase: `Uploading ${opts.fileName} (${percent}%)`,
+            phaseStep: 1,
+            fileName: opts.fileName,
+            progressData: {
+              uploadPercent: percent,
+              loadedBytes: evt.loaded,
+              totalBytes: evt.total,
+              loadedMB,
+              totalMB,
+              isUploading: true,
+            },
+          })
+        }
+      }
     }
-    if (data && data.success) {
-      return data
+
+    xhr.onload = async () => {
+      try {
+        const data = JSON.parse(xhr.responseText || '{}')
+        if (xhr.status === 409 || data.code === 'MACHINE_ALREADY_IN_USE') {
+          clearActiveKioskSession()
+          resolve({ success: false, machineInUse: true, error: 'Machine already in use' })
+          return
+        }
+        if (data && data.success) {
+          opts.onProgress?.({ loaded: opts.fileSize || 1, total: opts.fileSize || 1, percent: 100 })
+          resolve(data)
+          return
+        }
+        console.warn('[uploadDocumentToKiosk] Multipart upload returned non-success, attempting JSON next-phase fallback:', data?.error)
+        const fallback = await advanceToNextPhase({
+          targetState: 'CONFIRMING',
+          fileName: opts.fileName,
+          fileSize: opts.fileSize,
+          fileType: opts.fileType,
+          pageCount: opts.pageCount,
+          previews: opts.previews,
+          files: opts.files,
+        })
+        resolve(fallback)
+      } catch {
+        resolve({ success: false, error: 'Invalid response from server' })
+      }
     }
-    console.warn('[uploadDocumentToKiosk] Multipart upload returned non-success, attempting JSON next-phase fallback:', data?.error)
-    return await advanceToNextPhase({
-      targetState: 'CONFIRMING',
-      fileName: opts.fileName,
-      fileSize: opts.fileSize,
-      fileType: opts.fileType,
-      pageCount: opts.pageCount,
-      previews: opts.previews,
-      files: opts.files,
-    })
-  } catch (err: any) {
-    console.warn('[uploadDocumentToKiosk] Network error during upload, falling back to JSON next-phase sync:', err)
-    return await advanceToNextPhase({
-      targetState: 'CONFIRMING',
-      fileName: opts.fileName,
-      fileSize: opts.fileSize,
-      fileType: opts.fileType,
-      pageCount: opts.pageCount,
-      previews: opts.previews,
-      files: opts.files,
-    })
-  }
+
+    xhr.onerror = async () => {
+      console.warn('[uploadDocumentToKiosk] Network error during upload, falling back to JSON next-phase sync')
+      const fallback = await advanceToNextPhase({
+        targetState: 'CONFIRMING',
+        fileName: opts.fileName,
+        fileSize: opts.fileSize,
+        fileType: opts.fileType,
+        pageCount: opts.pageCount,
+        previews: opts.previews,
+        files: opts.files,
+      })
+      resolve(fallback)
+    }
+
+    xhr.send(formData)
+  })
 }
 
 /**

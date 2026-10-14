@@ -182,6 +182,7 @@ export default function UploadPage() {
     }
 
     // Set extracting / uploading state immediately
+    // Set extracting / uploading state immediately
     setUploadState(s => ({
       ...s,
       file,
@@ -189,20 +190,26 @@ export default function UploadPage() {
       fileSize: file.size,
       error: null,
       status: 'uploading',
-      progress: 35,
+      progress: 5,
       isExtracting: true,
       realPages: null,
     }))
 
     if (kioskSession.isKioskSession()) {
-      kioskSession.reportUploading(file.name)
+      kioskSession.reportUploading(file.name, `Preparing ${file.name}…`, 5)
     }
 
     try {
       const fileType = getFileType(file)
       const RENDER_TIMEOUT_MS = 30000 // 30s max — prevents infinite hang on phones
       const extractedPages = await Promise.race([
-        renderFilePages(file, fileType),
+        renderFilePages(file, fileType, (current, total) => {
+          const prepPercent = Math.min(45, Math.max(5, Math.round((current / Math.max(1, total)) * 45)))
+          setUploadState(s => ({ ...s, progress: prepPercent }))
+          if (kioskSession.isKioskSession()) {
+            kioskSession.reportUploading(file.name, `Preparing pages (${current}/${total})…`, prepPercent)
+          }
+        }),
         new Promise<never>((_, reject) =>
           setTimeout(
             () => reject(new Error('Document processing timed out. Please try again or use a smaller file.')),
@@ -223,7 +230,7 @@ export default function UploadPage() {
 
       // Sync real document and rendered preview pages to connected kiosk session
       if (kioskSession.isKioskSession()) {
-        kioskSession.uploadDocument({
+        await kioskSession.uploadDocument({
           file,
           fileName: file.name,
           fileSize: file.size,
@@ -234,6 +241,10 @@ export default function UploadPage() {
             url: p.url,
             title: p.title || `Page ${idx + 1}`,
           })),
+          onProgress: ({ percent }) => {
+            const overallPercent = Math.min(99, 45 + Math.round(percent * 0.54))
+            setUploadState(s => ({ ...s, progress: overallPercent }))
+          },
         }).catch(err => console.warn('[UploadPage] Kiosk upload sync failed:', err))
       }
 
@@ -419,15 +430,52 @@ export default function UploadPage() {
                 animate="shimmer"
                 fallback={<UploadDropzoneBoneyardFallback />}
               >
-                <div className="drop-zone__extracting" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '40px 20px' }}>
-                  <div style={{ width: '42px', height: '42px', border: '3px solid rgba(220,38,38,0.2)', borderTopColor: '#dc2626', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  <div style={{ textAlign: 'center' }}>
+                <div className="drop-zone__extracting" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '36px 20px', width: '100%', maxWidth: '360px', margin: '0 auto' }}>
+                  {/* Radial animated SVG ring with exact percent */}
+                  <div style={{ position: 'relative', width: '74px', height: '74px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="74" height="74" viewBox="0 0 74 74" style={{ transform: 'rotate(-90deg)' }}>
+                      <circle cx="37" cy="37" r="32" fill="none" stroke="#fee2e2" strokeWidth="5" />
+                      <circle
+                        cx="37"
+                        cy="37"
+                        r="32"
+                        fill="none"
+                        stroke="#dc2626"
+                        strokeWidth="5"
+                        strokeLinecap="round"
+                        strokeDasharray={201}
+                        strokeDashoffset={201 - (201 * Math.min(100, Math.max(5, uploadState.progress))) / 100}
+                        style={{ transition: 'stroke-dashoffset 0.25s ease' }}
+                      />
+                    </svg>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontSize: '17px', fontWeight: 800, color: '#dc2626', fontFamily: 'inherit' }}>
+                        {uploadState.progress}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', width: '100%' }}>
                     <span style={{ color: '#0f172a', fontSize: '16px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                      Uploading &amp; Preparing Document…
+                      {uploadState.progress < 45 ? 'Preparing Document…' : 'Uploading to Print Station…'}
                     </span>
-                    <span style={{ color: '#64748b', fontSize: '13px' }}>
-                      Extracting pages from your file for confirmation
+                    <span style={{ color: '#64748b', fontSize: '13px', display: 'block', marginBottom: '12px' }}>
+                      {uploadState.fileName ? `${uploadState.fileName} (${(uploadState.fileSize / (1024 * 1024)).toFixed(1)} MB)` : 'Extracting pages for confirmation'}
                     </span>
+
+                    {/* Linear Progress Bar */}
+                    <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.max(5, uploadState.progress)}%`,
+                          background: 'linear-gradient(90deg, #dc2626 0%, #ef4444 60%, #f87171 100%)',
+                          borderRadius: '999px',
+                          transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                          boxShadow: '0 0 10px rgba(220, 38, 38, 0.4)',
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </Skeleton>
