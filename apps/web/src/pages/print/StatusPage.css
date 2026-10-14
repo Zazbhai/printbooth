@@ -396,6 +396,14 @@
   background: linear-gradient(90deg, transparent, #00e5ff, #ff2d95, #ffe600, transparent);
 }
 
+[data-mode="mono"] .spill {
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.18), transparent);
+}
+
+[data-mode="mono"] .scan {
+  background: linear-gradient(90deg, transparent, #888888, transparent);
+}
+
 .pshadow {
   position: absolute;
   left: calc(var(--s) * -23);
@@ -509,6 +517,15 @@
 .paper[data-m="color"] .cover:after {
   background: linear-gradient(90deg, #00e5ff, #ff2d95, #ffe600);
   box-shadow: 0 0 14px 3px rgba(255, 45, 149, 0.55);
+}
+
+.paper[data-m="mono"] .cover:after {
+  background: #111111;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.paper[data-m="mono"] .paper-img {
+  filter: grayscale(100%) contrast(108%);
 }
 
 /* ---------- Clean Minimal HUD (No Mono/Color or Start/Stop Buttons) ---------- */

@@ -218,8 +218,8 @@ export default function ReviewPage() {
   // For multi-file: show active file's settings in summary
   const activeMultiFile = isMultiFile ? multiFiles[activePreviewIdx] : null
   const activeSettings  = activeMultiFile?.settings ?? settings
-  const activeColour = activeSettings.colour === 'BW' ? 'Black & White' : 'Colour'
-  const activeDuplex = activeSettings.duplex === 'DOUBLE' ? 'Double-sided' : 'Single-sided'
+  const activeColour = (activeSettings.colour === 'COLOUR' || (activeSettings as any).colourMode === 'COLOUR') ? 'Colour' : 'Black & White'
+  const activeDuplex = (activeSettings.duplex === 'DOUBLE' || (activeSettings as any).duplexMode === 'DOUBLE' || String(activeSettings.duplex).includes('2')) ? 'Double-sided' : 'Single-sided'
   const activePageCount = activeMultiFile?.pageCount ?? pageCount
   const selectedPgs = parsePageRange(activeSettings.pages, activePageCount)
 
@@ -346,8 +346,8 @@ export default function ReviewPage() {
                 <div className="rv-mf-info">
                   <span className="rv-mf-name">{f.fileName}</span>
                   <span className="rv-mf-meta">
-                    {f.settings.colour === 'BW' ? 'B&W' : 'Colour'} ·{' '}
-                    {f.settings.duplex === 'SINGLE' ? '1-Sided' : '2-Sided'} ·{' '}
+                    {((f.settings?.colour || (f.settings as any)?.colourMode) === 'COLOUR' ? 'Colour' : 'B&W')} ·{' '}
+                    {(((f.settings?.duplex || (f.settings as any)?.duplexMode) === 'DOUBLE' || String((f.settings as any)?.duplex).includes('2')) ? '2-Sided' : '1-Sided')} ·{' '}
                     {f.settings.copies} {f.settings.copies === 1 ? 'copy' : 'copies'}
                   </span>
                 </div>

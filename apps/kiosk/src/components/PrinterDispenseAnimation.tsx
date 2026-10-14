@@ -70,7 +70,8 @@ function generateArt(n: number, m: 'mono' | 'color') {
     }
     g += `<circle cx="100" cy="150" r="46" fill="#dcdcdf"/><circle cx="100" cy="150" r="30" fill="${c[2]}"/>`
   }
-  return `<svg viewBox="0 0 200 270">${col ? `<rect width="200" height="8" fill="${c[0]}"/>` : ''}${g}<text x="14" y="28" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="15" letter-spacing="2" fill="#111">NO.${String(n).padStart(3, '0')}</text><rect x="14" y="250" width="172" height="2" fill="#111"/><rect x="172" y="15" width="14" height="14" fill="#e5322d"/></svg>`
+  const badgeColor = col ? '#e5322d' : '#111111'
+  return `<svg viewBox="0 0 200 270">${col ? `<rect width="200" height="8" fill="${c[0]}"/>` : ''}${g}<text x="14" y="28" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="15" letter-spacing="2" fill="#111">NO.${String(n).padStart(3, '0')}</text><rect x="14" y="250" width="172" height="2" fill="#111"/><rect x="172" y="15" width="14" height="14" fill="${badgeColor}"/></svg>`
 }
 
 export default function PrinterDispenseAnimation({
@@ -193,11 +194,11 @@ export default function PrinterDispenseAnimation({
         paperEl.dataset.m = mode
 
         // Check if thumbnail preview is available for this sheet
-        const previewUrl = docPagesRef.current?.[(pageIdx - 1) % (docPagesRef.current.length || 1)]?.url
+        const previewUrl = docPages?.[(pageIdx - 1) % (docPages.length || 1)]?.url
         if (previewUrl && previewUrl.trim()) {
           paperEl.innerHTML = `
             <div class="paper-preview-container">
-              <img src="${previewUrl}" alt="" class="paper-preview-img" />
+              <img src="${previewUrl}" alt="" class="paper-preview-img" style="${!isColor ? 'filter: grayscale(100%) contrast(108%);' : ''}" />
               <div class="paper-meta-strip">
                 <span class="paper-no">NO.${String(pageIdx).padStart(3, '0')}</span>
                 <span class="paper-accent"></span>
