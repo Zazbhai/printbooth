@@ -258,7 +258,7 @@ export default function MultiFilePage() {
     const maxMB = getMaxFileSizeMB(fileType)
 
     if (!isSupportedFileType(fileType)) {
-      setDropError(`"${file.name}" is not a supported format. Use PDF, PNG, JPG, DOCX or PPT.`)
+      setDropError(`"${file.name}" is not a supported format. Please upload PDF, PNG, JPG, or WEBP.`)
       return false
     }
     if (file.size > maxMB * 1024 * 1024) {
@@ -562,7 +562,7 @@ export default function MultiFilePage() {
     // Quick pre-validation
     const invalidType = arr.find(f => !isSupportedFileType(getFileType(f)))
     if (invalidType) {
-      setDropError(`"${invalidType.name}" is not a supported format. Use PDF, PNG, JPG, DOCX or PPT.`)
+      setDropError(`"${invalidType.name}" is not a supported format. Please upload PDF, PNG, JPG, or WEBP.`)
       uploadAnimRef.current?.reset()
       return
     }
@@ -962,9 +962,7 @@ export default function MultiFilePage() {
             {/* Formats Pill Strip */}
             <div className="mfp-formats">
               <span className="mfp-format-tag pdf">PDF</span>
-              <span className="mfp-format-tag img">PNG / JPG</span>
-              <span className="mfp-format-tag doc">DOCX</span>
-              <span className="mfp-format-tag ppt">PPT</span>
+              <span className="mfp-format-tag img">PNG / JPG / WEBP</span>
               <span className="mfp-format-tag cap">Max {MAX_FILES} files · 50MB</span>
             </div>
           </div>

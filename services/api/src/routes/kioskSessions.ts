@@ -1049,10 +1049,15 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
   ]
 
   if (state && VALID_STATES.includes(state as KioskSessionState)) {
-    if (session.state !== state) {
-      session.currentSectionEnteredAt = now
+    // Monotonic guard: once session enters PRINTING, never allow regressing backwards to PAYING/REVIEWING/etc.
+    if (session.state === 'PRINTING' && state !== 'PRINTING' && state !== 'DONE') {
+      console.log(`[KioskSession] 🛑 Blocked state regression on session ${session.sessionId}: current=${session.state}, rejected incoming=${state}`)
+    } else {
+      if (session.state !== state) {
+        session.currentSectionEnteredAt = now
+      }
+      session.state = state as KioskSessionState
     }
-    session.state = state as KioskSessionState
   }
 
   if (phase) session.phase = phase
@@ -1372,7 +1377,11 @@ kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], asyn
   session.currentSectionEnteredAt = now
 
   const nextState: KioskSessionState = (targetState as KioskSessionState) || 'CONFIRMING'
-  session.state = nextState
+  if (session.state === 'PRINTING' || session.state === 'DONE') {
+    console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${session.state}. Ignoring next-phase state override to ${nextState}.`)
+  } else {
+    session.state = nextState
+  }
 
   if (nextState === 'CONFIRMING') {
     session.phase = 'Document uploaded. Review document on mobile.'
@@ -1572,6 +1581,12 @@ kioskSessionsRouter.post('/:sessionId/settings', (req: Request, res: Response) =
     session.qrAmount = undefined
   }
 
+  if (session.state === 'PRINTING' || session.state === 'DONE') {
+    console.log(`[KioskSession] 🛑 Session ${session.sessionId} is in ${session.state}. Skipping state regression in settings update.`)
+    saveSession(session)
+    return res.json({ success: true, session })
+  }
+
   if (nextState && ['CONFIRMING', 'CONFIGURING', 'REVIEWING', 'PAYING'].includes(nextState)) {
     session.state = nextState as KioskSessionState
     session.phase = nextState === 'PAYING'
@@ -1624,6 +1639,10 @@ kioskSessionsRouter.post('/:sessionId/state', (req: Request, res: Response) => {
   ]
 
   if (state && validStates.includes(state)) {
+    if ((session.state === 'PRINTING' || session.state === 'DONE') && state !== 'PRINTING' && state !== 'DONE') {
+      console.log(`[KioskSession] 🛑 Blocked state regression on session ${session.sessionId}: current=${session.state}, rejected incoming=${state}`)
+      return res.json({ success: true, state: session.state, session })
+    }
     session.state = state as KioskSessionState
     if (state === 'CONFIRMING') {
       session.phase = 'Reviewing Document on Mobile'
@@ -1783,7 +1802,7 @@ export async function initiatePaymentForSession(
   // If session already has an active, valid UPI QR for this exact amount, reuse it without hitting gateway again!
   if (isQrCurrentForAmount && (session.upiIntentUrl || session.upiQrValue) && session.orderId) {
     const fresh = getSession(session.sessionId)
-    if (fresh && ['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(fresh.state)) {
+    if (fresh && ['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(fresh.state)) {
       console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${fresh.state}. Skipping state override to PAYING.`)
       return
     }
@@ -1813,7 +1832,7 @@ export async function initiatePaymentForSession(
   session.otp = otp
 
   const freshBeforeGate = getSession(session.sessionId)
-  if (freshBeforeGate && ['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(freshBeforeGate.state)) {
+  if (freshBeforeGate && ['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(freshBeforeGate.state)) {
     console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${freshBeforeGate.state}. Not generating payment before user proceeds to pay.`)
     return
   }
@@ -1999,13 +2018,18 @@ export async function initiatePaymentForSession(
   }
 
   const freshAfterGate = getSession(session.sessionId)
-  if (freshAfterGate && (['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(freshAfterGate.state) || (typeof freshAfterGate.paymentEpoch === 'number' && freshAfterGate.paymentEpoch !== startEpoch))) {
+  if (freshAfterGate && (['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(freshAfterGate.state) || (typeof freshAfterGate.paymentEpoch === 'number' && freshAfterGate.paymentEpoch !== startEpoch))) {
     console.log(`[KioskSession] 🛑 Session ${session.sessionId} moved to ${freshAfterGate.state} (or epoch changed) during gateway generation. Preserving user phase!`)
     freshAfterGate.orderId = session.orderId
     freshAfterGate.otp = session.otp
     freshAfterGate.gateway = session.gateway
     saveSession(freshAfterGate)
     syncSessionToOrder(freshAfterGate)
+    return
+  }
+
+  if (session.state === 'PRINTING' || session.state === 'DONE') {
+    console.log(`[KioskSession] 🛑 Session ${session.sessionId} is already ${session.state}. Skipping state reset to PAYING.`)
     return
   }
 
@@ -2051,8 +2075,25 @@ kioskSessionsRouter.post('/:sessionId/pay', async (req: Request, res: Response) 
     })
   }
 
+  if (session.state === 'PRINTING') {
+    return res.json({
+      success: true,
+      state: 'PRINTING',
+      message: 'Session is already printing. Payment already confirmed.',
+      session,
+    })
+  }
+
   const freshCheck = getSession(session.sessionId)
-  if (freshCheck && ['REVIEWING', 'CONFIGURING', 'CONFIRMING'].includes(freshCheck.state)) {
+  if (freshCheck && ['REVIEWING', 'CONFIGURING', 'CONFIRMING', 'PRINTING', 'DONE'].includes(freshCheck.state)) {
+    if (freshCheck.state === 'PRINTING' || freshCheck.state === 'DONE') {
+      return res.json({
+        success: true,
+        state: freshCheck.state,
+        message: `Session is already in ${freshCheck.state}`,
+        session: freshCheck,
+      })
+    }
     const isExplicitPayStep = req.body?.force === true
     if (!isExplicitPayStep) {
       console.log(`[KioskSession] 🛑 /pay request ignored because session is currently in ${freshCheck.state}`)
@@ -2284,11 +2325,18 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
 
 /**
  * POST /api/kiosk-sessions/:sessionId/complete
+ * POST /api/kiosk-sessions/kiosk/:kioskId/complete
  * Marks job complete and shows collection screen.
  */
-kioskSessionsRouter.post('/:sessionId/complete', (req: Request, res: Response) => {
-  const { sessionId } = req.params
-  const session = getSession(sessionId)
+const handleCompleteKioskSession = (req: Request, res: Response) => {
+  const { sessionId, kioskId: paramKioskId } = req.params
+  let session = sessionId ? getSession(sessionId) : null
+  if (!session && paramKioskId) {
+    session = getActiveSession(paramKioskId.toUpperCase().trim())
+  }
+  if (!session && req.body?.kioskId) {
+    session = getActiveSession(String(req.body.kioskId).toUpperCase().trim())
+  }
   if (!session) {
     return res.status(404).json({ success: false, error: 'Session not found' })
   }
@@ -2300,24 +2348,35 @@ kioskSessionsRouter.post('/:sessionId/complete', (req: Request, res: Response) =
 
   saveSession(session)
   syncSessionToOrder(session)
-  res.json({ success: true, state: session.state })
-})
+  res.json({ success: true, state: session.state, session })
+}
+
+kioskSessionsRouter.post('/:sessionId/complete', handleCompleteKioskSession)
+kioskSessionsRouter.post('/kiosk/:kioskId/complete', handleCompleteKioskSession)
 
 /**
  * POST /api/kiosk-sessions/:sessionId/reset
+ * POST /api/kiosk-sessions/kiosk/:kioskId/reset
  * Resets or generates fresh session after collection.
  */
-kioskSessionsRouter.post('/:sessionId/reset', (req: Request, res: Response) => {
-  const { sessionId } = req.params
-  const session = getSession(sessionId)
+const handleResetKioskSession = (req: Request, res: Response) => {
+  const { sessionId, kioskId: paramKioskId } = req.params
+  let session = sessionId ? getSession(sessionId) : null
+  const kioskId = (paramKioskId || session?.kioskId || req.body?.kioskId || 'PB-001').toUpperCase().trim()
+
   if (session) {
     session.state = 'DONE'
+    session.completedAt = Date.now()
     saveSession(session)
   }
-  const kioskId = session?.kioskId || String(req.body?.kioskId || 'PB-001')
+
   const newSession = generateSession(kioskId, resolveWebBaseUrl(req))
+  activeSessionByKiosk.set(kioskId, newSession.sessionId)
   res.json({ success: true, session: newSession })
-})
+}
+
+kioskSessionsRouter.post('/:sessionId/reset', handleResetKioskSession)
+kioskSessionsRouter.post('/kiosk/:kioskId/reset', handleResetKioskSession)
 
 /**
  * GET /api/kiosk-sessions/:sessionId/status

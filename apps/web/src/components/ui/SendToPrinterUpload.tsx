@@ -43,7 +43,7 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       onComplete,
       isProcessing = false,
       processingStatus = '',
-      accept = '.pdf,.png,.jpg,.jpeg,.webp,.docx,.doc,.pptx,.ppt,application/pdf,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint',
+      accept = '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*',
       multiple = true,
       label = 'Upload',
       completedLabel = 'UPLOAD COMPLETE',

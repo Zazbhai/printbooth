@@ -386,6 +386,7 @@ export default function PaymentPage() {
   const hasReportedPayingRef = useRef<string | null>(null)
   useEffect(() => {
     if (kioskSession.isKioskSession()) {
+      if (status === 'SUCCESS') return
       const paySig = `${orderId}_${totalPrice}`
       if (hasReportedPayingRef.current === paySig) return
       hasReportedPayingRef.current = paySig
@@ -401,7 +402,7 @@ export default function PaymentPage() {
         orderId,
       })
     }
-  }, [fileName, pageCount, settings.copies, settings.colour, settings.duplex, totalPrice, orderId, isMultiFile, multiFiles])
+  }, [fileName, pageCount, settings.copies, settings.colour, settings.duplex, totalPrice, orderId, isMultiFile, multiFiles, status])
 
   useEffect(() => {
     if (!kioskSession.isKioskSession() || status === 'SUCCESS') return
@@ -466,22 +467,11 @@ export default function PaymentPage() {
       ? Object.values(effectiveSettings.pageColours!).some(c => c === 'COLOUR')
       : effectiveSettings.colour === 'COLOUR'
     const effectiveColourMode = hasAnyColourPage ? 'COLOUR' : 'BW'
-
-    const allCandidateFiles = [
-      ...multiFiles.map(f => f.fileName || ''),
-      fileName || '',
-    ]
-    const hasPptDoc = allCandidateFiles.some(f => /\.(pptx?|ppsx?)$/i.test(f))
-    const hasDocxDoc = allCandidateFiles.some(f => /\.(docx?|doc)$/i.test(f))
     if (kioskSession.isKioskSession()) {
       kioskSession.reportPrinting({
         orderId,
-        fileName: hasPptDoc ? 'presentation.pptx' : hasDocxDoc ? 'document.docx' : fileName,
-        phase: hasPptDoc
-          ? 'Payment confirmed! Processing PPT into print PDF…'
-          : hasDocxDoc
-          ? 'Payment confirmed! Processing DOCX into print PDF…'
-          : 'Payment confirmed! Preparing print job…',
+        fileName: fileName || (multiFiles[0]?.fileName) || 'document.pdf',
+        phase: 'Payment confirmed! Preparing print job…',
       })
     }
 

@@ -1,22 +1,50 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle } from '@phosphor-icons/react'
 import './KioskScreens.css'
 
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/api$/, '').replace(/\/+$/, '')
+const KIOSK_ID = 'PB-001'
+
 export default function CollectionScreen() {
   const navigate = useNavigate()
 
+  const handleDismiss = useCallback(async () => {
+    try {
+      const sessionId = sessionStorage.getItem('pb_kiosk_session_id')
+      if (sessionId) {
+        await fetch(`${API_BASE}/api/kiosk-sessions/${sessionId}/reset`, { method: 'POST' })
+      } else {
+        await fetch(`${API_BASE}/api/kiosk-sessions/kiosk/${KIOSK_ID}/reset`, { method: 'POST' })
+      }
+    } catch {}
+
+    // Clear session storage so kiosk returns to clean idle state
+    sessionStorage.removeItem('pb_settings')
+    sessionStorage.removeItem('pb_total_price')
+    sessionStorage.removeItem('pb_file_name')
+    sessionStorage.removeItem('pb_doc_page_count')
+    sessionStorage.removeItem('pb_page_count')
+    sessionStorage.removeItem('pb_kiosk_session_id')
+    sessionStorage.removeItem('pb_upi_qr_value')
+    sessionStorage.removeItem('pb_colour_mode')
+    sessionStorage.removeItem('pb_copies')
+    sessionStorage.removeItem('pb_order_id')
+
+    navigate('/')
+  }, [navigate])
+
   // Auto-return to home after 20 seconds
   useEffect(() => {
-    const timer = setTimeout(() => navigate('/'), 20000)
+    const timer = setTimeout(handleDismiss, 20000)
     return () => clearTimeout(timer)
-  }, [navigate])
+  }, [handleDismiss])
 
   return (
     <div className="kiosk-screen">
       <div className="kiosk-bg-mesh" />
       <div className="kiosk-statusbar">
-        <div className="statusbar__left"><div className="statusbar__dot" /><span className="statusbar__kiosk">PB-001</span></div>
+        <div className="statusbar__left"><div className="statusbar__dot" /><span className="statusbar__kiosk">{KIOSK_ID}</span></div>
       </div>
 
       <div className="kiosk-collection kiosk-enter" style={{ marginTop: 48 }}>
@@ -45,7 +73,7 @@ export default function CollectionScreen() {
 
         <button
           className="kiosk-btn kiosk-btn-secondary"
-          onClick={() => navigate('/')}
+          onClick={handleDismiss}
           id="collect-done"
           style={{ marginTop: 16 }}
         >

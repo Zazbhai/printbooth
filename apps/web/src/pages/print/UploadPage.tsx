@@ -145,7 +145,7 @@ export default function UploadPage() {
   function validateFile(file: File): string | null {
     const fileType = getFileType(file)
     if (!isSupportedFileType(fileType)) {
-      return 'Please upload a supported format: PDF, PNG, JPG, WEBP, DOCX or PPT.'
+      return 'Please upload a supported format: PDF, PNG, JPG, or WEBP.'
     }
     const maxMB = getMaxFileSizeMB(fileType)
     if (file.size > maxMB * 1024 * 1024) {
@@ -194,14 +194,8 @@ export default function UploadPage() {
       realPages: null,
     }))
 
-    const isPpt = /\.(pptx?)$/i.test(file.name)
-    const isDocx = /\.(docx?)$/i.test(file.name)
     if (kioskSession.isKioskSession()) {
-      if (isPpt || isDocx) {
-        kioskSession.reportProcessing(file.name, isPpt ? 'PPT' : 'DOCX')
-      } else {
-        kioskSession.reportUploading(file.name)
-      }
+      kioskSession.reportUploading(file.name)
     }
 
     try {
@@ -412,7 +406,7 @@ export default function UploadPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.doc,.ppt,.pptx,image/*"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
               onChange={handleInputChange}
               style={{ display: 'none' }}
               id="file-input"
@@ -443,13 +437,12 @@ export default function UploadPage() {
                   <CloudArrowUp size={44} weight="duotone" />
                 </div>
                 <div className="drop-zone__text">
-                  <span className="drop-zone__primary">Drop your PDF here</span>
+                  <span className="drop-zone__primary">Drop your PDF or image here</span>
                   <span className="drop-zone__secondary">or click to browse from device</span>
                 </div>
                 <div className="drop-zone__formats">
                   <span className="format-tag">PDF</span>
-                  <span className="format-coming">DOCX — coming soon</span>
-                  <span className="format-coming">JPG / PNG — coming soon</span>
+                  <span className="format-tag">JPG / PNG / WEBP</span>
                 </div>
               </div>
             )}

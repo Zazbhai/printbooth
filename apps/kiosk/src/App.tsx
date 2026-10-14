@@ -124,6 +124,19 @@ export default function App() {
           // Global Bidirectional Phase Sync between Mobile and Kiosk Display
           const isHardwareLockout = location.pathname === '/error' || location.pathname === '/offline' || location.pathname === '/upload/usb'
           if (!isHardwareLockout) {
+            // Forward Lock: If kiosk is currently printing or collecting, NEVER bounce backwards!
+            if (location.pathname === '/printing') {
+              if (s.state === 'DONE') {
+                navigate('/collect')
+              }
+              return
+            }
+
+            if (location.pathname === '/collect') {
+              // Stay on collection screen until user dismisses or 20s timeout resets session
+              return
+            }
+
             if (s.state === 'PRINTING') {
               if (location.pathname !== '/printing') {
                 navigate('/printing')

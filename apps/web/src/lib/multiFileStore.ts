@@ -227,7 +227,7 @@ export function getMaxFileSizeMB(type: FileType): number {
 }
 
 export function isSupportedFileType(type: FileType): boolean {
-  return ['pdf', 'image', 'docx', 'ppt'].includes(type)
+  return ['pdf', 'image'].includes(type)
 }
 
 /** Generate a unique ID for a file based on name + size */

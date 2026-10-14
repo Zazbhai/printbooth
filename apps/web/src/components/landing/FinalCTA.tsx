@@ -120,7 +120,7 @@ export default function FinalCTA({ isActive = false }: FinalCTAProps) {
 
             <h3 className="final-bento-title">Need Documents Right Now?</h3>
             <p className="final-bento-desc">
-              Upload PDF, DOCX, or photos directly from your phone. Instant QR checkout and automatic laser dispense.
+              Upload PDF or photos directly from your phone. Instant QR checkout and automatic laser dispense.
             </p>
 
             <div className="final-bento-features">
