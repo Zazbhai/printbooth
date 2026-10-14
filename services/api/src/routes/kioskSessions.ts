@@ -911,15 +911,19 @@ kioskSessionsRouter.post(['/:sessionId/section', '/kiosk/:kioskId/section'], (re
     session.lastActivityAt = now
 
     const section = req.body?.section
-    if (section === '/review' && session.state !== 'REVIEWING') {
-      session.state = 'REVIEWING'
-      console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state REVIEWING from section ${section}`)
-    } else if (section === '/settings' && session.state !== 'CONFIGURING') {
-      session.state = 'CONFIGURING'
-      console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state CONFIGURING from section ${section}`)
-    } else if (section === '/payment' && session.state !== 'PAYING') {
+    const isPayingOrHigher = (session.state as string) === 'PAYING' || (session.state as string) === 'OTP_READY'
+
+    if (section === '/payment' && session.state !== 'PAYING') {
       session.state = 'PAYING'
       console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state PAYING from section ${section}`)
+    } else if (!isPayingOrHigher) {
+      if (section === '/review' && session.state !== 'REVIEWING') {
+        session.state = 'REVIEWING'
+        console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state REVIEWING from section ${section}`)
+      } else if (section === '/settings' && session.state !== 'CONFIGURING') {
+        session.state = 'CONFIGURING'
+        console.log(`[KioskSession] 🔄 Synced session ${session.sessionId} to state CONFIGURING from section ${section}`)
+      }
     }
 
     saveSession(session)
@@ -1127,7 +1131,7 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
         session.currentSectionEnteredAt = now
       }
       session.state = state as KioskSessionState
-      session.isBackwardNav = isBackwardNav
+      session.isBackwardNav = incomingRank >= 6 ? false : isBackwardNav
 
       // If user legitimately navigated back from Payment to configure or review, invalidate any previously generated QR code
       if (['UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING'].includes(state as string)) {
@@ -1461,7 +1465,10 @@ kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], asyn
   session.currentSectionEnteredAt = now
 
   const nextState: KioskSessionState = (targetState as KioskSessionState) || 'CONFIRMING'
-  if (session.state === 'PRINTING' || session.state === 'DONE') {
+  const isPayingOrAbove = session.state === 'PAYING' || session.state === 'OTP_READY' || session.state === 'PRINTING' || session.state === 'DONE'
+  const incomingIsEarlier = ['QR_READY', 'CLAIMED', 'UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING'].includes(nextState)
+
+  if (isPayingOrAbove && incomingIsEarlier) {
     console.log(`[KioskSession] 🛑 Session ${session.sessionId} is currently in ${session.state}. Ignoring next-phase state override to ${nextState}.`)
   } else {
     session.state = nextState
@@ -1681,17 +1688,20 @@ const handleUpdateKioskSessionSettings = (req: Request, res: Response) => {
     session.paymentUrl = ''
     session.qrAmount = undefined
   }
-  if (nextState !== 'PAYING') {
+
+  if (session.state === 'PAYING' || session.state === 'OTP_READY' || session.state === 'PRINTING' || session.state === 'DONE') {
+    if (nextState !== 'PAYING') {
+      console.log(`[KioskSession] 🛑 Session ${session.sessionId} is in ${session.state}. Skipping state regression in settings update.`)
+      saveSession(session)
+      return res.json({ success: true, session })
+    }
+  }
+
+  if (nextState !== 'PAYING' && session.state !== 'PAYING' && session.state !== 'OTP_READY') {
     session.upiQrValue = ''
     session.upiIntentUrl = ''
     session.paymentUrl = ''
     session.qrAmount = undefined
-  }
-
-  if (session.state === 'PRINTING' || session.state === 'DONE') {
-    console.log(`[KioskSession] 🛑 Session ${session.sessionId} is in ${session.state}. Skipping state regression in settings update.`)
-    saveSession(session)
-    return res.json({ success: true, session })
   }
 
   if (nextState && ['CONFIRMING', 'CONFIGURING', 'REVIEWING', 'PAYING'].includes(nextState)) {
@@ -1704,7 +1714,7 @@ const handleUpdateKioskSessionSettings = (req: Request, res: Response) => {
       ? 'Configuring print settings on mobile'
       : 'Reviewing document on mobile'
     session.phaseStep = nextState === 'PAYING' ? 4 : nextState === 'REVIEWING' ? 3.5 : 3
-  } else {
+  } else if (session.state !== 'PAYING' && session.state !== 'OTP_READY' && session.state !== 'PRINTING' && session.state !== 'DONE') {
     session.state = 'CONFIGURING'
     session.phase = 'Configuring print settings on mobile'
     session.phaseStep = 3
@@ -1749,7 +1759,9 @@ kioskSessionsRouter.post('/:sessionId/state', (req: Request, res: Response) => {
   ]
 
   if (state && validStates.includes(state)) {
-    if ((session.state === 'PRINTING' || session.state === 'DONE') && state !== 'PRINTING' && state !== 'DONE') {
+    const isPayingOrAbove = session.state === 'PAYING' || session.state === 'OTP_READY' || session.state === 'PRINTING' || session.state === 'DONE'
+    const incomingIsEarlier = ['QR_READY', 'CLAIMED', 'UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING'].includes(state)
+    if (isPayingOrAbove && incomingIsEarlier) {
       console.log(`[KioskSession] 🛑 Blocked state regression on session ${session.sessionId}: current=${session.state}, rejected incoming=${state}`)
       return res.json({ success: true, state: session.state, session })
     }

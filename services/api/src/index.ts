@@ -270,9 +270,13 @@ echo "  ✓ Files updated in $TARGET_DIR"
 echo "[2/5] Installing Pillow and dependencies in Python environment..."
 pip install pillow websockets || python3 -m pip install pillow websockets || pip3 install --break-system-packages pillow websockets
 
-echo "[3/5] Enforcing CUPS queue defaults (copies=1, job-sheets=none)..."
+echo "[3/5] Enforcing CUPS queue defaults & anti-sleep configuration..."
 lpoptions -p PrintBooth_Printer -o copies=1 -o job-sheets=none,none 2>/dev/null || true
-sudo lpadmin -p PrintBooth_Printer -o copies-default=1 -o job-sheets-default=none,none 2>/dev/null || true
+sudo lpadmin -p PrintBooth_Printer -o copies-default=1 -o job-sheets-default=none,none -o printer-error-policy=retry-current-job -o usb-unidir-default=true -o usb-no-reattach-default=true 2>/dev/null || true
+cupsenable PrintBooth_Printer 2>/dev/null || true
+cupsaccept PrintBooth_Printer 2>/dev/null || true
+sudo cupsenable PrintBooth_Printer 2>/dev/null || true
+sudo cupsaccept PrintBooth_Printer 2>/dev/null || true
 
 echo "[4/5] Resetting Brother hardware NVRAM copy register to 1..."
 for br in /usr/bin/brprintconf_dcpt420w /opt/brother/Printers/dcpt420w/lpd/brprintconf_dcpt420w; do

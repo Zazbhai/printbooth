@@ -746,6 +746,7 @@ export const kioskSession = {
       state: 'PAYING',
       phase: 'Scan UPI QR on kiosk display to pay',
       phaseStep: 5,
+      isBackwardNav: false,
       ...(opts?.fileName ? { fileName: opts.fileName } : {}),
       ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
       ...(opts?.copies ? { copies: opts.copies } : {}),
