@@ -178,6 +178,7 @@ export interface KioskSession {
   upiQrValue?: string
   paymentUrl?: string
   upiIntentUrl?: string
+  isBackwardNav?: boolean
   merchantUpiId?: string
   gateway?: string
   paymentError?: string
@@ -1092,20 +1093,58 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
     'UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING', 'PAYING', 'OTP_READY', 'PRINTING', 'DONE'
   ]
 
+  const STATE_PROGRESSION_RANK: Record<string, number> = {
+    'CLAIMED': 1,
+    'UPLOADING': 2,
+    'CONFIRMING': 3,
+    'CONFIGURING': 4,
+    'REVIEWING': 5,
+    'PAYING': 6,
+    'OTP_READY': 6,
+    'PRINTING': 7,
+    'DONE': 8,
+  }
+
+  const isBackwardNav = Boolean(req.body?.isBackwardNav)
+  let stateTransitionBlocked = false
+
   if (state && VALID_STATES.includes(state as KioskSessionState)) {
-    // Monotonic guard: once session enters PRINTING, never allow regressing backwards to PAYING/REVIEWING/etc.
+    const currentRank = STATE_PROGRESSION_RANK[session.state] || 0
+    const incomingRank = STATE_PROGRESSION_RANK[state as string] || 0
+
+    // Monotonic guard 1: once session enters PRINTING, never allow regressing backwards
     if (session.state === 'PRINTING' && state !== 'PRINTING' && state !== 'DONE') {
       console.log(`[KioskSession] 🛑 Blocked state regression on session ${session.sessionId}: current=${session.state}, rejected incoming=${state}`)
+      stateTransitionBlocked = true
+    }
+    // Monotonic guard 2: once session enters PAYING or OTP_READY, never allow regressing backwards to REVIEWING/CONFIGURING/etc.
+    // unless this was an explicit user-initiated backward navigation from phone
+    else if (currentRank >= 6 && incomingRank < currentRank && !isBackwardNav) {
+      console.log(`[KioskSession] 🛑 Blocked stale state regression on session ${session.sessionId}: current=${session.state} (rank ${currentRank}), rejected incoming=${state} (rank ${incomingRank})`)
+      stateTransitionBlocked = true
     } else {
       if (session.state !== state) {
         session.currentSectionEnteredAt = now
       }
       session.state = state as KioskSessionState
+      session.isBackwardNav = isBackwardNav
+
+      // If user legitimately navigated back from Payment to configure or review, invalidate any previously generated QR code
+      if (['UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING'].includes(state as string)) {
+        session.upiQrValue = ''
+        session.upiIntentUrl = ''
+        session.paymentUrl = ''
+        session.qrAmount = undefined
+        session.paymentEpoch = (session.paymentEpoch || 0) + 1
+      }
     }
   }
 
-  if (phase) session.phase = phase
-  if (typeof phaseStep === 'number') session.phaseStep = phaseStep
+  // Only apply phase / phaseStep if state transition was not blocked
+  if (!stateTransitionBlocked) {
+    if (phase) session.phase = phase
+    if (typeof phaseStep === 'number') session.phaseStep = phaseStep
+  }
   if (otp) session.otp = otp
   if (orderId && !session.orderId) session.orderId = orderId
   if (fileName) session.fileName = fileName
@@ -1127,16 +1166,6 @@ kioskSessionsRouter.post('/:sessionId/progress', async (req: Request, res: Respo
 
   if (typeof newAmount === 'number') {
     session.amount = newAmount
-  }
-
-  // If user navigated back from Payment to configure or review, invalidate any previously generated QR code
-  // so that when they proceed to Pay again, a fresh QR code with the exact updated amount is created.
-  if (state && ['UPLOADING', 'CONFIRMING', 'CONFIGURING', 'REVIEWING'].includes(state as string)) {
-    session.upiQrValue = ''
-    session.upiIntentUrl = ''
-    session.paymentUrl = ''
-    session.qrAmount = undefined
-    session.paymentEpoch = (session.paymentEpoch || 0) + 1
   }
 
   if (progressData) session.progressData = { ...session.progressData, ...progressData }

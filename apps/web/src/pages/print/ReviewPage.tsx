@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePrintNavigate as useNavigate, usePrintFlow } from './PrintFlowContext'
 import {
   File,
@@ -120,48 +120,52 @@ export default function ReviewPage() {
   }, [activePreviewIdx, isMultiFile, multiFiles, settings.colour])
 
   // Report REVIEWING state to kiosk display companion
+  const isProceedingToPayRef = useRef(false)
   useEffect(() => {
-    if (kioskSession.isKioskSession()) {
-      kioskSession.reportReviewing({
-        fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
-        totalPages: pageCount,
-        copies: settings.copies,
-        colourMode: settings.colour,
-        amount: totalPrice,
-        settings: {
-          ...settings,
-          pages: settings.pages,
-          pageRange: settings.pages,
-        },
-        files: multiFiles.map(f => ({
-          id: f.id,
-          fileName: f.fileName,
-          fileSize: f.fileSize,
-          fileType: f.fileType,
-          pageCount: f.pageCount || 1,
-          copies: f.settings?.copies || settings.copies || 1,
-          colour: f.settings?.colour || settings.colour || 'BW',
-          duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
-          pages: f.settings?.pages || settings.pages || 'ALL',
-          pageRange: f.settings?.pages || settings.pages || 'ALL',
-          paperSize: f.settings?.paperSize || 'A4',
-          scaling: f.settings?.scaling || 'FIT',
-          pagesPerSheet: f.settings?.pagesPerSheet || 1,
-          orientation: f.settings?.orientation || 'AUTO',
-          dpi: f.settings?.dpi || '600',
-          margins: f.settings?.margins || 'STANDARD',
-          contrastMode: f.settings?.contrastMode || 'BALANCED',
-          pageBorder: Boolean(f.settings?.pageBorder),
-          pageCopies: f.settings?.pageCopies,
-          pageColours: f.settings?.pageColours,
-          previews: f.previews || (f.thumbnail ? [{ pageNumber: 1, url: f.thumbnail }] : []),
-          settings: f.settings,
-        })),
-      })
-    }
+    if (!kioskSession.isKioskSession()) return
+    if (isProceedingToPayRef.current) return
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pb_print_step') === 'payment') return
+
+    kioskSession.reportReviewing({
+      fileName: fileName || multiFiles[0]?.fileName || 'Document.pdf',
+      totalPages: pageCount,
+      copies: settings.copies,
+      colourMode: settings.colour,
+      amount: totalPrice,
+      settings: {
+        ...settings,
+        pages: settings.pages,
+        pageRange: settings.pages,
+      },
+      files: multiFiles.map(f => ({
+        id: f.id,
+        fileName: f.fileName,
+        fileSize: f.fileSize,
+        fileType: f.fileType,
+        pageCount: f.pageCount || 1,
+        copies: f.settings?.copies || settings.copies || 1,
+        colour: f.settings?.colour || settings.colour || 'BW',
+        duplex: f.settings?.duplex || settings.duplex || 'SINGLE',
+        pages: f.settings?.pages || settings.pages || 'ALL',
+        pageRange: f.settings?.pages || settings.pages || 'ALL',
+        paperSize: f.settings?.paperSize || 'A4',
+        scaling: f.settings?.scaling || 'FIT',
+        pagesPerSheet: f.settings?.pagesPerSheet || 1,
+        orientation: f.settings?.orientation || 'AUTO',
+        dpi: f.settings?.dpi || '600',
+        margins: f.settings?.margins || 'STANDARD',
+        contrastMode: f.settings?.contrastMode || 'BALANCED',
+        pageBorder: Boolean(f.settings?.pageBorder),
+        pageCopies: f.settings?.pageCopies,
+        pageColours: f.settings?.pageColours,
+        previews: f.previews || (f.thumbnail ? [{ pageNumber: 1, url: f.thumbnail }] : []),
+        settings: f.settings,
+      })),
+    })
   }, [fileName, pageCount, settings.copies, settings.colour, settings.pages, totalPrice, multiFiles, settings])
 
   function handlePay() {
+    isProceedingToPayRef.current = true
     sessionStorage.setItem('pb_print_step', 'payment')
     sessionStorage.setItem('pb_total_price', String(totalPrice))
     if (flow?.goToStep) {

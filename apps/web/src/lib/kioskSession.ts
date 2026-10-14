@@ -73,6 +73,7 @@ interface SessionProgressPayload {
   copies?: number
   colourMode?: string
   amount?: number
+  isBackwardNav?: boolean
   progressData?: Record<string, any>
   settings?: Record<string, any>
   files?: Array<{
@@ -684,6 +685,7 @@ export const kioskSession = {
     selectedPages?: number[]
     settings?: Record<string, any>
     files?: any[]
+    isBackwardNav?: boolean
   }) {
     abortPendingPayment()
     const effectivePages = opts?.pages || opts?.pageRange || opts?.settings?.pages || opts?.settings?.pageRange
@@ -691,6 +693,7 @@ export const kioskSession = {
       state: 'REVIEWING',
       phase: 'Reviewing order on mobile…',
       phaseStep: 4,
+      isBackwardNav: opts?.isBackwardNav,
       ...(opts?.fileName ? { fileName: opts.fileName } : {}),
       ...(opts?.totalPages ? { totalPages: opts.totalPages } : {}),
       ...(opts?.copies ? { copies: opts.copies } : {}),

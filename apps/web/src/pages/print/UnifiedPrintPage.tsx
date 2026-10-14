@@ -681,7 +681,8 @@ export default function UnifiedPrintPage() {
           files: filesList,
         })
         break
-      case 'review':
+      case 'review': {
+        const isBackwardNav = previousStepRef.current === 'payment'
         kioskSession.reportReviewing({
           fileName,
           totalPages: totalSheets || undefined,
@@ -690,8 +691,10 @@ export default function UnifiedPrintPage() {
           duplex: readyFiles[0]?.settings?.duplex || 'SINGLE',
           amount: amount || undefined,
           files: filesList,
+          isBackwardNav,
         })
         break
+      }
       case 'payment': {
         const savedOrderId = typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem('pb_order_id') || undefined) : undefined
         kioskSession.reportPaying({
@@ -709,8 +712,10 @@ export default function UnifiedPrintPage() {
       default:
         break
     }
+    previousStepRef.current = currentStep
   }, [currentStep])
 
+  const previousStepRef = useRef<PrintStep | null>(null)
   const lastTargetStepRef = useRef<PrintStep | null>(null)
 
   const goToStep = useCallback((step: PrintStep, options?: { replace?: boolean }) => {
