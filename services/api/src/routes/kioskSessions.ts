@@ -2516,7 +2516,7 @@ kioskSessionsRouter.post('/simulate-payment', handleSimulatePayment)
  * POST /api/kiosk-sessions/:sessionId/execute-print
  * Dispatches physical/relay print job when payment is confirmed on kiosk display.
  */
-kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Response) => {
+kioskSessionsRouter.post('/:sessionId/execute-print', async (req: Request, res: Response) => {
   const { sessionId } = req.params
   const session = getSession(sessionId)
   if (!session) {
@@ -2575,7 +2575,14 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
       const fScaling = String(fileSettings.scaling || f.scaling || 'FIT').trim()
       const fPagesPerSheet = Number(fileSettings.pagesPerSheet || f.pagesPerSheet || 1)
       const fOrientation = String(fileSettings.orientation || f.orientation || 'AUTO').toUpperCase().trim()
-      const fTotalPages = Math.max(1, Number(f.pageCount || 1))
+      let fTotalPages = Math.max(1, Number(f.pageCount || 1))
+      const fFilePath = f.filePath || (session.files && session.files[idx]?.filePath) || (idx === 0 ? session.document?.filePath : '')
+      if (fTotalPages <= 1 && fFilePath && /\.pdf$/i.test(fFilePath) && fs.existsSync(fFilePath)) {
+        const detected = await detectPdfPageCount(fFilePath)
+        if (detected > 1) {
+          fTotalPages = detected
+        }
+      }
 
       const subJobState: PrintJobState = {
         orderId: subOrderId,
@@ -2638,7 +2645,13 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
       session.document?.selectedPages,
       (session as any).selectedPages,
     )
-    const totalPages = session.document?.pageCount || session.totalPages || f0?.pageCount || 1
+    let totalPages = Math.max(1, Number(session.document?.pageCount || session.totalPages || f0?.pageCount || 1))
+    if (totalPages <= 1 && filePath && /\.pdf$/i.test(filePath) && fs.existsSync(filePath)) {
+      const detected = await detectPdfPageCount(filePath)
+      if (detected > 1) {
+        totalPages = detected
+      }
+    }
 
     const jobState: PrintJobState = {
       orderId,
