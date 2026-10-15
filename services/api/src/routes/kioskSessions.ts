@@ -2374,6 +2374,12 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
     return res.status(404).json({ success: false, error: 'Session not found' })
   }
 
+  // Idempotency: if already printing or done, don't re-dispatch print jobs!
+  if (session.state === 'PRINTING' || session.state === 'DONE') {
+    console.log(`[KioskSession] Session ${sessionId} already in state '${session.state}', skipping duplicate execute-print dispatch`)
+    return res.json({ success: true, message: 'Already printing or complete', state: session.state })
+  }
+
   const orderId = session.orderId || `ORD-${Date.now().toString().slice(-6)}`
   session.orderId = orderId
 

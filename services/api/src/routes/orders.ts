@@ -426,8 +426,14 @@ export async function handleJobPoll(req: Request, res: Response) {
 
     const jobs = []
     for (const o of orders) {
-      const jobState = printJobs.get(o.orderId) || (o.orderNumber ? printJobs.get(o.orderNumber) : undefined)
       const ps = o.printSettings || {}
+      const oFiles = o.files || ps.files
+      if (Array.isArray(oFiles) && oFiles.length > 1) {
+        // Multi-file orders are dispatched as individual sub-jobs via WSS relay.
+        // Never return the master order batch in HTTP poll, as that causes duplicate spooling!
+        continue
+      }
+      const jobState = printJobs.get(o.orderId) || (o.orderNumber ? printJobs.get(o.orderNumber) : undefined)
 
       const job = {
         job_id: o.orderId,

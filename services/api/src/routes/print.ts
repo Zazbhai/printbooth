@@ -358,10 +358,33 @@ export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = fal
   const now = Date.now()
   const isSubOrder = Boolean(job.orderId && job.orderId.includes('_sub_'))
 
-  // For sub-orders (e.g. ORD-123_sub_1, ORD-123_sub_2), deduplication must strictly use job.orderId only!
-  // NEVER include masterOrderId or orderNumber for sub-orders, otherwise sub_2, sub_3... are blocked because sub_1 already recorded the masterOrderId!
-  const checkKeys = [job.orderId]
-  if (!isSubOrder) {
+  // For multi-file master orders: NEVER dispatch the master order as a monolithic job!
+  // Multi-file orders are always dispatched as individual sub-jobs.
+  if (!isSubOrder && (Number(job.totalFiles || 0) > 1 || (job as any).files?.length > 1 || (job as any).subJobs?.length > 1)) {
+    console.log(`[Print Dispatch] ℹ Master order ${job.orderId} contains multiple files. Skipping monolithic dispatch (sub-jobs are dispatched individually).`)
+    return
+  }
+
+  // Deduplication keys:
+  // For sub-orders (e.g. ORD-123_sub_1 or PB-456_sub_1), build index-aware keys:
+  // e.g. `${masterOrderId}_sub_${fileIndex}`, `${orderNumber}_sub_${fileIndex}`
+  // so that duplicate dispatches with different orderId representations (ORD- vs PB-)
+  // are caught, while different sub-jobs (_sub_1 vs _sub_2) remain completely independent!
+  const checkKeys: string[] = [job.orderId]
+  if (isSubOrder) {
+    const fileIdx = job.fileIndex || (job.orderId.includes('_sub_') ? job.orderId.split('_sub_')[1] : '')
+    if (fileIdx) {
+      if (job.masterOrderId && job.masterOrderId !== job.orderId) {
+        checkKeys.push(`${job.masterOrderId}_sub_${fileIdx}`)
+      }
+      if (job.orderNumber && job.orderNumber !== job.orderId) {
+        checkKeys.push(`${job.orderNumber}_sub_${fileIdx}`)
+      }
+      if (job.releasePin) {
+        checkKeys.push(`${job.releasePin}_sub_${fileIdx}`)
+      }
+    }
+  } else {
     if (job.orderNumber && job.orderNumber !== job.orderId) checkKeys.push(job.orderNumber)
     if (job.masterOrderId && job.masterOrderId !== job.orderId) checkKeys.push(job.masterOrderId)
     if (job.releasePin) checkKeys.push(job.releasePin)
