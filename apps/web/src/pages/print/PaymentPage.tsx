@@ -26,7 +26,7 @@ import { wsRelay } from '@/lib/wsRelayClient'
 import { saveRecentPrint } from '@/lib/recentPrintsStore'
 import { getApiHostUrl } from '@/lib/config'
 import { PaymentStatusModal } from '@/components/ui/PaymentStatusModal'
-import { kioskSession } from '@/lib/kioskSession'
+import { kioskSession, clearActiveKioskSession } from '@/lib/kioskSession'
 import './PaymentPage.css'
 
 const API = getApiHostUrl()
@@ -205,6 +205,7 @@ export default function PaymentPage() {
 
   const timerRef    = useRef<ReturnType<typeof setInterval>>()
   const pollingRef  = useRef<ReturnType<typeof setInterval>>()
+  const paymentSuccessTimeRef = useRef<number | null>(null)
 
   // ── Logging helper ──
   const log = useCallback((msg: string, level: LogLevel = 'info') => {
@@ -372,6 +373,7 @@ export default function PaymentPage() {
       log(`⚡ [WSS Relay] Real-time payment caught! ID: ${payload?.payment?.paymentId || orderId}`, 'success')
       if (pollingRef.current) clearInterval(pollingRef.current)
       setUpiePolling(false)
+      if (!paymentSuccessTimeRef.current) paymentSuccessTimeRef.current = Date.now()
       setStatus('SUCCESS')
       clearInterval(timerRef.current)
       await recordOrder(payload?.payment?.paymentId || orderId)
@@ -439,6 +441,7 @@ export default function PaymentPage() {
         const s = await kioskSession.getStatus()
         if (s.success && (s.state === 'PRINTING' || s.state === 'DONE')) {
           clearInterval(sessionStatusInterval)
+          if (!paymentSuccessTimeRef.current) paymentSuccessTimeRef.current = Date.now()
           setStatus('SUCCESS')
           if (timerRef.current) clearInterval(timerRef.current)
           await recordOrder(s.orderId || orderId)
@@ -801,21 +804,35 @@ export default function PaymentPage() {
     sessionStorage.removeItem('pb_confirm_mode')
     sessionStorage.removeItem('pb_order_id')
     sessionStorage.removeItem('pb_client_txn_id')
+    sessionStorage.removeItem('pb_print_step')
+
+    // Completely clear previous kiosk session token and claims so user re-scans for new job
+    clearActiveKioskSession()
+    sessionStorage.removeItem('pb_kiosk_session_token')
+    sessionStorage.removeItem('pb_kiosk_session_id')
+    sessionStorage.removeItem('pb_kiosk_session_user_token')
+    sessionStorage.removeItem('pb_kiosk_claim_token')
+    localStorage.removeItem('pb_kiosk_session_token')
+    localStorage.removeItem('pb_kiosk_session_id')
+    localStorage.removeItem('pb_kiosk_session_user_token')
+    localStorage.removeItem('pb_kiosk_claim_token')
 
     // Preserve the user's selected kiosk ID
     const targetKioskId = kioskId || sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id') || 'PB-001'
     sessionStorage.setItem('pb_kiosk_id', targetKioskId)
     localStorage.setItem('pb_kiosk_id', targetKioskId)
-    sessionStorage.setItem('pb_print_step', 'upload')
 
-    const activeToken = sessionStorage.getItem('pb_kiosk_session_token')
-    const redirectUrl = activeToken
-      ? `/print?id=${encodeURIComponent(targetKioskId)}&session=${encodeURIComponent(activeToken)}&step=upload`
-      : `/print?id=${encodeURIComponent(targetKioskId)}&step=upload`
+    // Redirect user to scanner to scan the live QR code on the kiosk machine again
+    const redirectUrl = `/print?id=${encodeURIComponent(targetKioskId)}&scan=true`
+
+    // Guarantee the tick animation displays for exactly 3 seconds (3000ms)
+    const startTime = paymentSuccessTimeRef.current || Date.now()
+    const elapsed = Date.now() - startTime
+    const remainingDelay = Math.max(0, 3000 - elapsed)
 
     setTimeout(() => {
       window.location.replace(redirectUrl)
-    }, 1200)
+    }, remainingDelay)
   }
 
   // ── Test Mode: Simulate Payment to test hardware printing without paying ──
@@ -1003,6 +1020,7 @@ export default function PaymentPage() {
             const vj = await vr.json()
             if (vj.success) {
               log('✓ Signature verified — payment authentic', 'success')
+              if (!paymentSuccessTimeRef.current) paymentSuccessTimeRef.current = Date.now()
               setStatus('SUCCESS')
               clearInterval(timerRef.current)
               await recordOrder(response.razorpay_payment_id)
@@ -1014,12 +1032,14 @@ export default function PaymentPage() {
             }
           } catch (err) {
             log(`Verify request failed: ${err}`, 'error')
+            if (!paymentSuccessTimeRef.current) paymentSuccessTimeRef.current = Date.now()
             setStatus('SUCCESS')
             clearInterval(timerRef.current)
             await recordOrder(response.razorpay_payment_id)
           }
         } else {
           log('Backend offline — marking success based on Razorpay callback', 'warn')
+          if (!paymentSuccessTimeRef.current) paymentSuccessTimeRef.current = Date.now()
           setStatus('SUCCESS')
           clearInterval(timerRef.current)
           await recordOrder(response.razorpay_payment_id)
@@ -1132,6 +1152,7 @@ export default function PaymentPage() {
           clearInterval(pollingRef.current)
           setUpiePolling(false)
           log(`✓ UPI payment confirmed — UPI TXN: ${j.data.upi_txn_id}`, 'success')
+          if (!paymentSuccessTimeRef.current) paymentSuccessTimeRef.current = Date.now()
           setStatus('SUCCESS')
           clearInterval(timerRef.current)
           await recordOrder(j.data.upi_txn_id || clientTxnId)

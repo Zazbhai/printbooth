@@ -17,7 +17,7 @@ export function PaymentStatusModal({ status, onClose }: PaymentStatusModalProps)
     if (status === 'FAILED') {
       const timer = setTimeout(() => {
         onClose?.()
-      }, 2600)
+      }, 3000)
       return () => clearTimeout(timer)
     }
   }, [status, onClose])

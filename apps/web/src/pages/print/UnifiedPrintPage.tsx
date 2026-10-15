@@ -913,10 +913,11 @@ export default function UnifiedPrintPage() {
     ? 'kiosk'
     : (validSteps.includes(currentStep) ? currentStep : (hasVerifiedSession ? 'upload' : 'kiosk'))
 
+  const isScanRequested = searchParams.get('scan') === 'true' || searchParams.get('step') === 'scan'
+
   const shouldShowScanner =
-    isTargetingKiosk &&
-    !hasVerifiedSession &&
-    !urlSessionToken
+    isScanRequested ||
+    (isTargetingKiosk && !hasVerifiedSession && !urlSessionToken)
 
   const confirmMode = typeof window !== 'undefined' ? (sessionStorage.getItem('pb_confirm_mode') || 'doc') : 'doc'
   const pageKey = effectiveStep === 'confirm' ? `confirm_${confirmMode}` : effectiveStep
@@ -932,21 +933,22 @@ export default function UnifiedPrintPage() {
   }, [currentRank])
 
   // Printing animation and success screen are exclusive to the physical kiosk terminal display.
-  // When an order reaches status/success on web, clean up and transfer user back to print upload with selected kiosk ID.
+  // When an order reaches status/success on web, clean up and transfer user back to scanner with selected kiosk ID.
   useEffect(() => {
     if (effectiveStep === 'status' || effectiveStep === 'success') {
       const cleanKiosk = printerId || savedKioskId || 'PB-001'
-      const activeTok = sessionStorage.getItem('pb_kiosk_session_token') || urlSessionToken
       clearAllFiles()
       clearUploadedDoc()
+      clearActiveKioskSession()
+      sessionStorage.removeItem('pb_kiosk_session_token')
+      sessionStorage.removeItem('pb_kiosk_session_id')
+      localStorage.removeItem('pb_kiosk_session_token')
+      localStorage.removeItem('pb_kiosk_session_id')
       sessionStorage.setItem('pb_kiosk_id', cleanKiosk)
-      sessionStorage.setItem('pb_print_step', 'upload')
-      const target = activeTok
-        ? `/print?id=${encodeURIComponent(cleanKiosk)}&session=${encodeURIComponent(activeTok)}&step=upload`
-        : `/print?id=${encodeURIComponent(cleanKiosk)}&step=upload`
+      const target = `/print?id=${encodeURIComponent(cleanKiosk)}&scan=true`
       window.location.replace(target)
     }
-  }, [effectiveStep, printerId, savedKioskId, urlSessionToken])
+  }, [effectiveStep, printerId, savedKioskId])
 
   // If user explicitly navigated to an unknown / unregistered kiosk (e.g. /print?id=PB-003):
   if (urlId && !isLiveKiosksLoading && (validation.status === 'NOT_FOUND' || validation.status === 'INVALID_FORMAT')) {
@@ -1363,28 +1365,6 @@ export default function UnifiedPrintPage() {
             }}
             onGoHome={() => navigate('/')}
           />
-        ) : (machineInUseState?.inUse || (isTargetingKiosk && isPrinterBusy && !hasActiveSession)) ? (
-          <MachineInUseView
-            kioskId={printerId || 'PB-001'}
-            kioskName={kioskName}
-            token={machineInUseState?.token}
-            onPrinterFree={() => {
-              setMachineInUseState(null)
-              setIsPrinterBusy(false)
-            }}
-            onRetry={handleRetrySession}
-            onSelectOtherKiosk={() => {
-              goToStep('kiosk')
-              setSearchParams(prev => {
-                const next = new URLSearchParams(prev)
-                next.delete('id')
-                next.delete('printer_id')
-                next.set('step', 'kiosk')
-                return next
-              }, { replace: true })
-            }}
-            onGoHome={() => navigate('/')}
-          />
         ) : shouldShowScanner ? (
           <KioskDisplayQrScanner
             kioskId={printerId || 'PB-001'}
@@ -1434,10 +1414,33 @@ export default function UnifiedPrintPage() {
                 next.delete('id')
                 next.delete('printer_id')
                 next.delete('kiosk')
+                next.delete('scan')
                 next.set('step', 'kiosk')
                 return next
               }, { replace: true })
             }}
+          />
+        ) : (machineInUseState?.inUse || (isTargetingKiosk && isPrinterBusy && !hasActiveSession)) ? (
+          <MachineInUseView
+            kioskId={printerId || 'PB-001'}
+            kioskName={kioskName}
+            token={machineInUseState?.token}
+            onPrinterFree={() => {
+              setMachineInUseState(null)
+              setIsPrinterBusy(false)
+            }}
+            onRetry={handleRetrySession}
+            onSelectOtherKiosk={() => {
+              goToStep('kiosk')
+              setSearchParams(prev => {
+                const next = new URLSearchParams(prev)
+                next.delete('id')
+                next.delete('printer_id')
+                next.set('step', 'kiosk')
+                return next
+              }, { replace: true })
+            }}
+            onGoHome={() => navigate('/')}
           />
         ) : (
           <PageTransition3D pageKey={pageKey}>
