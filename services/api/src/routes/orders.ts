@@ -40,6 +40,21 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       customerMac,
     } = req.body
 
+    const MAX_COMBINED_ORDER_BYTES = 10 * 1024 * 1024
+    let totalOrderBytes = Number(fileSize) || 0
+    const rawFilesList = req.body.files || printSettings?.files
+    if (Array.isArray(rawFilesList) && rawFilesList.length > 0) {
+      const sum = rawFilesList.reduce((acc: number, f: any) => acc + (Number(f.fileSize) || 0), 0)
+      totalOrderBytes = Math.max(totalOrderBytes, sum)
+    }
+    if (totalOrderBytes > MAX_COMBINED_ORDER_BYTES) {
+      const attemptedMB = (totalOrderBytes / (1024 * 1024)).toFixed(1)
+      return res.status(400).json({
+        success: false,
+        error: `Combined file size exceeds the 10 MB limit (${attemptedMB} MB).`,
+      })
+    }
+
     const rawDuplex = inputDuplex ?? printSettings?.duplex
     const duplex = (
       typeof rawDuplex === 'boolean'
@@ -167,9 +182,11 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
     const pickupCode = releasePin
     const otp = releasePin
 
-    const docPages = Math.max(1, Number(req.body.totalDocPages || req.body.docPageCount || pageCount) || 1)
+    const rawTotalDoc = req.body.totalDocPages || req.body.docPageCount || printSettings?.totalDocPages || printSettings?.docPageCount || req.body.document?.pageCount || req.body.files?.[0]?.pageCount || printSettings?.files?.[0]?.pageCount
+    const docPages = Math.max(1, Number(rawTotalDoc || pageCount) || 1)
     const selectedPages = parsePageRangeList(normPageRange, docPages)
     const specifiedPageCount = selectedPages.length
+    const trueTotalDocPages = Math.max(docPages, ...selectedPages)
 
     const orderData: any = {
       orderId,
@@ -179,8 +196,8 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       fileSize,
       status: 'PAID',
       pageCount: specifiedPageCount,
-      totalDocPages: docPages,
-      docPageCount: docPages,
+      totalDocPages: trueTotalDocPages,
+      docPageCount: trueTotalDocPages,
       selectedPages,
       copies,
       colourMode,
@@ -198,8 +215,8 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
         pages: normPageRange,
         selectedPages,
         pageCount: specifiedPageCount,
-        totalDocPages: docPages,
-        docPageCount: docPages,
+        totalDocPages: trueTotalDocPages,
+        docPageCount: trueTotalDocPages,
         scaling: normScaling,
         pagesPerSheet: normPagesPerSheet,
         copies,
@@ -257,12 +274,14 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
           copies,
           colourMode,
           pageRange: normPageRange,
+          pages: normPageRange,
+          selectedPages,
           duplex,
           paperSize,
           scaling: normScaling,
           status: 'PRINTING',
           printedPages: 0,
-          totalPages: docPages,
+          totalPages: trueTotalDocPages,
           percent: 0,
           startedAt: Date.now(),
           kioskId: cleanKioskId,
@@ -435,39 +454,53 @@ export async function handleJobPoll(req: Request, res: Response) {
       }
       const jobState = printJobs.get(o.orderId) || (o.orderNumber ? printJobs.get(o.orderNumber) : undefined)
 
-      const job = {
-        job_id: o.orderId,
-        orderId: o.orderId,
-        orderNumber: o.orderNumber,
-        filename: o.fileName || 'PrintBooth_Document.pdf',
-        fileName: o.fileName || 'PrintBooth_Document.pdf',
-        download_url: `/api/print/download/${o.orderId}`,
-        fileUrl: `/api/print/download/${o.orderId}`,
-        copies: jobState?.copies || o.copies || ps.copies || 1,
-        colourMode: jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW',
-        colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
-        duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
-        paperSize: jobState?.paperSize || o.paperSize || ps.paperSize || 'A4',
-        pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'ALL',
-        scaling: jobState?.scaling || o.scaling || ps.scaling || 'FIT',
-        orientation: jobState?.orientation || o.orientation || ps.orientation || 'AUTO',
-        pagesPerSheet: jobState?.pagesPerSheet || o.pagesPerSheet || ps.pagesPerSheet || 1,
-        pageColours: jobState?.pageColours || o.pageColours || ps.pageColours,
-        pageCopies: jobState?.pageCopies || o.pageCopies || ps.pageCopies,
-        pages: o.pageCount || ps.pageCount || 1,
-        files: o.files || ps.files,
-        status: o.status,
-        metadata: {
-          print_settings: {
-            copies: jobState?.copies || o.copies || ps.copies || 1,
-            colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
-            orientation: (jobState?.orientation || o.orientation || ps.orientation || 'AUTO').toLowerCase(),
-            scaling: (jobState?.scaling || o.scaling || ps.scaling || 'FIT').toLowerCase(),
-            pageRange: jobState?.pageRange || o.pageRange || ps.pageRange || ps.pages || 'all',
-            duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+        const effectiveRange = resolveEffectivePageRange(
+          jobState?.selectedPages,
+          jobState?.pageRange,
+          o.selectedPages,
+          ps.selectedPages,
+          o.pageRange,
+          ps.pageRange,
+          o.pages,
+          ps.pages
+        )
+        const job = {
+          job_id: o.orderId,
+          orderId: o.orderId,
+          orderNumber: o.orderNumber,
+          filename: o.fileName || 'PrintBooth_Document.pdf',
+          fileName: o.fileName || 'PrintBooth_Document.pdf',
+          download_url: `/api/print/download/${o.orderId}`,
+          fileUrl: `/api/print/download/${o.orderId}`,
+          copies: jobState?.copies || o.copies || ps.copies || 1,
+          colourMode: jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW',
+          colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
+          duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+          paperSize: jobState?.paperSize || o.paperSize || ps.paperSize || 'A4',
+          pageRange: effectiveRange,
+          pages: effectiveRange,
+          selectedPages: jobState?.selectedPages || o.selectedPages || ps.selectedPages,
+          totalDocPages: o.totalDocPages || ps.totalDocPages || o.docPageCount || ps.docPageCount,
+          scaling: jobState?.scaling || o.scaling || ps.scaling || 'FIT',
+          orientation: jobState?.orientation || o.orientation || ps.orientation || 'AUTO',
+          pagesPerSheet: jobState?.pagesPerSheet || o.pagesPerSheet || ps.pagesPerSheet || 1,
+          pageColours: jobState?.pageColours || o.pageColours || ps.pageColours,
+          pageCopies: jobState?.pageCopies || o.pageCopies || ps.pageCopies,
+          files: o.files || ps.files,
+          status: o.status,
+          metadata: {
+            print_settings: {
+              copies: jobState?.copies || o.copies || ps.copies || 1,
+              colorMode: (jobState?.colourMode || o.colourMode || ps.colourMode || ps.colour || 'BW').toLowerCase().includes('color') ? 'color' : 'bw',
+              orientation: (jobState?.orientation || o.orientation || ps.orientation || 'AUTO').toLowerCase(),
+              scaling: (jobState?.scaling || o.scaling || ps.scaling || 'FIT').toLowerCase(),
+              pageRange: effectiveRange,
+              pages: effectiveRange,
+              selectedPages: jobState?.selectedPages || o.selectedPages || ps.selectedPages,
+              duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
+            }
           }
         }
-      }
 
       // Mark as PRINTING in DB to indicate it is claimed by Pi
       if (isDbConnected() && o.status === 'PAID') {

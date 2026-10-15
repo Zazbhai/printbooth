@@ -1060,14 +1060,21 @@ printRouter.get('/download/:orderId', async (req: Request, res: Response) => {
 
 // Helper to parse human and API page ranges into 1-indexed page array
 export function parsePageRangeList(rangeStr: string | number[] | undefined | null, total: number): number[] {
-  const maxTotal = Math.max(1, isNaN(Number(total)) ? 1 : Number(total))
+  let maxTotal = Math.max(1, isNaN(Number(total)) ? 1 : Number(total))
+
   if (Array.isArray(rangeStr)) {
-    const valid = rangeStr.map(Number).filter(n => !isNaN(n) && n >= 1 && n <= maxTotal)
-    if (valid.length > 0) return Array.from(new Set(valid)).sort((a, b) => a - b)
+    const nums = rangeStr.map(Number).filter(n => !isNaN(n) && n >= 1)
+    if (nums.length > 0) {
+      maxTotal = Math.max(maxTotal, ...nums)
+      const valid = nums.filter(n => n <= maxTotal)
+      if (valid.length > 0) return Array.from(new Set(valid)).sort((a, b) => a - b)
+    }
   }
+
   if (!rangeStr || typeof rangeStr !== 'string' || rangeStr.trim().toUpperCase() === 'ALL' || rangeStr.trim() === '*') {
     return Array.from({ length: maxTotal }, (_, i) => i + 1)
   }
+
   const clean = rangeStr.trim()
   if (clean.startsWith('[') && clean.endsWith(']')) {
     try {
@@ -1077,6 +1084,20 @@ export function parsePageRangeList(rangeStr: string | number[] | undefined | nul
       }
     } catch {}
   }
+
+  // Pre-scan clean string for explicit page numbers to expand maxTotal if document pageCount was not yet passed
+  const allNums: number[] = []
+  const matches = clean.match(/\d+/g)
+  if (matches) {
+    for (const m of matches) {
+      const num = parseInt(m, 10)
+      if (!isNaN(num) && num >= 1) allNums.push(num)
+    }
+  }
+  if (allNums.length > 0) {
+    maxTotal = Math.max(maxTotal, ...allNums)
+  }
+
   const selected = new Set<number>()
   const parts = clean.split(',').map(s => s.trim()).filter(Boolean)
   for (const part of parts) {
@@ -1401,7 +1422,14 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
   const resolvedColour = (rawResCol === 'COLOUR' || rawResCol === 'COLOR') ? 'COLOUR' : 'BW'
   const resolvedDuplex = order.duplex || order.printSettings?.duplex || 'SINGLE'
   const resolvedPaper = order.paperSize || order.printSettings?.paperSize || 'A4'
-  const resolvedRange = order.pageRange || order.printSettings?.pageRange || order.printSettings?.pages || 'ALL'
+  const resolvedRange = resolveEffectivePageRange(
+    order.selectedPages,
+    order.printSettings?.selectedPages,
+    order.pageRange,
+    order.pages,
+    order.printSettings?.pageRange,
+    order.printSettings?.pages
+  )
   const resolvedScaling = order.scaling || order.printSettings?.scaling || 'FIT'
   const resolvedNUp = order.pagesPerSheet || order.printSettings?.pagesPerSheet || 1
   const resolvedMargins = order.printSettings?.margins || 'STANDARD'
@@ -1421,6 +1449,12 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     ? (typeof rawPageColours === 'string' ? rawPageColours : JSON.stringify(rawPageColours))
     : undefined
 
+  const rawTotalDoc = order.totalDocPages || order.docPageCount || order.printSettings?.totalDocPages || order.printSettings?.docPageCount || order.document?.pageCount || order.files?.[0]?.pageCount || order.pageCount
+  const docPages = Math.max(1, Number(rawTotalDoc || 1))
+  const targetRange = resolvedRange
+  const specifiedPages = parsePageRangeList(targetRange, docPages)
+  const userPrintCount = specifiedPages.length * (resolvedCopies || order.copies || 1)
+
   // Update in-memory job state
   let existingJob = printJobs.get(canonicalOrderId) || printJobs.get(canonicalOrderNumber)
   if (!existingJob) {
@@ -1432,6 +1466,7 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
       copies: resolvedCopies,
       colourMode: resolvedColour,
       pageRange: resolvedRange,
+      selectedPages: specifiedPages,
       pageCopies: resolvedPageCopies,
       pageColours: resolvedPageColours,
       duplex: resolvedDuplex,
@@ -1457,6 +1492,8 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     existingJob.copies = resolvedCopies
     existingJob.colourMode = resolvedColour
     existingJob.pageRange = resolvedRange
+    existingJob.selectedPages = specifiedPages
+    existingJob.totalPages = specifiedPages.length
     if (resolvedPageCopies) existingJob.pageCopies = resolvedPageCopies
     if (resolvedPageColours) existingJob.pageColours = resolvedPageColours
     existingJob.duplex = resolvedDuplex
@@ -1580,6 +1617,8 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
         paperSize: resolvedPaper,
         pageRange: resolvedRange,
         pages: resolvedRange,
+        selectedPages: specifiedPages,
+        pageCount: specifiedPages.length,
         scaling: resolvedScaling,
         pagesPerSheet: resolvedNUp,
         margins: resolvedMargins,
@@ -1602,10 +1641,7 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     }
   }
 
-  const docPages = Math.max(1, Number(order.totalDocPages || order.docPageCount || order.pageCount || 1))
-  const targetRange = String(order.pageRange || order.printSettings?.pageRange || order.printSettings?.pages || 'ALL').trim()
-  const specifiedPages = parsePageRangeList(targetRange, docPages)
-  const userPrintCount = specifiedPages.length * (resolvedCopies || order.copies || 1)
+
 
   return {
     success: true,

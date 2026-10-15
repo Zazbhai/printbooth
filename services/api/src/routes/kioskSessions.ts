@@ -1304,6 +1304,28 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     ? [req.file]
     : []
 
+  const MAX_COMBINED_BYTES = 10 * 1024 * 1024
+  const totalUploadedBytes = uploadedFiles.reduce((sum, f) => sum + (f.size || 0), 0)
+  const reqTotalBytes = Number(req.body.fileSize) || 0
+
+  if (totalUploadedBytes > MAX_COMBINED_BYTES || reqTotalBytes > MAX_COMBINED_BYTES) {
+    for (const f of uploadedFiles) {
+      try {
+        if (f.path && fs.existsSync(f.path)) {
+          fs.unlinkSync(f.path)
+        }
+      } catch {}
+    }
+    const attemptedBytes = Math.max(totalUploadedBytes, reqTotalBytes)
+    const attemptedMB = (attemptedBytes / (1024 * 1024)).toFixed(1)
+    console.warn(`[KioskSession] 🛑 Combined file size exceeded: ${attemptedMB} MB > 10 MB for session ${sessionId}`)
+    return res.status(400).json({
+      success: false,
+      error: 'LIMIT_COMBINED_FILE_SIZE',
+      message: `The combined file size of all uploaded files cannot exceed 10 MB (received ${attemptedMB} MB).`,
+    })
+  }
+
   const file = uploadedFiles.find(f => f.fieldname === 'file') || uploadedFiles[0]
   const fileName = file?.originalname || req.body.fileName || 'Document.pdf'
   const fileSize = file?.size || Number(req.body.fileSize) || 0
@@ -1355,6 +1377,23 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
         }))
       }
     } catch {}
+  }
+
+  const totalMetadataBytes = filesList.reduce((sum, f) => sum + (f.fileSize || 0), 0)
+  if (totalMetadataBytes > MAX_COMBINED_BYTES) {
+    for (const f of uploadedFiles) {
+      try {
+        if (f.path && fs.existsSync(f.path)) {
+          fs.unlinkSync(f.path)
+        }
+      } catch {}
+    }
+    const attemptedMB = (totalMetadataBytes / (1024 * 1024)).toFixed(1)
+    return res.status(400).json({
+      success: false,
+      error: 'LIMIT_COMBINED_FILE_SIZE',
+      message: `The combined file size of all uploaded files cannot exceed 10 MB (received ${attemptedMB} MB).`,
+    })
   }
 
   // Correlate each item in filesList with its distinct uploaded binary
@@ -1497,6 +1536,21 @@ kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], asyn
     files,
     settings,
   } = req.body
+
+  const MAX_COMBINED_BYTES = 10 * 1024 * 1024
+  let combinedNextBytes = Number(fileSize) || 0
+  if (Array.isArray(files) && files.length > 0) {
+    const sum = files.reduce((acc: number, f: any) => acc + (Number(f.fileSize) || 0), 0)
+    combinedNextBytes = Math.max(combinedNextBytes, sum)
+  }
+  if (combinedNextBytes > MAX_COMBINED_BYTES) {
+    const attemptedMB = (combinedNextBytes / (1024 * 1024)).toFixed(1)
+    return res.status(400).json({
+      success: false,
+      error: 'LIMIT_COMBINED_FILE_SIZE',
+      message: `The combined file size cannot exceed 10 MB (received ${attemptedMB} MB).`,
+    })
+  }
 
   const now = Date.now()
   session.lastPhoneActivityAt = now

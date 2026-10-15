@@ -28,6 +28,9 @@ import {
   persistAllFilesToSession,
   persistActiveFileToSession,
   calcFileTotalSheets,
+  canAddFile,
+  MAX_COMBINED_FILE_SIZE_BYTES,
+  MAX_COMBINED_FILE_SIZE_MB,
   type ManagedFile,
 } from '../../lib/multiFileStore'
 import { clearUploadedDoc, setUploadedDoc, getUploadedFileAsync } from '../../lib/documentStore'
@@ -287,6 +290,12 @@ export default function MultiFilePage() {
     }
     if (getAllFiles().length >= MAX_FILES) {
       setDropError(`You can upload a maximum of ${MAX_FILES} files at once.`)
+      return false
+    }
+
+    const check = canAddFile(file)
+    if (!check.ok) {
+      setDropError(check.reason || `"${file.name}" exceeds the allowed file size.`)
       return false
     }
 
@@ -630,6 +639,16 @@ export default function MultiFilePage() {
       return
     }
 
+    // Check combined size across all current files + all incoming files (max 10MB total)
+    const currentBytes = currentFiles.reduce((sum, f) => sum + (f.fileSize || f.file?.size || 0), 0)
+    const incomingBytes = arr.reduce((sum, f) => sum + f.size, 0)
+    if (currentBytes + incomingBytes > MAX_COMBINED_FILE_SIZE_BYTES) {
+      const attemptedMB = ((currentBytes + incomingBytes) / (1024 * 1024)).toFixed(1)
+      setDropError(`Combined file size cannot exceed 10 MB (total would be ${attemptedMB} MB). Please choose smaller files.`)
+      uploadAnimRef.current?.reset()
+      return
+    }
+
     setDropError(null)
     setIsProcessing(true)
     setIsUploadAnimating(true)
@@ -931,7 +950,7 @@ export default function MultiFilePage() {
         <div className="mfp-file-list" style={{ width: '100%', maxWidth: '580px' }}>
           <div className="mfp-file-list-header">
             <span className="mfp-file-list-title">
-              Uploaded Documents ({files.length} / {MAX_FILES})
+              Uploaded Documents ({files.length} / {MAX_FILES}) · {(files.reduce((s, f) => s + (f.fileSize || 0), 0) / (1024 * 1024)).toFixed(1)} / {MAX_COMBINED_FILE_SIZE_MB} MB
             </span>
             <button
               type="button"
@@ -1056,7 +1075,7 @@ export default function MultiFilePage() {
             <div className="mfp-formats">
               <span className="mfp-format-tag pdf">PDF</span>
               <span className="mfp-format-tag img">PNG / JPG / WEBP</span>
-              <span className="mfp-format-tag cap">Max {MAX_FILES} files · 10MB</span>
+              <span className="mfp-format-tag cap">Max {MAX_FILES} files · {MAX_COMBINED_FILE_SIZE_MB}MB combined total</span>
             </div>
           </div>
         </div>
@@ -1094,7 +1113,7 @@ export default function MultiFilePage() {
         </div>
         <div className="mfp-hint-divider" />
         <div className="mfp-hint-item">
-          <span>Max 10MB per file</span>
+          <span>Max {MAX_COMBINED_FILE_SIZE_MB}MB combined total</span>
         </div>
         <div className="mfp-hint-divider" />
         <div className="mfp-hint-item">

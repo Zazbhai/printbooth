@@ -37,6 +37,9 @@ export async function createPrintOrder(data: {
   fileName: string
   fileSize?: number
   pageCount: number
+  totalDocPages?: number
+  docPageCount?: number
+  selectedPages?: number[]
   copies: number
   colourMode: 'BW' | 'COLOUR' | string
   duplex: 'SINGLE' | 'DOUBLE' | string

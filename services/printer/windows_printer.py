@@ -101,18 +101,19 @@ def safe_int(value, default=0):
 def parse_page_range(value: str, total_pages: int) -> List[int]:
     """
     Parses human page ranges into 0-indexed page list.
-    Accepts: "", "all", "*", "1", "1,3,5", "1-3", "1-3,5,8-10"
+    Accepts: "", "all", "*", "1", "1,3,5", "1-3", "1-3,5,8-10", "[2]", "[1, 2]"
     Matches test.py logic exactly.
     """
     if total_pages <= 0:
         raise ValueError("Document has no pages.")
 
     value = (value or "").strip().lower()
+    value = value.strip("[]'\"").strip()
     if value in ("", "all", "*"):
         return list(range(total_pages))
 
     selected = []
-    parts = [x.strip() for x in value.split(",") if x.strip()]
+    parts = [x.strip().strip("[]'\"") for x in value.split(",") if x.strip()]
     if not parts:
         return list(range(total_pages))
 

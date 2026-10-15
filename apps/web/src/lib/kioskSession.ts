@@ -1002,6 +1002,24 @@ export async function uploadDocumentToKiosk(opts: {
   }>
   onProgress?: (progress: { loaded: number; total: number; percent: number }) => void
 }): Promise<{ success: boolean; error?: string; session?: any; machineInUse?: boolean }> {
+  const MAX_COMBINED_BYTES = 10 * 1024 * 1024
+  let totalBytes = opts.fileSize || 0
+  if (opts.filesList && opts.filesList.length > 0) {
+    const listTotal = opts.filesList.reduce((sum, f) => sum + (f.size || 0), 0)
+    totalBytes = Math.max(totalBytes, listTotal)
+  }
+  if (opts.files && opts.files.length > 0) {
+    const metaTotal = opts.files.reduce((sum, f) => sum + (f.fileSize || 0), 0)
+    totalBytes = Math.max(totalBytes, metaTotal)
+  }
+  if (totalBytes > MAX_COMBINED_BYTES) {
+    const totalMB = (totalBytes / (1024 * 1024)).toFixed(1)
+    return {
+      success: false,
+      error: `Combined file size exceeds the 10 MB limit (${totalMB} MB). Please choose smaller files.`,
+    }
+  }
+
   let { sessionId } = getActiveKioskSession()
   const apiBase = getApiBase()
 

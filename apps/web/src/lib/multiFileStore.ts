@@ -33,26 +33,56 @@ export interface FileSettings {
 }
 
 export function parsePageRange(val: string, total: number): number[] {
-  if (!val || val.trim().toUpperCase() === 'ALL') {
-    return Array.from({ length: Math.max(1, total) }, (_, i) => i + 1)
+  let maxTotal = Math.max(1, isNaN(Number(total)) ? 1 : Number(total))
+  if (!val || typeof val !== 'string' || val.trim().toUpperCase() === 'ALL' || val.trim() === '*') {
+    return Array.from({ length: maxTotal }, (_, i) => i + 1)
   }
+
+  const clean = val.trim()
+  if (clean.startsWith('[') && clean.endsWith(']')) {
+    try {
+      const arr = JSON.parse(clean)
+      if (Array.isArray(arr) && arr.length > 0) {
+        const nums = arr.map(Number).filter(n => !isNaN(n) && n >= 1)
+        if (nums.length > 0) {
+          maxTotal = Math.max(maxTotal, ...nums)
+          const valid = nums.filter(n => n <= maxTotal)
+          if (valid.length > 0) return Array.from(new Set(valid)).sort((a, b) => a - b)
+        }
+      }
+    } catch {}
+  }
+
+  // Pre-scan clean string for explicit page numbers to expand maxTotal if document pageCount was not yet passed
+  const allNums: number[] = []
+  const matches = clean.match(/\d+/g)
+  if (matches) {
+    for (const m of matches) {
+      const num = parseInt(m, 10)
+      if (!isNaN(num) && num >= 1) allNums.push(num)
+    }
+  }
+  if (allNums.length > 0) {
+    maxTotal = Math.max(maxTotal, ...allNums)
+  }
+
   const selected = new Set<number>()
-  const parts = val.split(',').map(s => s.trim()).filter(Boolean)
+  const parts = clean.split(',').map(s => s.trim()).filter(Boolean)
   for (const part of parts) {
     if (part.includes('-')) {
       const [startStr, endStr] = part.split('-').map(s => s.trim())
       const start = Math.max(1, parseInt(startStr, 10) || 1)
-      const end = Math.min(total, parseInt(endStr, 10) || total)
+      const end = Math.min(maxTotal, parseInt(endStr, 10) || maxTotal)
       if (start <= end) {
         for (let i = start; i <= end; i++) selected.add(i)
       }
     } else {
       const p = parseInt(part, 10)
-      if (!isNaN(p) && p >= 1 && p <= total) selected.add(p)
+      if (!isNaN(p) && p >= 1 && p <= maxTotal) selected.add(p)
     }
   }
   const res = Array.from(selected).sort((a, b) => a - b)
-  return res.length > 0 ? res : Array.from({ length: Math.max(1, total) }, (_, i) => i + 1)
+  return res.length > 0 ? res : Array.from({ length: maxTotal }, (_, i) => i + 1)
 }
 
 export function formatPageRange(pages: number[], total: number): string {
@@ -224,8 +254,44 @@ export function getMaxFileSizeMB(_type?: FileType): number {
   return 10
 }
 
+export const MAX_COMBINED_FILE_SIZE_MB = 10
+export const MAX_COMBINED_FILE_SIZE_BYTES = 10 * 1024 * 1024
+
+export function getCombinedFileSize(): number {
+  return managedFiles.reduce((sum, f) => sum + (f.fileSize || f.file?.size || 0), 0)
+}
+
 export function isSupportedFileType(type: FileType): boolean {
   return ['pdf', 'image'].includes(type)
+}
+
+export function canAddFile(file: File): { ok: boolean; reason?: string } {
+  const fileType = getFileType(file)
+  if (!isSupportedFileType(fileType)) {
+    return { ok: false, reason: `"${file.name}" is not a supported format. Please upload PDF, PNG, JPG, or WEBP.` }
+  }
+  const maxBytes = getMaxFileSizeMB(fileType) * 1024 * 1024
+  if (file.size > maxBytes) {
+    return { ok: false, reason: `"${file.name}" exceeds the 10 MB limit for ${fileType.toUpperCase()} files.` }
+  }
+
+  const existingIndex = managedFiles.findIndex(
+    f => f.fileName === file.name && f.fileSize === file.size
+  )
+  const existingBytes = managedFiles.reduce((sum, f, idx) => {
+    if (idx === existingIndex) return sum
+    return sum + (f.fileSize || f.file?.size || 0)
+  }, 0)
+
+  if (existingBytes + file.size > MAX_COMBINED_FILE_SIZE_BYTES) {
+    const totalMB = ((existingBytes + file.size) / (1024 * 1024)).toFixed(1)
+    return {
+      ok: false,
+      reason: `Combined file size cannot exceed 10 MB (total would be ${totalMB} MB). Please choose smaller files.`,
+    }
+  }
+
+  return { ok: true }
 }
 
 /** Generate a unique ID for a file based on name + size */
@@ -245,11 +311,13 @@ export function getDeduplicatedFiles(): ManagedFile[] {
 }
 
 export function addFile(file: File): ManagedFile | null {
-  const fileType = getFileType(file)
-  const maxBytes = getMaxFileSizeMB(fileType) * 1024 * 1024
+  const check = canAddFile(file)
+  if (!check.ok) {
+    console.warn(`[multiFileStore] Rejecting file "${file.name}":`, check.reason)
+    return null
+  }
 
-  if (!isSupportedFileType(fileType)) return null
-  if (file.size > maxBytes) return null
+  const fileType = getFileType(file)
 
   // Check if a file with the same name and size already exists
   const existingIndex = managedFiles.findIndex(
