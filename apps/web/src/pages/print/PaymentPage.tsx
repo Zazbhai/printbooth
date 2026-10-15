@@ -546,7 +546,7 @@ export default function PaymentPage() {
             fileSize: f.fileSize,
             fileType: f.fileType,
             pageCount: f.pageCount,
-            copies: f.settings?.copies ? Number(f.settings.copies) : 1,
+            copies: Math.max(1, Number(f.settings?.copies || (f as any).copies || (isMultiFile ? 1 : settings.copies) || 1)),
             colour: (f.settings?.colour || settings.colour || 'BW') as 'BW' | 'COLOUR',
             colourMode: (f.settings?.colour || settings.colour || 'BW') as 'BW' | 'COLOUR',
             duplex: (f.settings?.duplex || settings.duplex || 'SINGLE') as 'SINGLE' | 'DOUBLE',
@@ -660,7 +660,7 @@ export default function PaymentPage() {
               : mfSettings.colour === 'COLOUR'
             const mfColourMode = mfHasAnyColour ? 'COLOUR' : 'BW'
             const subOrderId = multiFilesReady.length > 1 ? `${finalOrderId}_sub_${idx + 1}` : finalOrderId
-            const exactMfCopies = Math.max(1, Number(mf.settings?.copies || 1))
+            const exactMfCopies = Math.max(1, Number(mf.settings?.copies || (mf as any).copies || (isMultiFile ? 1 : settings.copies) || 1))
             log(`Sending [${idx + 1}/${multiFilesReady.length}] "${mf.fileName}" (${exactMfCopies} copies, ${mfColourMode}, ${mfSettings.duplex || 'SINGLE'}, pages: ${mfSettings.pages || 'ALL'}, ${mfSettings.paperSize || 'A4'}, ${mfSettings.dpi || '600'} DPI)…`)
             const res = await sendPrintJob({
               file: mf.file,

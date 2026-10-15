@@ -410,7 +410,7 @@ export default function MultiFilePage() {
       fileSize: f.fileSize,
       fileType: f.fileType,
       pageCount: f.pageCount || 1,
-      copies: f.settings?.copies || 1,
+      copies: f.settings?.copies || (f as any).copies || 1,
       colour: f.settings?.colour || 'BW',
       duplex: f.settings?.duplex || 'SINGLE',
       pages: f.settings?.pages || 'ALL',
