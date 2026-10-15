@@ -496,158 +496,158 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-button {
-  animation: stpu-clicked 0.5s both 1 ease alternate 0s,
-             stpu-rounded 0.5s both 1 ease alternate 0.5s,
-             stpu-rounded-in 0.5s both 1 ease alternate 4.8s;
+  animation: stpu-clicked 0.25s both 1 ease alternate 0s,
+             stpu-rounded 0.25s both 1 ease alternate 0.22s,
+             stpu-rounded-in 0.35s both 1 ease alternate 1.7s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-button .stpu-text {
-  animation: stpu-clicked 0.5s both 1 ease alternate 0s,
-             stpu-disappear 0.2s both 1 ease alternate 0.75s;
+  animation: stpu-clicked 0.25s both 1 ease alternate 0s,
+             stpu-disappear 0.15s both 1 ease alternate 0.32s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-stage-bg {
-  animation: stpu-fade-in 0.4s forwards 1s,
-             stpu-fade-out 0.4s forwards 4.8s;
+  animation: stpu-fade-in 0.25s forwards 0.4s,
+             stpu-fade-out 0.25s forwards 1.7s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-track {
-  animation: stpu-fade-in 0.3s forwards 1.4s,
-             stpu-dash-flow 0.5s linear infinite 1.4s,
-             stpu-fade-out 0.3s forwards 4.8s;
+  animation: stpu-fade-in 0.2s forwards 0.5s,
+             stpu-dash-flow 0.25s linear infinite 0.5s,
+             stpu-fade-out 0.2s forwards 1.7s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-sender-container {
-  animation: stpu-showing 0.3s both 1 ease alternate 1.2s,
-             stpu-disappear 0.5s both 1 ease alternate 4.8s;
+  animation: stpu-showing 0.2s both 1 ease alternate 0.45s,
+             stpu-disappear 0.25s both 1 ease alternate 1.7s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-sender-container svg {
   animation: none;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-waves {
-  animation: stpu-fade-in 0.2s forwards 1.6s,
-             stpu-fade-out 0.3s forwards 4.2s;
+  animation: stpu-fade-in 0.15s forwards 0.6s,
+             stpu-fade-out 0.2s forwards 1.5s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-waves path {
-  animation: stpu-wave 0.9s ease-out infinite 1.6s;
+  animation: stpu-wave 0.45s ease-out infinite 0.6s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-waves path:nth-child(2) {
-  animation-delay: 1.9s;
+  animation-delay: 0.75s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-waves path:nth-child(3) {
-  animation-delay: 2.2s;
+  animation-delay: 0.9s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-printer-container {
-  animation: stpu-showing 0.3s both 1 ease alternate 1.4s,
-             stpu-disappear 0.5s both 1 ease alternate 4.8s;
+  animation: stpu-showing 0.2s both 1 ease alternate 0.5s,
+             stpu-disappear 0.25s both 1 ease alternate 1.7s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-printer-container svg {
-  animation: stpu-shake 0.2s linear 3.9s 5;
+  animation: stpu-shake 0.15s linear 1.45s 3;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-out-paper {
-  animation: stpu-paper-out 0.9s ease-out forwards 3.9s;
+  animation: stpu-paper-out 0.4s ease-out forwards 1.45s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-file-container {
-  animation: stpu-paper-in 0.35s cubic-bezier(.2,.9,.3,1.2) both 1.7s,
-             stpu-file-move 1.3s forwards cubic-bezier(.45,.05,.35,1) 2.75s,
-             stpu-disappear 0.5s both 1 ease alternate 4.8s;
+  animation: stpu-paper-in 0.2s cubic-bezier(.2,.9,.3,1.2) both 0.65s,
+             stpu-file-move 0.55s forwards cubic-bezier(.45,.05,.35,1) 1.05s,
+             stpu-disappear 0.25s both 1 ease alternate 1.7s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-button .stpu-check-container {
-  animation: stpu-showing 0.3s both 1 ease alternate 5s;
+  animation: stpu-showing 0.25s both 1 ease alternate 1.8s;
 }
 
 .stpu-checkbox:checked ~ .stpu-complete-text .stpu-l {
-  animation: stpu-letter-pop 0.45s cubic-bezier(.2,.9,.3,1.2) forwards calc(5s + var(--i) * 0.035s);
+  animation: stpu-letter-pop 0.3s cubic-bezier(.2,.9,.3,1.2) forwards calc(1.8s + var(--i) * 0.02s);
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-packets {
-  animation: stpu-fade-in 0.2s forwards 1.8s,
-             stpu-fade-out 0.3s forwards 4.3s;
+  animation: stpu-fade-in 0.15s forwards 0.7s,
+             stpu-fade-out 0.2s forwards 1.5s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-packets i {
-  animation: stpu-packet-run 0.9s linear infinite 1.8s;
+  animation: stpu-packet-run 0.45s linear infinite 0.7s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-packets i:nth-child(2) {
-  animation-delay: 2.0s;
+  animation-delay: 0.8s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-packets i:nth-child(3) {
-  animation-delay: 2.2s;
+  animation-delay: 0.9s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-packets i:nth-child(4) {
-  animation-delay: 2.4s;
+  animation-delay: 1.0s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-led {
   fill: #ef4444;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-confetti i {
-  animation: stpu-burst 0.9s ease-out forwards 5.2s;
+  animation: stpu-burst 0.5s ease-out forwards 1.85s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-ring {
-  animation: stpu-ring-pulse 0.8s ease-out forwards 5.2s;
+  animation: stpu-ring-pulse 0.45s ease-out forwards 1.85s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-pbar {
-  animation: stpu-pbar-fill 2.5s linear forwards 1.8s;
+  animation: stpu-pbar-fill 0.9s linear forwards 0.7s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-lid {
-  animation: stpu-lid-open 0.5s cubic-bezier(.2,.8,.2,1) both 1.1s;
+  animation: stpu-lid-open 0.25s cubic-bezier(.2,.8,.2,1) both 0.45s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-phone-body {
-  animation: stpu-phone-flick 0.5s ease-out 1.75s,
-             stpu-phone-rise 0.5s ease-out both 1.1s;
+  animation: stpu-phone-flick 0.25s ease-out 0.7s,
+             stpu-phone-rise 0.25s ease-out both 0.45s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-pointer {
-  animation: stpu-point 0.8s ease-in-out both 1.25s;
+  animation: stpu-point 0.4s ease-in-out both 0.5s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-send-btn {
-  animation: stpu-press 0.3s ease-in-out both 1.65s;
+  animation: stpu-press 0.15s ease-in-out both 0.65s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-tap-ripple {
-  animation: stpu-ripple 0.5s ease-out both 1.65s;
+  animation: stpu-ripple 0.25s ease-out both 0.65s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-screen-card {
-  animation: stpu-card-out 0.5s ease-in forwards 1.75s;
+  animation: stpu-card-out 0.25s ease-in forwards 0.7s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-sprog {
-  animation: stpu-sprog-fill 2.5s linear forwards 1.8s;
+  animation: stpu-sprog-fill 0.9s linear forwards 0.7s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-keys rect {
-  animation: stpu-key-tap 0.22s ease-in-out infinite alternate 1.8s;
+  animation: stpu-key-tap 0.15s ease-in-out infinite alternate 0.7s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-keys rect:nth-child(2n) {
-  animation-delay: 1.9s;
+  animation-delay: 0.75s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-keys rect:nth-child(3n) {
-  animation-delay: 2.0s;
+  animation-delay: 0.8s;
 }
 
 .stpu-checkbox:checked ~ .stpu-label .stpu-plane-arc {
-  animation: stpu-arc 1.3s cubic-bezier(.4,0,.4,1) forwards 2.75s;
+  animation: stpu-arc 0.55s cubic-bezier(.4,0,.4,1) forwards 1.05s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-plane-wrap {
-  animation: stpu-plane-turn 0.3s ease-in-out forwards 2.6s;
+  animation: stpu-plane-turn 0.15s ease-in-out forwards 1.0s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-plane-svg {
-  animation: stpu-sink 1.3s ease-in forwards 2.75s;
+  animation: stpu-sink 0.55s ease-in forwards 1.05s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-crease {
-  animation: stpu-fade-in 0.2s forwards 2.55s;
+  animation: stpu-fade-in 0.15s forwards 0.98s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-pct {
-  animation: stpu-fade-in 0.25s forwards 2.7s,
-             stpu-fade-out 0.2s forwards 3.75s;
+  animation: stpu-fade-in 0.15s forwards 1.05s,
+             stpu-fade-out 0.15s forwards 1.55s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-paper-lines {
-  animation: stpu-fade-out 0.2s forwards 2s;
+  animation: stpu-fade-out 0.15s forwards 0.8s;
 }
 .stpu-checkbox:checked ~ .stpu-label .stpu-ln {
-  animation: stpu-ln-write 0.28s ease-out both calc(1.75s + var(--d));
+  animation: stpu-ln-write 0.18s ease-out both calc(0.7s + var(--d) * 0.4);
 }
 
 /* ═══════════════════════════════════════════════════════════════════

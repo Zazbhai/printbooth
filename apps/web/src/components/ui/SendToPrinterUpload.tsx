@@ -79,14 +79,14 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(ua) || touchOnly ? 'phone' : 'pc'
     }, [])
 
-    // SMIL polygon morph helper
+    // SMIL polygon morph helper — snappy 0.28s paper fold
     function foldPaper(poly: SVGPolygonElement | null, st: string[]) {
       if (!poly) return
       poly.setAttribute('points', st[0])
       while (poly.firstChild) poly.removeChild(poly.firstChild)
       const anim = document.createElementNS(SVGNS, 'animate')
       anim.setAttribute('attributeName', 'points')
-      anim.setAttribute('dur', '0.7s')
+      anim.setAttribute('dur', '0.28s')
       anim.setAttribute('begin', 'indefinite')
       anim.setAttribute('fill', 'freeze')
       anim.setAttribute('calcMode', 'spline')
@@ -95,13 +95,13 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       anim.setAttribute('values', [st[0], st[0], st[1], st[2], st[3]].join(';'))
       poly.appendChild(anim)
       try {
-        ;(anim as any).beginElementAt(2.0)
+        ;(anim as any).beginElementAt(0.78)
       } catch (e) {}
       setTimeout(() => {
         try {
           ;(anim as any).beginElement()
         } catch (e) {}
-      }, 2000)
+      }, 780)
     }
 
     // Trigger animation sequence
@@ -168,22 +168,23 @@ export const SendToPrinterUpload = forwardRef<SendToPrinterUploadHandle, SendToP
       clearTimeout(timersRef.current.pctDelay)
       clearTimeout(timersRef.current.completeTimeout)
 
-      // Live smooth count up 0% -> 100% every 14ms (starting at 2.7s)
+      // Live smooth count up 0% -> 100% (starting at 1.05s, finishes at ~1.55s)
       timersRef.current.pctDelay = setTimeout(() => {
         let p = 0
         timersRef.current.pctTimer = setInterval(() => {
-          p++
+          p += 2
+          if (p > 100) p = 100
           if (pctTextRef.current) pctTextRef.current.textContent = `${p}%`
           setPercent(p)
           if (p >= 100) clearInterval(timersRef.current.pctTimer)
-        }, 14)
-      }, 2700)
+        }, 9)
+      }, 1050)
 
-      // Complete transition around 5.6s (allows UPLOAD COMPLETE text & confetti to fully show)
+      // Snappy completion transition at 2.0s (was 5.6s)
       timersRef.current.completeTimeout = setTimeout(() => {
         setIsAnimating(false)
         onCompleteRef.current?.()
-      }, 5600)
+      }, 2000)
     }, [resolvedDevice])
 
     // Reset animation state
