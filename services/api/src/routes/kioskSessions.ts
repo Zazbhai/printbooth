@@ -2866,7 +2866,7 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
         fileIndex: idx + 1,
         totalFiles: files.length,
         fileName: f.fileName || `Document_${idx + 1}.pdf`,
-        filePath: f.filePath || (targetSession.files && targetSession.files[idx]?.filePath) || (idx === 0 ? targetSession.document?.filePath : '') || path.resolve(__dirname, '../../../../test_sample.pdf'),
+        filePath: f.filePath || (targetSession.files && targetSession.files[idx]?.filePath) || (idx === 0 ? targetSession.document?.filePath : '') || '',
         fileUrl: f.fileUrl || (targetSession.files && targetSession.files[idx]?.fileUrl) || `/api/print/download/${subOrderId}`,
         copies: fCopies,
         colourMode: fColour === 'COLOUR' ? 'COLOUR' : 'BW',
@@ -2887,6 +2887,12 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
         kioskId: targetSession.kioskId,
       }
 
+      const candPath = subJobState.filePath
+      if (!candPath || !fs.existsSync(candPath)) {
+        console.log(`[KioskSession] No physical document on server disk for subJob ${subOrderId}. Awaiting client upload via sendPrintJob...`)
+        continue
+      }
+
       syncJobState(subJobState)
       try {
         dispatchPrintJob(subJobState)
@@ -2900,8 +2906,13 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
     const sSettings: any = targetSession.settings || {}
 
     const fileName = f0?.fileName || targetSession.document?.fileName || targetSession.fileName || 'PrintBooth_Document.pdf'
-    const filePath = f0?.filePath || targetSession.document?.filePath || path.resolve(__dirname, '../../../../test_sample.pdf')
+    const filePath = f0?.filePath || targetSession.document?.filePath || ''
     const fileUrl = f0?.fileUrl || targetSession.document?.fileUrl || `/api/print/download/${effectiveOrderId}`
+
+    if (!filePath || !fs.existsSync(filePath)) {
+      console.log(`[KioskSession] No physical document on server disk for session ${targetSession.sessionId}. Awaiting client upload via sendPrintJob...`)
+      return true
+    }
 
     const copies = Math.max(1, Number(f0Settings.copies || f0?.copies || sSettings.copies || targetSession.copies || 1))
     const rawCol = String(f0Settings.colour || f0?.colour || sSettings.colour || targetSession.colourMode || 'BW').toUpperCase()

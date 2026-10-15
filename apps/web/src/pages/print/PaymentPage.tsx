@@ -546,7 +546,7 @@ export default function PaymentPage() {
             fileSize: f.fileSize,
             fileType: f.fileType,
             pageCount: f.pageCount,
-            copies: f.settings?.copies || settings.copies || 1,
+            copies: f.settings?.copies ? Number(f.settings.copies) : 1,
             colour: (f.settings?.colour || settings.colour || 'BW') as 'BW' | 'COLOUR',
             colourMode: (f.settings?.colour || settings.colour || 'BW') as 'BW' | 'COLOUR',
             duplex: (f.settings?.duplex || settings.duplex || 'SINGLE') as 'SINGLE' | 'DOUBLE',
@@ -660,7 +660,8 @@ export default function PaymentPage() {
               : mfSettings.colour === 'COLOUR'
             const mfColourMode = mfHasAnyColour ? 'COLOUR' : 'BW'
             const subOrderId = multiFilesReady.length > 1 ? `${finalOrderId}_sub_${idx + 1}` : finalOrderId
-            log(`Sending [${idx + 1}/${multiFilesReady.length}] "${mf.fileName}" (${mfSettings.copies || 1} copies, ${mfColourMode}, ${mfSettings.duplex || 'SINGLE'}, pages: ${mfSettings.pages || 'ALL'}, ${mfSettings.paperSize || 'A4'}, ${mfSettings.dpi || '600'} DPI)…`)
+            const exactMfCopies = Math.max(1, Number(mf.settings?.copies || 1))
+            log(`Sending [${idx + 1}/${multiFilesReady.length}] "${mf.fileName}" (${exactMfCopies} copies, ${mfColourMode}, ${mfSettings.duplex || 'SINGLE'}, pages: ${mfSettings.pages || 'ALL'}, ${mfSettings.paperSize || 'A4'}, ${mfSettings.dpi || '600'} DPI)…`)
             const res = await sendPrintJob({
               file: mf.file,
               fileName: mf.fileName,
@@ -670,9 +671,9 @@ export default function PaymentPage() {
               totalFiles: multiFilesReady.length,
               kioskId,
               releasePin,
-              copies:             mfSettings.copies             || 1,
+              copies:             exactMfCopies,
               pageCount:          mf.pageCount                  || 1,
-              totalPages:         (mf.pageCount || 1) * (mfSettings.copies || 1),
+              totalPages:         (mf.pageCount || 1) * exactMfCopies,
               colourMode:         mfColourMode,
               pages:              mfSettings.pages              || 'ALL',
               duplex:             mfSettings.duplex             || 'SINGLE',

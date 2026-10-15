@@ -501,11 +501,14 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
     let filePath = file?.path
 
     if (!filePath) {
-      const samplePdf = path.resolve(__dirname, '../../../../test_sample.pdf')
-      if (fs.existsSync(samplePdf)) {
-        filePath = samplePdf
-      } else {
-        return res.status(400).json({ success: false, error: 'No document file provided and no sample PDF available' })
+      if (isTestMode()) {
+        const samplePdf = path.resolve(__dirname, '../../../../test_sample.pdf')
+        if (fs.existsSync(samplePdf)) {
+          filePath = samplePdf
+        }
+      }
+      if (!filePath) {
+        return res.status(400).json({ success: false, error: 'No printable document file attached for execution' })
       }
     }
 
