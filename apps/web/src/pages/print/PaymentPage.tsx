@@ -17,8 +17,8 @@ import {
   Printer,
 } from '@phosphor-icons/react'
 import { createPrintOrder, sendPrintJob } from '@/lib/api'
-import { getAllFiles, hasAnyReadyFile, computeTotalPrice, parsePageRange, type FileSettings, type ManagedFile } from '@/lib/multiFileStore'
-import { getUploadedFileAsync, hasRealUploadedDoc } from '@/lib/documentStore'
+import { getAllFiles, clearAllFiles, hasAnyReadyFile, computeTotalPrice, parsePageRange, type FileSettings, type ManagedFile } from '@/lib/multiFileStore'
+import { getUploadedFileAsync, hasRealUploadedDoc, clearUploadedDoc } from '@/lib/documentStore'
 import { getFileFromCache } from '@/lib/fileCache'
 import { isCanonicalKioskFormat } from '@/lib/kioskValidation'
 import { Skeleton, PaymentBoneyardFallback } from '@/components/ui/PrintBoneyardSkeleton'
@@ -788,7 +788,33 @@ export default function PaymentPage() {
 
     orderRecordedSuccessfullyRef.current = true
     isRecordingOrderRef.current = false
-    setTimeout(() => navigate('/print/status'), 1200)
+
+    // Clean up local document stores for the completed job
+    clearAllFiles()
+    clearUploadedDoc()
+    sessionStorage.removeItem('pb_files')
+    sessionStorage.removeItem('pb_file_name')
+    sessionStorage.removeItem('pb_file_size')
+    sessionStorage.removeItem('pb_page_count')
+    sessionStorage.removeItem('pb_settings')
+    sessionStorage.removeItem('pb_confirm_mode')
+    sessionStorage.removeItem('pb_order_id')
+    sessionStorage.removeItem('pb_client_txn_id')
+
+    // Preserve the user's selected kiosk ID
+    const targetKioskId = kioskId || sessionStorage.getItem('pb_kiosk_id') || localStorage.getItem('pb_kiosk_id') || 'PB-001'
+    sessionStorage.setItem('pb_kiosk_id', targetKioskId)
+    localStorage.setItem('pb_kiosk_id', targetKioskId)
+    sessionStorage.setItem('pb_print_step', 'upload')
+
+    const activeToken = sessionStorage.getItem('pb_kiosk_session_token')
+    const redirectUrl = activeToken
+      ? `/print?id=${encodeURIComponent(targetKioskId)}&session=${encodeURIComponent(activeToken)}&step=upload`
+      : `/print?id=${encodeURIComponent(targetKioskId)}&step=upload`
+
+    setTimeout(() => {
+      window.location.replace(redirectUrl)
+    }, 1200)
   }
 
   // ── Test Mode: Simulate Payment to test hardware printing without paying ──
@@ -1046,7 +1072,7 @@ export default function PaymentPage() {
           customerName:    'Kiosk Guest',
           customerEmail:   'guest@kiosk.printbooth',
           customerMobile:  '9999999999',
-          redirectUrl:     window.location.origin + '/print/status',
+          redirectUrl:     `${window.location.origin}/print?id=${encodeURIComponent(kioskId || 'PB-001')}&step=upload`,
           webhookUrl:      `${API}/api/upiexpress/webhook`,
           note:            'PrintBooth',
           kioskId,

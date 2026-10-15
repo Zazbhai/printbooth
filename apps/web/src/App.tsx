@@ -45,7 +45,11 @@ function PrintRouteRedirect() {
     nextParams.set('id', targetKioskId)
   }
   if (isKnownStep && pathParam) {
-    nextParams.set('step', pathParam.toLowerCase())
+    if (pathParam === 'status' || pathParam === 'success') {
+      nextParams.set('step', 'upload')
+    } else {
+      nextParams.set('step', pathParam.toLowerCase())
+    }
   } else if (!targetKioskId && !nextParams.has('step')) {
     nextParams.set('step', 'kiosk')
   }

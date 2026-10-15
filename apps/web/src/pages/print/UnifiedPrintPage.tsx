@@ -8,8 +8,6 @@ import SelectKioskPage from './SelectKioskPage'
 import PrintSettingsPage from './PrintSettingsPage'
 import ReviewPage from './ReviewPage'
 import PaymentPage from './PaymentPage'
-import StatusPage from './StatusPage'
-import SuccessPage from './SuccessPage'
 import KioskDisplayQrScanner from '../../components/print/KioskDisplayQrScanner'
 import ErrorBoundary from '../../components/ui/ErrorBoundary'
 import PageTransition3D from '../../components/ui/PageTransition3D'
@@ -521,6 +519,9 @@ export default function UnifiedPrintPage() {
 
     // 1. Explicit requested step in query parameter
     if (paramStep && ['status', 'success', 'payment', 'review', 'settings', 'confirm', 'upload', 'kiosk'].includes(paramStep)) {
+      if (paramStep === 'status' || paramStep === 'success') {
+        return 'upload'
+      }
       if (['upload', 'confirm', 'settings', 'review', 'payment'].includes(paramStep) && !hasValidToken) {
         return 'kiosk'
       }
@@ -532,7 +533,7 @@ export default function UnifiedPrintPage() {
       return savedStep
     }
     if (hasValidToken && savedStep && ['status', 'success'].includes(savedStep)) {
-      return savedStep
+      return 'upload'
     }
 
     // 3. If verified session exists, unlock upload
@@ -929,6 +930,23 @@ export default function UnifiedPrintPage() {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     }
   }, [currentRank])
+
+  // Printing animation and success screen are exclusive to the physical kiosk terminal display.
+  // When an order reaches status/success on web, clean up and transfer user back to print upload with selected kiosk ID.
+  useEffect(() => {
+    if (effectiveStep === 'status' || effectiveStep === 'success') {
+      const cleanKiosk = printerId || savedKioskId || 'PB-001'
+      const activeTok = sessionStorage.getItem('pb_kiosk_session_token') || urlSessionToken
+      clearAllFiles()
+      clearUploadedDoc()
+      sessionStorage.setItem('pb_kiosk_id', cleanKiosk)
+      sessionStorage.setItem('pb_print_step', 'upload')
+      const target = activeTok
+        ? `/print?id=${encodeURIComponent(cleanKiosk)}&session=${encodeURIComponent(activeTok)}&step=upload`
+        : `/print?id=${encodeURIComponent(cleanKiosk)}&step=upload`
+      window.location.replace(target)
+    }
+  }, [effectiveStep, printerId, savedKioskId, urlSessionToken])
 
   // If user explicitly navigated to an unknown / unregistered kiosk (e.g. /print?id=PB-003):
   if (urlId && !isLiveKiosksLoading && (validation.status === 'NOT_FOUND' || validation.status === 'INVALID_FORMAT')) {
@@ -1430,8 +1448,8 @@ export default function UnifiedPrintPage() {
               {effectiveStep === 'settings' && <PrintSettingsPage />}
               {effectiveStep === 'review'   && <ReviewPage />}
               {effectiveStep === 'payment'  && <PaymentPage />}
-              {effectiveStep === 'status'   && <StatusPage />}
-              {effectiveStep === 'success'  && <SuccessPage />}
+              {/* Printing animation and success screens are exclusive to physical kiosk terminal */}
+              {(effectiveStep === 'status' || effectiveStep === 'success') && <MultiFilePage />}
             </ErrorBoundary>
           </PageTransition3D>
         )}
