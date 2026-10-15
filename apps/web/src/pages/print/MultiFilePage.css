@@ -328,6 +328,89 @@
   transition: opacity 0.2s ease, max-height 0.25s ease;
 }
 
+/* ── Direct Continue Action after Upload Animation Completes ── */
+.mfp-upload-complete-action {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+  margin-bottom: 2px;
+  animation: mfp-continue-pop-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  z-index: 10;
+  position: relative;
+}
+
+.mfp-continue-direct-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 60%, #b91c1c 100%);
+  color: #ffffff !important;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 12px 28px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  box-shadow:
+    0 10px 24px -4px rgba(220, 38, 38, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.35);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.mfp-continue-direct-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f87171 0%, #dc2626 50%, #991b1b 100%);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 14px 30px -4px rgba(220, 38, 38, 0.55),
+    0 4px 10px rgba(0, 0, 0, 0.12),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.45);
+}
+
+.mfp-continue-direct-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.mfp-continue-direct-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mfp-continue-direct-btn .mfp-btn-icon-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mfp-continue-direct-btn:hover:not(:disabled) .mfp-btn-icon-circle {
+  transform: translateX(3px);
+}
+
+@keyframes mfp-continue-pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* ── Dropzone Center Elements ── */
 .mfp-dropzone-icon-wrap {
   width: 72px;

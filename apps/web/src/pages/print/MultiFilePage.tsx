@@ -265,6 +265,8 @@ export default function MultiFilePage() {
   }, [])
 
   const readyCount = files.filter(f => f.status === 'ready').length
+  const canShowContinue = readyCount > 0 && !isUploadAnimating && !isProcessing
+
 
   async function processFile(file: File) {
     if (printerIssue?.hasIssue && !userDismissedRef.current) {
@@ -630,7 +632,7 @@ export default function MultiFilePage() {
 
     setDropError(null)
     setIsProcessing(true)
-    setIsUploadAnimating(false)
+    setIsUploadAnimating(true)
     processingCompleteRef.current = false
     animationCompleteRef.current = false
 
@@ -640,13 +642,23 @@ export default function MultiFilePage() {
     }
 
     uploadAnimRef.current?.triggerAnimation()
+    // Safety fallback: if animation complete callback is somehow delayed, release animating state after 4.5s
+    safetyTimeoutRef.current = setTimeout(() => {
+      setIsUploadAnimating(false)
+    }, 4500)
+
     setProcessingStatus(`Uploading ${arr.length} ${arr.length === 1 ? 'file' : 'files'}…`)
 
     let anySuccess = false
-    for (let i = 0; i < arr.length; i++) {
-      setProcessingStatus(`Processing (${i + 1}/${arr.length}): ${arr[i].name}…`)
-      const ok = await processFile(arr[i])
-      if (ok) anySuccess = true
+    try {
+      for (let i = 0; i < arr.length; i++) {
+        setProcessingStatus(`Processing (${i + 1}/${arr.length}): ${arr[i].name}…`)
+        const ok = await processFile(arr[i])
+        if (ok) anySuccess = true
+      }
+    } finally {
+      setIsProcessing(false)
+      setProcessingStatus('')
     }
 
     const currentAll = getAllFiles()
@@ -661,11 +673,12 @@ export default function MultiFilePage() {
       }, { replace: true })
     }
 
-    setIsProcessing(false)
-    setIsUploadAnimating(false)
-    setProcessingStatus('')
-
     if (!anySuccess) {
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current)
+        safetyTimeoutRef.current = null
+      }
+      setIsUploadAnimating(false)
       uploadAnimRef.current?.reset()
       return
     }
@@ -707,6 +720,10 @@ export default function MultiFilePage() {
   }, [])
 
   const handleUploadComplete = useCallback(() => {
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current)
+      safetyTimeoutRef.current = null
+    }
     animationCompleteRef.current = true
     setIsUploadAnimating(false)
   }, [])
@@ -997,6 +1014,36 @@ export default function MultiFilePage() {
               disabled={Boolean(printerIssue?.hasIssue)}
             />
 
+            {/* Direct Continue Button when upload animation finishes */}
+            {canShowContinue && (
+              <div className="mfp-upload-complete-action">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleTransferToKiosk()
+                  }}
+                  disabled={isSendingToKiosk || isProcessing}
+                  className="mfp-continue-direct-btn"
+                  id="mfp-direct-continue-btn"
+                >
+                  {isSendingToKiosk ? (
+                    <>
+                      <ArrowsClockwise size={16} weight="bold" className="spin-fast" />
+                      <span>Proceeding…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue</span>
+                      <span className="mfp-btn-icon-circle">
+                        <ArrowRight size={14} weight="bold" />
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
             <div className="mfp-dropzone-text-group">
               <span className="mfp-dropzone-secondary">
                 {files.length > 0
@@ -1056,7 +1103,7 @@ export default function MultiFilePage() {
       </div>
 
       {/* Sticky Bottom Action Bar when files are uploaded & ready */}
-      {readyCount > 0 && (
+      {canShowContinue && (
         <div className="mfp-action-bar">
           <div className="mfp-action-info">
             <span className="mfp-action-count">
