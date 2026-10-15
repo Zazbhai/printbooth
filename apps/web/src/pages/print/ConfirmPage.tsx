@@ -205,13 +205,13 @@ export default function ConfirmPage() {
     }
     const sessionFileName = sessionStorage.getItem('pb_file_name')
     if (sessionFileName) {
-      const cnt = parseInt(sessionStorage.getItem('pb_page_count') || '1', 10)
+      const cnt = parseInt(sessionStorage.getItem('pb_doc_page_count') || sessionStorage.getItem('pb_page_count') || '1', 10)
       return generateDocumentPages(sessionFileName, cnt)
     }
     return []
   }, [activeFile, singleDoc, activeId])
 
-  const activePageCount = activeFile?.pageCount || singleDoc.pageCount || 1
+  const activePageCount = activeFile?.pageCount || parseInt(sessionStorage.getItem('pb_doc_page_count') || '', 10) || singleDoc.pageCount || 1
 
   const selectedPagesList = useMemo(() => {
     return parsePageRange(activeSettings.pages || 'ALL', activePageCount)
@@ -249,7 +249,7 @@ export default function ConfirmPage() {
 
   const totalPages = files.length > 0
     ? files.reduce((sum, f) => sum + (f.pageCount || 1), 0)
-    : singleDoc.pageCount || 1
+    : (parseInt(sessionStorage.getItem('pb_doc_page_count') || '', 10) || singleDoc.pageCount || 1)
 
 
   const totalSizeMB = files.length > 0

@@ -93,7 +93,7 @@ export default function PaymentPage() {
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const kioskId     = searchParams?.get('kioskId') || searchParams?.get('id') || flow?.printerId || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_kiosk_id') : '') || 'PB-001'
   const kioskName   = flow?.kioskName || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pb_kiosk_name') : '') || 'PrintBooth'
-  const pageCount   = Number(sessionStorage.getItem('pb_page_count') || 1)
+  const pageCount   = Number(sessionStorage.getItem('pb_doc_page_count')) || Number(sessionStorage.getItem('pb_page_count')) || 1
 
   // Persist kioskId in session for consistent cross-step tracking
   if (typeof sessionStorage !== 'undefined' && kioskId) {
@@ -505,32 +505,40 @@ export default function PaymentPage() {
       })
     }
 
+    const realDocPages = (multiFiles.length > 0 && multiFiles[0]?.pageCount)
+      ? multiFiles[0].pageCount
+      : pageCount
+
     try {
-      const selectedPgs = parsePageRange(effectiveSettings.pages || 'ALL', pageCount)
+      const isAllPages = !effectiveSettings.pages || effectiveSettings.pages.trim().toUpperCase() === 'ALL' || effectiveSettings.pages.trim() === '*'
+      const selectedPgs = isAllPages
+        ? Array.from({ length: realDocPages }, (_, i) => i + 1)
+        : parsePageRange(effectiveSettings.pages, realDocPages)
       const effectivePageCount = selectedPgs.length
+      const effectivePageRange = isAllPages ? 'ALL' : (effectiveSettings.pages || 'ALL')
 
       const created = await createPrintOrder({
         kioskId,
         fileName,
         pageCount: effectivePageCount,
-        totalDocPages: pageCount,
-        docPageCount: pageCount,
+        totalDocPages: realDocPages,
+        docPageCount: realDocPages,
         selectedPages: selectedPgs,
         copies: effectiveSettings.copies || 1,
         colourMode: effectiveColourMode,
         duplex: effectiveSettings.duplex || 'SINGLE',
         paperSize: effectiveSettings.paperSize || 'A4',
-        pageRange: effectiveSettings.pages || 'ALL',
+        pageRange: effectivePageRange,
         amount: totalPrice,
         pageColours: effectiveSettings.pageColours,
         pageCopies: effectiveSettings.pageCopies,
         printSettings: {
-          pageRange: effectiveSettings.pages || 'ALL',
-          pages: effectiveSettings.pages || 'ALL',
+          pageRange: effectivePageRange,
+          pages: effectivePageRange,
           selectedPages: selectedPgs,
           pageCount: effectivePageCount,
-          totalDocPages: pageCount,
-          docPageCount: pageCount,
+          totalDocPages: realDocPages,
+          docPageCount: realDocPages,
           copies: effectiveSettings.copies || 1,
           colourMode: effectiveColourMode,
           colour: effectiveColourMode,
@@ -618,7 +626,7 @@ export default function PaymentPage() {
 
       const computedSheets = isMultiFile
         ? multiFiles.reduce((acc, f) => acc + parsePageRange(f.settings?.pages || 'ALL', f.pageCount || 1).length * (f.settings?.copies || settings.copies || 1), 0)
-        : Math.max(1, parsePageRange(settings.pages || 'ALL', pageCount || 1).length * (settings.copies || 1))
+        : Math.max(1, parsePageRange(settings.pages || 'ALL', realDocPages).length * (settings.copies || 1))
 
       saveRecentPrint({
         orderId: finalOrderId || orderId,
@@ -629,7 +637,7 @@ export default function PaymentPage() {
         totalSheets: computedSheets,
         totalPages: isMultiFile
           ? multiFiles.reduce((s, f) => s + parsePageRange(f.settings?.pages || 'ALL', f.pageCount || 1).length, 0)
-          : parsePageRange(settings.pages || 'ALL', pageCount || 1).length,
+          : parsePageRange(settings.pages || 'ALL', realDocPages).length,
         status: 'PRINTING',
         files: recordedFiles,
         paymentRef: paymentRef || undefined,
@@ -678,10 +686,10 @@ export default function PaymentPage() {
               kioskId,
               releasePin,
               copies:             exactMfCopies,
-              pageCount:          mf.pageCount                  || 1,
-              totalPages:         (mf.pageCount || 1) * exactMfCopies,
+              pageCount:          (!mfSettings.pages || mfSettings.pages === 'ALL') ? (mf.pageCount || 1) : parsePageRange(mfSettings.pages, mf.pageCount || 1).length,
+              totalPages:         ((!mfSettings.pages || mfSettings.pages === 'ALL') ? (mf.pageCount || 1) : parsePageRange(mfSettings.pages, mf.pageCount || 1).length) * exactMfCopies,
               colourMode:         mfColourMode,
-              pages:              mfSettings.pages              || 'ALL',
+              pages:              (!mfSettings.pages || mfSettings.pages === 'ALL') ? 'ALL' : mfSettings.pages,
               duplex:             mfSettings.duplex             || 'SINGLE',
               paperSize:          mfSettings.paperSize          || 'A4',
               scaling:            mfSettings.scaling            || 'FIT',
@@ -722,10 +730,10 @@ export default function PaymentPage() {
           isImmediate:        true,
           immediate:          true,
           copies:             effectiveSettings.copies             || 1,
-          pageCount:          pageCount                            || 1,
-          totalPages:         (pageCount || 1) * (effectiveSettings.copies || 1),
+          pageCount:          (!effectiveSettings.pages || effectiveSettings.pages === 'ALL') ? realDocPages : parsePageRange(effectiveSettings.pages, realDocPages).length,
+          totalPages:         ((!effectiveSettings.pages || effectiveSettings.pages === 'ALL') ? realDocPages : parsePageRange(effectiveSettings.pages, realDocPages).length) * (effectiveSettings.copies || 1),
           colourMode:         effectiveColourMode,
-          pages:              effectiveSettings.pages              || 'ALL',
+          pages:              (!effectiveSettings.pages || effectiveSettings.pages === 'ALL') ? 'ALL' : effectiveSettings.pages,
           duplex:             effectiveSettings.duplex             || 'SINGLE',
           paperSize:          effectiveSettings.paperSize          || 'A4',
           scaling:            effectiveSettings.scaling            || 'FIT',

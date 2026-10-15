@@ -151,8 +151,8 @@ class CupsPrinterController:
             options["fit-to-page"] = "True"
 
         # Page range selection (e.g. '1-5', '3')
-        if page_ranges:
-            options["page-ranges"] = str(page_ranges)
+        if page_ranges and str(page_ranges).strip().upper() not in ["ALL", "*"]:
+            options["page-ranges"] = str(page_ranges).strip()
 
         return options
 

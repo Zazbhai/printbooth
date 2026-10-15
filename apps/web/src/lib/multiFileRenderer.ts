@@ -6,10 +6,11 @@
  * - DOCX/PPT: accurate page/slide detection via backend COM inspection & fast ZIP parsing
  */
 
-import type { DocumentPagePreview } from './documentPreview'
+import { generateDocumentPages, type DocumentPagePreview } from './documentPreview'
 import { renderPdfPages } from './pdfRenderer'
 import type { FileType } from './multiFileStore'
 import { inspectDocument } from './api'
+import { PDFDocument } from 'pdf-lib'
 
 /**
  * Convert a Blob/File to a data URL.
@@ -174,6 +175,35 @@ function renderOfficePlaceholders(
 }
 
 /**
+ * Fast client-side PDF page count detector using pdf-lib with regex fallback.
+ */
+export async function detectClientPdfPageCount(file: File): Promise<number> {
+  try {
+    const buffer = await file.arrayBuffer()
+    const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+    const c = pdfDoc.getPageCount()
+    if (typeof c === 'number' && c > 0) return c
+  } catch (e) {
+    try {
+      const buffer = await file.arrayBuffer()
+      const text = new TextDecoder('latin1').decode(buffer)
+      const matches = text.match(/\/Type\s*\/Page[^s]/g)
+      if (matches && matches.length > 0) return matches.length
+      const countMatches = text.match(/\/Count\s+(\d+)/g)
+      if (countMatches) {
+        let max = 1
+        for (const m of countMatches) {
+          const n = parseInt(m.replace(/\/Count\s+/, ''), 10)
+          if (!isNaN(n) && n > max) max = n
+        }
+        return max
+      }
+    } catch {}
+  }
+  return 1
+}
+
+/**
  * Main entry point: render any supported file type into DocumentPagePreview[].
  */
 export async function renderFilePages(
@@ -182,7 +212,38 @@ export async function renderFilePages(
   onProgress?: (current: number, total: number) => void
 ): Promise<DocumentPagePreview[]> {
   if (fileType === 'pdf') {
-    return renderPdfPages(file, 50, onProgress)
+    let exactPages = 1
+    try {
+      exactPages = await detectClientPdfPageCount(file)
+    } catch (e) {
+      console.warn('[multiFileRenderer] Failed pre-inspecting PDF page count:', e)
+    }
+
+    try {
+      const rendered = await renderPdfPages(file, Math.min(exactPages, 50), onProgress)
+      if (rendered.length >= exactPages) {
+        return rendered
+      }
+
+      // If document has more pages than rendered preview limit (e.g. 50+ pages),
+      // pad with styled placeholders so the full page count and all page numbers are preserved!
+      const padded = [...rendered]
+      for (let i = rendered.length + 1; i <= exactPages; i++) {
+        padded.push({
+          id: i,
+          pageNumber: i,
+          title: `Page ${i}`,
+          subtitle: `Page ${i} of ${exactPages}`,
+          url: rendered[0]?.url || '',
+          width: 720,
+          height: 1020,
+        })
+      }
+      return padded
+    } catch (renderErr) {
+      console.warn('[multiFileRenderer] Canvas render failed, falling back to verified placeholders:', renderErr)
+      return generateDocumentPages(file.name, exactPages)
+    }
   }
 
   if (fileType === 'image') {

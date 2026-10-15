@@ -8,6 +8,7 @@ import { orderLimiter } from '../middleware/rateLimiter.js'
 import { cachePurgePattern, cacheSet, cacheGet } from '../redis.js'
 import { relayToKiosk } from '../modules/wsRelay.js'
 
+import fs from 'fs'
 import { isUserBlocked, normalizeIp } from '../modules/blocklist.js'
 import { printJobs, usedPinsRegistry, parsePageRangeList } from './print.js'
 import { resolveEffectivePageRange } from './kioskSessions.js'
@@ -15,6 +16,7 @@ import { permanentlyDeleteOrderFiles } from '../modules/fileLifecycle.js'
 import { verifyKioskSecret, safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
 import { isKioskPiReachable, markKioskOffline } from '../modules/kioskLiveness.js'
 import { consumePaperForOrder } from '../modules/paperManager.js'
+import { detectPdfPageCount } from '../modules/pdfUtils.js'
 
 export const ordersRouter = Router()
 
@@ -87,12 +89,12 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
     const colourMode = (hasAnyColorPage || baseColourMode === 'COLOUR') ? 'COLOUR' : 'BW'
 
     const normPageRange = resolveEffectivePageRange(
-      req.body.selectedPages,
-      printSettings?.selectedPages,
       pageRange,
       pages,
       printSettings?.pageRange,
-      printSettings?.pages
+      printSettings?.pages,
+      req.body.selectedPages,
+      printSettings?.selectedPages
     )
     const normScaling = String(scaling || printSettings?.scaling || 'FIT').trim()
     const normPagesPerSheet = Number(pagesPerSheet || printSettings?.pagesPerSheet || 1)
@@ -182,8 +184,40 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
     const pickupCode = releasePin
     const otp = releasePin
 
+    // Resolve local file path from active kiosk session or request body
+    let resolvedFilePath = req.body.filePath || req.body.fileUrl || ''
+    try {
+      const { getActiveSession } = await import('./kioskSessions.js')
+      const activeSession = getActiveSession(cleanKioskId)
+      if (activeSession) {
+        activeSession.orderId = orderId
+        activeSession.orderNumber = orderNumber
+        activeSession.releasePin = releasePin
+        activeSession.otp = releasePin
+        activeSession.pickupCode = releasePin
+        if (!resolvedFilePath) {
+          resolvedFilePath = activeSession.document?.filePath || (activeSession.files && activeSession.files[0]?.filePath) || ''
+        }
+      }
+    } catch {}
+
+    let detectedDocPages = 0
+    if (resolvedFilePath && fs.existsSync(resolvedFilePath)) {
+      const isPdf = (fileName && fileName.toLowerCase().endsWith('.pdf')) || resolvedFilePath.toLowerCase().endsWith('.pdf')
+      if (isPdf) {
+        try {
+          detectedDocPages = await detectPdfPageCount(resolvedFilePath)
+        } catch (err) {
+          console.warn(`[Orders] Failed to inspect PDF page count for ${fileName}:`, err)
+        }
+      }
+    }
+
     const rawTotalDoc = req.body.totalDocPages || req.body.docPageCount || printSettings?.totalDocPages || printSettings?.docPageCount || req.body.document?.pageCount || req.body.files?.[0]?.pageCount || printSettings?.files?.[0]?.pageCount
-    const docPages = Math.max(1, Number(rawTotalDoc || pageCount) || 1)
+    let docPages = Math.max(1, Number(rawTotalDoc || pageCount) || 1)
+    if (detectedDocPages > 0) {
+      docPages = Math.max(docPages, detectedDocPages)
+    }
     const selectedPages = parsePageRangeList(normPageRange, docPages)
     const specifiedPageCount = selectedPages.length
     const trueTotalDocPages = Math.max(docPages, ...selectedPages)
@@ -243,23 +277,6 @@ ordersRouter.post('/', orderLimiter, async (req: Request, res: Response) => {
       paidAt: new Date().toISOString(),
       createdAt: new Date(),
     }
-
-    // Resolve local file path from active kiosk session or request body
-    let resolvedFilePath = req.body.filePath || req.body.fileUrl || ''
-    try {
-      const { getActiveSession } = await import('./kioskSessions.js')
-      const activeSession = getActiveSession(cleanKioskId)
-      if (activeSession) {
-        activeSession.orderId = orderId
-        activeSession.orderNumber = orderNumber
-        activeSession.releasePin = releasePin
-        activeSession.otp = releasePin
-        activeSession.pickupCode = releasePin
-        if (!resolvedFilePath) {
-          resolvedFilePath = activeSession.document?.filePath || (activeSession.files && activeSession.files[0]?.filePath) || ''
-        }
-      }
-    } catch {}
 
     if (resolvedFilePath) {
       orderData.filePath = resolvedFilePath
@@ -455,15 +472,19 @@ export async function handleJobPoll(req: Request, res: Response) {
       const jobState = printJobs.get(o.orderId) || (o.orderNumber ? printJobs.get(o.orderNumber) : undefined)
 
         const effectiveRange = resolveEffectivePageRange(
-          jobState?.selectedPages,
           jobState?.pageRange,
-          o.selectedPages,
-          ps.selectedPages,
           o.pageRange,
           ps.pageRange,
           o.pages,
-          ps.pages
+          ps.pages,
+          jobState?.selectedPages,
+          o.selectedPages,
+          ps.selectedPages
         )
+        const effectiveSelectedPages = effectiveRange === 'ALL'
+          ? undefined
+          : (jobState?.selectedPages || o.selectedPages || ps.selectedPages)
+
         const job = {
           job_id: o.orderId,
           orderId: o.orderId,
@@ -479,7 +500,7 @@ export async function handleJobPoll(req: Request, res: Response) {
           paperSize: jobState?.paperSize || o.paperSize || ps.paperSize || 'A4',
           pageRange: effectiveRange,
           pages: effectiveRange,
-          selectedPages: jobState?.selectedPages || o.selectedPages || ps.selectedPages,
+          selectedPages: effectiveSelectedPages,
           totalDocPages: o.totalDocPages || ps.totalDocPages || o.docPageCount || ps.docPageCount,
           scaling: jobState?.scaling || o.scaling || ps.scaling || 'FIT',
           orientation: jobState?.orientation || o.orientation || ps.orientation || 'AUTO',
@@ -496,7 +517,7 @@ export async function handleJobPoll(req: Request, res: Response) {
               scaling: (jobState?.scaling || o.scaling || ps.scaling || 'FIT').toLowerCase(),
               pageRange: effectiveRange,
               pages: effectiveRange,
-              selectedPages: jobState?.selectedPages || o.selectedPages || ps.selectedPages,
+              selectedPages: effectiveSelectedPages,
               duplex: jobState?.duplex || o.duplex || ps.duplex || 'SINGLE',
             }
           }

@@ -31,8 +31,8 @@ import {
   resolveMerchantUpiIdForKiosk,
 } from './upiexpress.js'
 import { relayToKiosk, relayPaymentCaptured } from '../modules/wsRelay.js'
-import { markKioskOffline } from '../modules/kioskLiveness.js'
 import { kioskSessionClaimLimiter, kioskSessionCreateLimiter } from '../middleware/rateLimiter.js'
+import { detectPdfPageCount } from '../modules/pdfUtils.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -350,29 +350,76 @@ export function getActiveSession(kioskId: string): KioskSession | null {
   return s
 }
 
-// Helper to resolve the effective page range from multiple candidates,
-// prioritizing specific page selections over generic defaults like 'ALL', '*', or empty strings.
+// Helper to resolve the effective page range from multiple candidates.
+// Correctly preserves 'ALL' when requested and ensures default array fallbacks like [1]
+// do not erroneously truncate multi-page prints.
 export function resolveEffectivePageRange(...candidates: any[]): string {
-  for (const candidate of candidates) {
-    if (!candidate) continue
+  // Flatten candidates if any arrays are nested
+  const flat: any[] = []
+  for (const c of candidates) {
+    if (c === undefined || c === null || c === '') continue
+    flat.push(c)
+  }
+
+  const hasExplicitAll = flat.some(c => {
+    if (typeof c === 'string') {
+      const u = c.trim().toUpperCase()
+      return u === 'ALL' || u === '*'
+    }
+    return false
+  })
+
+  // Pass 1: Look for explicit custom ranges in strings or arrays that are NOT single-page-1 fallback
+  for (const candidate of flat) {
+    if (typeof candidate === 'string') {
+      const str = candidate.trim()
+      if (!str) continue
+      const upper = str.toUpperCase()
+      if (upper === 'ALL' || upper === '*') continue
+
+      if (str.startsWith('[') && str.endsWith(']')) {
+        try {
+          const arr = JSON.parse(str)
+          if (Array.isArray(arr) && arr.length > 0) {
+            const valid = arr.map(Number).filter(n => !isNaN(n) && n > 0).sort((a, b) => a - b)
+            if (valid.length === 1 && valid[0] === 1 && hasExplicitAll) continue
+            if (valid.length > 0) return valid.join(',')
+          }
+        } catch {}
+      }
+
+      if (/^[\d,\-\s]+$/.test(str)) {
+        const clean = str.replace(/\s+/g, '')
+        if (clean === '1' && hasExplicitAll) continue
+        if (clean) return clean
+      }
+    } else if (Array.isArray(candidate)) {
+      const valid = candidate.map(Number).filter(n => !isNaN(n) && n > 0).sort((a, b) => a - b)
+      if (valid.length === 1 && valid[0] === 1 && hasExplicitAll) continue
+      if (valid.length > 0) return valid.join(',')
+    }
+  }
+
+  // If ANY candidate explicitly requested 'ALL', honor 'ALL'
+  if (hasExplicitAll) {
+    return 'ALL'
+  }
+
+  // Pass 2: If no explicit 'ALL' and we have an array or string candidate (even [1] or "1"), return it
+  for (const candidate of flat) {
     if (Array.isArray(candidate)) {
       const valid = candidate.map(Number).filter(n => !isNaN(n) && n > 0).sort((a, b) => a - b)
       if (valid.length > 0) return valid.join(',')
-      continue
     }
-    const str = String(candidate).trim()
-    if (!str || str.toUpperCase() === 'ALL' || str === '*') continue
-    if (str.startsWith('[') && str.endsWith(']')) {
-      try {
-        const arr = JSON.parse(str)
-        if (Array.isArray(arr)) {
-          const valid = arr.map(Number).filter(n => !isNaN(n) && n > 0).sort((a, b) => a - b)
-          if (valid.length > 0) return valid.join(',')
-        }
-      } catch {}
+    if (typeof candidate === 'string') {
+      const clean = candidate.replace(/\s+/g, '')
+      if (/^[\d,\-]+$/.test(clean)) return clean
     }
-    return str
+    if (typeof candidate === 'number' && candidate > 0) {
+      return String(candidate)
+    }
   }
+
   return 'ALL'
 }
 
@@ -1261,7 +1308,7 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     }
     next()
   })
-}, (req: Request, res: Response) => {
+}, async (req: Request, res: Response) => {
   const { sessionId } = req.params
   let session = getSession(sessionId)
 
@@ -1420,8 +1467,49 @@ kioskSessionsRouter.post('/:sessionId/upload', (req: Request, res: Response, nex
     }
   })
 
-  const pageCount = Math.max(1, !isNaN(rawPageCount) && rawPageCount > 0 ? rawPageCount : (previews.length || 1))
+  // Server-side PDF inspection: verify exact page count from binaries on disk
+  for (let idx = 0; idx < filesList.length; idx++) {
+    const f = filesList[idx]
+    if (f.filePath && fs.existsSync(f.filePath)) {
+      const isPdf =
+        (f.fileType && f.fileType.toLowerCase().includes('pdf')) ||
+        (f.fileName && f.fileName.toLowerCase().endsWith('.pdf'))
+      if (isPdf) {
+        try {
+          const detected = await detectPdfPageCount(f.filePath)
+          if (detected > 0) {
+            f.pageCount = Math.max(f.pageCount || 1, detected)
+          }
+        } catch (err) {
+          console.warn(`[KioskSession] Failed to inspect PDF page count for ${f.fileName}:`, err)
+        }
+      }
+    }
+  }
+
   const filePath = (filesList.length > 0 && filesList[0]?.filePath) ? filesList[0].filePath : (file?.path || '')
+  let singleDetected = 0
+  if (filePath && fs.existsSync(filePath)) {
+    const isPdf =
+      (fileType && fileType.toLowerCase().includes('pdf')) ||
+      (fileName && fileName.toLowerCase().endsWith('.pdf'))
+    if (isPdf) {
+      try {
+        singleDetected = await detectPdfPageCount(filePath)
+      } catch (err) {
+        console.warn(`[KioskSession] Failed to inspect primary PDF page count for ${fileName}:`, err)
+      }
+    }
+  }
+
+  let pageCount = Math.max(1, !isNaN(rawPageCount) && rawPageCount > 0 ? rawPageCount : (previews.length || 1))
+  if (singleDetected > 0) {
+    pageCount = Math.max(pageCount, singleDetected)
+  }
+  if (filesList.length > 0) {
+    const sumFilesPages = filesList.reduce((sum, f) => sum + (f.pageCount || 1), 0)
+    pageCount = Math.max(pageCount, sumFilesPages)
+  }
   const fileUrl = file ? `/api/kiosk-sessions/${sessionId}/file` : (filesList[0]?.filePath ? `/api/kiosk-sessions/${sessionId}/file/0` : undefined)
 
   // Auto-generate preview from uploaded image file if previews array has no valid non-empty previews
@@ -1614,12 +1702,19 @@ kioskSessionsRouter.post(['/:sessionId/next-phase', '/:sessionId/advance'], asyn
     }]
   }
 
+  const resolvedDocPages = Math.max(
+    1,
+    Number(req.body.totalDocPages || req.body.totalDocumentPages || req.body.docPages) ||
+    session.document?.pageCount ||
+    resolvedPages
+  )
+
   // Synthesize or update session.document so kiosk display immediately detects it
   session.document = {
     fileName: fileName || session.fileName || 'Document.pdf',
     fileSize: Number(fileSize) || session.document?.fileSize || 0,
     fileType: fileType || session.document?.fileType || 'pdf',
-    pageCount: resolvedPages,
+    pageCount: resolvedDocPages,
     filePath: session.document?.filePath || '',
     fileUrl: session.document?.fileUrl || '',
     pages: formattedPreviews.length > 0 ? formattedPreviews : (session.document?.pages || []),
@@ -2466,15 +2561,15 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
       const fColour = String(fileSettings.colour || f.colour || session.settings?.colour || 'BW').toUpperCase()
       const fDuplex = String(fileSettings.duplex || f.duplex || session.settings?.duplex || 'SINGLE').toUpperCase()
       const fPageRange = resolveEffectivePageRange(
-        fileSettings.selectedPages,
-        fileSettings.pages,
         fileSettings.pageRange,
-        f.selectedPages,
-        f.pages,
+        fileSettings.pages,
         f.pageRange,
-        session.settings?.selectedPages,
-        session.settings?.pages,
+        f.pages,
         session.settings?.pageRange,
+        session.settings?.pages,
+        fileSettings.selectedPages,
+        f.selectedPages,
+        session.settings?.selectedPages,
       )
       const fPaperSize = String(fileSettings.paperSize || f.paperSize || session.settings?.paperSize || 'A4').trim()
       const fScaling = String(fileSettings.scaling || f.scaling || 'FIT').trim()
@@ -2527,20 +2622,21 @@ kioskSessionsRouter.post('/:sessionId/execute-print', (req: Request, res: Respon
     const colourMode = session.settings?.colour || session.colourMode || f0Settings.colour || 'BW'
     const duplex = session.settings?.duplex || f0Settings.duplex || 'SINGLE'
     const pageRange = resolveEffectivePageRange(
-      f0Settings.selectedPages,
-      f0Settings.pages,
       f0Settings.pageRange,
-      f0?.selectedPages,
-      f0?.pages,
+      f0Settings.pages,
       f0?.pageRange,
-      session.settings?.selectedPages,
-      session.settings?.pages,
+      f0?.pages,
       session.settings?.pageRange,
-      session.document?.selectedPages,
-      session.document?.pages,
+      session.settings?.pages,
       session.document?.pageRange,
-      (session as any).selectedPages,
+      session.document?.pages,
+      (session as any).pageRange,
       (session as any).pages,
+      f0Settings.selectedPages,
+      f0?.selectedPages,
+      session.settings?.selectedPages,
+      session.document?.selectedPages,
+      (session as any).selectedPages,
     )
     const totalPages = session.document?.pageCount || session.totalPages || f0?.pageCount || 1
 
@@ -2904,15 +3000,15 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
       const fColour = String(fileSettings.colour || f.colour || targetSession.settings?.colour || 'BW').toUpperCase()
       const fDuplex = String(fileSettings.duplex || f.duplex || targetSession.settings?.duplex || 'SINGLE').toUpperCase()
       const fPageRange = resolveEffectivePageRange(
-        fileSettings.selectedPages,
-        fileSettings.pages,
         fileSettings.pageRange,
-        f.selectedPages,
-        f.pages,
+        fileSettings.pages,
         f.pageRange,
-        targetSession.settings?.selectedPages,
-        targetSession.settings?.pages,
+        f.pages,
         targetSession.settings?.pageRange,
+        targetSession.settings?.pages,
+        fileSettings.selectedPages,
+        f.selectedPages,
+        targetSession.settings?.selectedPages,
       )
       const fPaperSize = String(fileSettings.paperSize || f.paperSize || targetSession.settings?.paperSize || 'A4').trim()
       const fScaling = String(fileSettings.scaling || f.scaling || 'FIT').trim()
@@ -2979,20 +3075,21 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
     const colourMode = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
     const duplex = String(f0Settings.duplex || f0?.duplex || sSettings.duplex || 'SINGLE').toUpperCase()
     const pageRange = resolveEffectivePageRange(
-      f0Settings.selectedPages,
-      f0Settings.pages,
       f0Settings.pageRange,
-      f0?.selectedPages,
-      f0?.pages,
+      f0Settings.pages,
       f0?.pageRange,
-      sSettings.selectedPages,
-      sSettings.pages,
+      f0?.pages,
       sSettings.pageRange,
-      targetSession.document?.selectedPages,
-      targetSession.document?.pages,
+      sSettings.pages,
       targetSession.document?.pageRange,
-      (targetSession as any).selectedPages,
+      targetSession.document?.pages,
+      (targetSession as any).pageRange,
       (targetSession as any).pages,
+      f0Settings.selectedPages,
+      f0?.selectedPages,
+      sSettings.selectedPages,
+      targetSession.document?.selectedPages,
+      (targetSession as any).selectedPages,
     )
     const paperSize = String(f0Settings.paperSize || sSettings.paperSize || 'A4').trim()
     const scaling = String(f0Settings.scaling || sSettings.scaling || 'FIT').trim()

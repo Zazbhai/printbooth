@@ -29,7 +29,7 @@ export default function ReviewPage() {
   const kioskName  = flow?.kioskName || sessionStorage.getItem('pb_kiosk_name') || (kioskId && VERIFIED_KIOSKS[kioskId]?.name) || 'PrintBooth Station'
   const kioskLocation = sessionStorage.getItem('pb_kiosk_location') || (kioskId && VERIFIED_KIOSKS[kioskId]?.location) || 'Walk-up Print Station'
   const rawSettings = sessionStorage.getItem('pb_settings')
-  const pageCount  = Number(sessionStorage.getItem('pb_page_count') || 1)
+  const pageCount  = Number(sessionStorage.getItem('pb_doc_page_count') || sessionStorage.getItem('pb_page_count') || 1)
   const storedTotal = Number(sessionStorage.getItem('pb_total_price') || 0)
   let settings: FileSettings = {
     copies: 1,

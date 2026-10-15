@@ -18,6 +18,7 @@ import { getKioskPiPrinters, isKioskUsbPrinterConnected } from '../modules/kiosk
 import { permanentlyDeleteOrderFiles, isOrderFileExpired, RETENTION_MS } from '../modules/fileLifecycle.js'
 import { safeEqual, generateKioskSecret } from '../modules/kioskAuth.js'
 import { advanceSessionOnPinVerified, findSessionFilePath, resolveEffectivePageRange } from './kioskSessions.js'
+import { detectPdfPageCount } from '../modules/pdfUtils.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -539,9 +540,9 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
     const rawCol = String(req.body.colourMode || req.body.colour || 'BW').toUpperCase().replace('&', '')
     const colourMode = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
     const pageRange = resolveEffectivePageRange(
-      req.body.selectedPages,
+      req.body.pageRange,
       req.body.pages,
-      req.body.pageRange
+      req.body.selectedPages
     )
     const rawDuplex = req.body.duplex
     const duplex = (
@@ -584,8 +585,22 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       } while (usedPinsRegistry.has(releasePin) && attempts < 50)
     }
     const isImmediate = req.body.isImmediate === true || req.body.isImmediate === 'true' || req.body.immediate === true || req.body.immediate === 'true'
+
+    let detectedPdfPages = 0
+    if (filePath && fs.existsSync(filePath)) {
+      const isPdf = (fileName && fileName.toLowerCase().endsWith('.pdf')) || filePath.toLowerCase().endsWith('.pdf')
+      if (isPdf) {
+        try {
+          detectedPdfPages = await detectPdfPageCount(filePath)
+        } catch {}
+      }
+    }
+
     const rawTotalPages = Number(req.body.totalPages || req.body.totalDocPages || req.body.pageCount) || 1
-    const resolvedTotalPages = Math.max(1, rawTotalPages)
+    let resolvedTotalPages = Math.max(1, rawTotalPages)
+    if (detectedPdfPages > 0) {
+      resolvedTotalPages = Math.max(resolvedTotalPages, detectedPdfPages)
+    }
     const masterOrderId = req.body.masterOrderId || req.body.master_order_id || req.body.parentOrderId
     const fileIndex = Number(req.body.fileIndex || req.body.file_index) || undefined
     const totalFiles = Number(req.body.totalFiles || req.body.total_files) || undefined
@@ -597,7 +612,7 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       copies,
       colourMode,
       pageRange,
-      selectedPages: Array.isArray(req.body.selectedPages) ? req.body.selectedPages : undefined,
+      selectedPages: pageRange === 'ALL' ? undefined : (Array.isArray(req.body.selectedPages) ? req.body.selectedPages : undefined),
       pageCopies,
       pageColours,
       duplex,
@@ -1423,12 +1438,12 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
   const resolvedDuplex = order.duplex || order.printSettings?.duplex || 'SINGLE'
   const resolvedPaper = order.paperSize || order.printSettings?.paperSize || 'A4'
   const resolvedRange = resolveEffectivePageRange(
-    order.selectedPages,
-    order.printSettings?.selectedPages,
     order.pageRange,
     order.pages,
     order.printSettings?.pageRange,
-    order.printSettings?.pages
+    order.printSettings?.pages,
+    order.selectedPages,
+    order.printSettings?.selectedPages
   )
   const resolvedScaling = order.scaling || order.printSettings?.scaling || 'FIT'
   const resolvedNUp = order.pagesPerSheet || order.printSettings?.pagesPerSheet || 1
@@ -1450,7 +1465,19 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     : undefined
 
   const rawTotalDoc = order.totalDocPages || order.docPageCount || order.printSettings?.totalDocPages || order.printSettings?.docPageCount || order.document?.pageCount || order.files?.[0]?.pageCount || order.pageCount
-  const docPages = Math.max(1, Number(rawTotalDoc || 1))
+  let docPages = Math.max(1, Number(rawTotalDoc || 1))
+  const candidatePath = order.filePath || order.fileUrl || findSessionFilePath(canonicalOrderId)
+  if (candidatePath && fs.existsSync(candidatePath)) {
+    const isPdf = (order.fileName && order.fileName.toLowerCase().endsWith('.pdf')) || candidatePath.toLowerCase().endsWith('.pdf')
+    if (isPdf) {
+      try {
+        const detected = await detectPdfPageCount(candidatePath)
+        if (detected > 0) {
+          docPages = Math.max(docPages, detected)
+        }
+      } catch {}
+    }
+  }
   const targetRange = resolvedRange
   const specifiedPages = parsePageRangeList(targetRange, docPages)
   const userPrintCount = specifiedPages.length * (resolvedCopies || order.copies || 1)
@@ -1462,11 +1489,11 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     existingJob = {
       orderId: canonicalOrderId,
       fileName: order.fileName || 'PrintBooth_Document.pdf',
-      filePath: order.fileUrl || testSample,
+      filePath: candidatePath || testSample,
       copies: resolvedCopies,
       colourMode: resolvedColour,
       pageRange: resolvedRange,
-      selectedPages: specifiedPages,
+      selectedPages: targetRange === 'ALL' ? undefined : specifiedPages,
       pageCopies: resolvedPageCopies,
       pageColours: resolvedPageColours,
       duplex: resolvedDuplex,
@@ -1483,7 +1510,7 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
       isPinUsed: true,
       pinUsedAt: Date.now(),
       printedPages: 0,
-      totalPages: order.pageCount || 1,
+      totalPages: targetRange === 'ALL' ? (docPages * (resolvedCopies || 1)) : userPrintCount,
       percent: 0,
       kioskId,
       startedAt: Date.now(),
@@ -1492,8 +1519,8 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
     existingJob.copies = resolvedCopies
     existingJob.colourMode = resolvedColour
     existingJob.pageRange = resolvedRange
-    existingJob.selectedPages = specifiedPages
-    existingJob.totalPages = specifiedPages.length
+    existingJob.selectedPages = targetRange === 'ALL' ? undefined : specifiedPages
+    existingJob.totalPages = targetRange === 'ALL' ? (docPages * (resolvedCopies || 1)) : userPrintCount
     if (resolvedPageCopies) existingJob.pageCopies = resolvedPageCopies
     if (resolvedPageColours) existingJob.pageColours = resolvedPageColours
     existingJob.duplex = resolvedDuplex
@@ -1528,11 +1555,31 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
       const fColour = (rawFCol === 'COLOUR' || rawFCol === 'COLOR') ? 'COLOUR' : 'BW'
       const fDuplex = fSettings.duplex || f.duplex || resolvedDuplex
       const fPaper = fSettings.paperSize || f.paperSize || resolvedPaper
-      const fRange = fSettings.pages || fSettings.pageRange || f.pageRange || f.pages || resolvedRange
+      const fRange = resolveEffectivePageRange(
+        fSettings.pageRange,
+        fSettings.pages,
+        f.pageRange,
+        f.pages,
+        resolvedRange,
+        fSettings.selectedPages,
+        f.selectedPages
+      )
       const fScaling = fSettings.scaling || f.scaling || resolvedScaling
       const fNUp = fSettings.pagesPerSheet || f.pagesPerSheet || resolvedNUp
       const fOrientation = fSettings.orientation || f.orientation || resolvedOrientation
       const fDpi = fSettings.dpi || f.dpi || resolvedDpi
+
+      let fDetected = 0
+      if (f.filePath && fs.existsSync(f.filePath)) {
+        const isPdf = (f.fileName && f.fileName.toLowerCase().endsWith('.pdf')) || f.filePath.toLowerCase().endsWith('.pdf')
+        if (isPdf) {
+          try {
+            fDetected = await detectPdfPageCount(f.filePath)
+          } catch {}
+        }
+      }
+      const fDocPages = Math.max(1, fDetected || f.pageCount || 1)
+      const fPagesList = parsePageRangeList(fRange, fDocPages)
 
       const subJob: PrintJobState = {
         orderId: subOrderId,
@@ -1546,6 +1593,7 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
         duplex: fDuplex,
         paperSize: fPaper,
         pageRange: fRange,
+        selectedPages: fRange === 'ALL' ? undefined : fPagesList,
         scaling: fScaling,
         pagesPerSheet: fNUp,
         orientation: fOrientation,
@@ -1554,7 +1602,7 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
         pageCopies: fSettings.pageCopies || f.pageCopies,
         status: 'PRINTING',
         printedPages: 0,
-        totalPages: f.pageCount || 1,
+        totalPages: fRange === 'ALL' ? (fDocPages * fCopies) : (fPagesList.length * fCopies),
         percent: 0,
         startedAt: Date.now(),
         kioskId,

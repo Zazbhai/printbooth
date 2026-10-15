@@ -167,7 +167,7 @@ export default function PrintSettingsPage() {
     }
   }, [isLite, settings.colour, patchSettings])
 
-  const realPageCount = activeFile?.pageCount || Number(sessionStorage.getItem('pb_page_count')) || 1
+  const realPageCount = activeFile?.pageCount || Number(sessionStorage.getItem('pb_doc_page_count')) || Number(sessionStorage.getItem('pb_page_count')) || 1
 
   const selectedPagesList = useMemo(() => {
     return parsePageRange(settings.pages, realPageCount)
@@ -379,9 +379,14 @@ export default function PrintSettingsPage() {
     // Legacy single-file session keys for ConfirmPage
     if (activeFile) {
       sessionStorage.setItem('pb_file_name', activeFile.fileName)
-      sessionStorage.setItem('pb_page_count', String(pageCount))
+      sessionStorage.setItem('pb_page_count', String(realPageCount))
+      sessionStorage.setItem('pb_doc_page_count', String(realPageCount))
+      sessionStorage.setItem('pb_selected_page_count', String(pageCount))
       sessionStorage.setItem('pb_settings', JSON.stringify({ ...settings, scaling: 'FIT', paperSize: 'A4' }))
     } else {
+      sessionStorage.setItem('pb_page_count', String(realPageCount))
+      sessionStorage.setItem('pb_doc_page_count', String(realPageCount))
+      sessionStorage.setItem('pb_selected_page_count', String(pageCount))
       sessionStorage.setItem('pb_settings', JSON.stringify({ ...localSettings, scaling: 'FIT', paperSize: 'A4' }))
     }
     sessionStorage.setItem('pb_total_price', String(grandTotal))
@@ -390,7 +395,7 @@ export default function PrintSettingsPage() {
       const readyFiles = getAllFiles().filter(f => f.status === 'ready')
       kioskSession.reportReviewing({
         fileName: displayFileName,
-        totalPages: pageCount,
+        totalPages: realPageCount,
         copies: settings.copies,
         colourMode: settings.colour,
         amount: grandTotal,

@@ -35,10 +35,10 @@ import {
 } from '../../lib/multiFileStore'
 import { clearUploadedDoc, setUploadedDoc, getUploadedFileAsync } from '../../lib/documentStore'
 import { kioskSession, getActiveKioskSession, clearActiveKioskSession } from '../../lib/kioskSession'
-import { ClearDocumentModal } from '../../components/ui/ClearDocumentModal'
-import { renderFilePages } from '../../lib/multiFileRenderer'
+import { renderFilePages, detectClientPdfPageCount } from '../../lib/multiFileRenderer'
 import { generateDocumentPages } from '../../lib/documentPreview'
 import { checkPrinterHardwareStatus } from '../../lib/api'
+import { ClearDocumentModal } from '../../components/ui/ClearDocumentModal'
 import {
   SendToPrinterUpload,
   type SendToPrinterUploadHandle,
@@ -351,10 +351,16 @@ export default function MultiFilePage() {
       return true
     } catch (e) {
       console.warn('File render fallback activated:', e)
-      const fallbackPages = generateDocumentPages(file.name, 1)
+      let fallbackCount = 1
+      if (fileType === 'pdf') {
+        try {
+          fallbackCount = await detectClientPdfPageCount(file)
+        } catch {}
+      }
+      const fallbackPages = generateDocumentPages(file.name, fallbackCount)
       updateFile(entry.id, {
         status: 'ready',
-        pageCount: 1,
+        pageCount: fallbackCount,
         realPages: fallbackPages,
         thumbnail: fallbackPages[0]?.url,
       })
@@ -362,7 +368,7 @@ export default function MultiFilePage() {
         file,
         fileName: file.name,
         fileSize: file.size,
-        pageCount: 1,
+        pageCount: fallbackCount,
         realPages: fallbackPages,
       })
       if (!getActiveFileId() || getAllFiles().filter(f => f.status === 'ready').length === 1) {
@@ -385,7 +391,7 @@ export default function MultiFilePage() {
     const primary = ready[0]
     const file = primary.file || (await getUploadedFileAsync())
 
-    const totalSheets = ready.reduce((acc, f) => acc + (calcFileTotalSheets(f) || f.pageCount || 1), 0)
+    const totalDocPages = ready.reduce((acc, f) => acc + (f.pageCount || 1), 0)
     const totalSize = ready.reduce((acc, f) => acc + (f.fileSize || 0), 0)
     const combinedFileName = ready.length > 1
       ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}`
@@ -452,7 +458,7 @@ export default function MultiFilePage() {
         fileName: combinedFileName,
         fileSize: totalSize,
         fileType: ready.length > 1 ? 'multifile' : primary.fileType,
-        pageCount: totalSheets,
+        pageCount: totalDocPages,
         previews: allPreviews,
         files: filesMetadata,
         onProgress: ({ loaded, total, percent }) => {
@@ -502,9 +508,11 @@ export default function MultiFilePage() {
     const ready = getAllFiles()
     let combinedFileName = ''
     let totalSheets = 1
+    let totalDocPages = 1
     if (ready.length > 0) {
       const first = ready[0]
       totalSheets = ready.reduce((acc, f) => acc + (calcFileTotalSheets(f) || f.pageCount || 1), 0)
+      totalDocPages = ready.reduce((acc, f) => acc + (f.pageCount || 1), 0)
       const totalSize = ready.reduce((acc, f) => acc + (f.fileSize || 0), 0)
       combinedFileName = ready.length > 1
         ? `${ready.length} Files: ${ready.map(f => f.fileName).join(', ')}`
@@ -512,7 +520,9 @@ export default function MultiFilePage() {
 
       sessionStorage.setItem('pb_file_name', combinedFileName)
       sessionStorage.setItem('pb_file_size', String(totalSize))
-      sessionStorage.setItem('pb_page_count', String(totalSheets))
+      sessionStorage.setItem('pb_page_count', String(totalDocPages))
+      sessionStorage.setItem('pb_doc_page_count', String(totalDocPages))
+      sessionStorage.setItem('pb_total_sheets', String(totalSheets))
       sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
     }
 
@@ -522,7 +532,7 @@ export default function MultiFilePage() {
     if (kioskSession.isKioskSession()) {
       kioskSession.reportConfirming({
         fileName: combinedFileName,
-        totalPages: totalSheets,
+        totalPages: totalDocPages,
       })
     }
 
@@ -559,7 +569,9 @@ export default function MultiFilePage() {
 
     sessionStorage.setItem('pb_file_name', combinedFileName)
     sessionStorage.setItem('pb_file_size', String(totalSize))
-    sessionStorage.setItem('pb_page_count', String(totalSheets))
+    sessionStorage.setItem('pb_page_count', String(ready.reduce((acc, f) => acc + (f.pageCount || 1), 0)))
+    sessionStorage.setItem('pb_doc_page_count', String(ready.reduce((acc, f) => acc + (f.pageCount || 1), 0)))
+    sessionStorage.setItem('pb_total_sheets', String(totalSheets))
     sessionStorage.setItem('pb_settings', JSON.stringify(first.settings))
 
     setIsSendingToKiosk(true)
