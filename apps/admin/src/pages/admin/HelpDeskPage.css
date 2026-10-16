@@ -971,3 +971,79 @@
     flex: 1 1 100%;
   }
 }
+
+/* ═══ HELP DESK — DARK THEME ═══ */
+
+.dark .helpdesk-layout, .dark .helpdesk-page, .dark .helpdesk-header, .dark .helpdesk-tabs, .dark .ticket-card, .dark .ticket-card__header, .dark .ticket-card__body, .dark .ticket-detail-modal, .dark .ticket-detail-modal__overlay, .dark .ticket-detail-modal__content, .dark .ticket-detail-modal__header, .dark .ticket-detail-modal__footer, .dark .ticket-form, .dark .ticket-form-card {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ticket-card, .dark .ticket-detail-modal__content, .dark .ticket-form-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .helpdesk-header {
+  background: var(--clr-surface-1) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .helpdesk-tabs {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .helpdesk-search-input {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .helpdesk-search-input::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .helpdesk-search-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .ticket-card__title { color: var(--clr-text-1) !important; }
+.dark .ticket-card__desc { color: var(--clr-text-3) !important; }
+.dark .ticket-card__meta { color: var(--clr-text-4) !important; }
+
+.dark .ticket-detail-modal__overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .ticket-detail-modal__header {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .ticket-detail-modal__footer {
+  border-top-color: var(--clr-border) !important;
+  background: var(--clr-bg-2) !important;
+}
+
+.dark .ticket-form-input, .dark .ticket-form-textarea, .dark .ticket-form-select {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ticket-form-input::placeholder, .dark .ticket-form-textarea::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .ticket-form-input:focus, .dark .ticket-form-textarea:focus, .dark .ticket-form-select:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .ticket-form-label {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .ticket-form-help {
+  color: var(--clr-text-4) !important;
+}

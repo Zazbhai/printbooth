@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-10-16T02:28:29.201Z",
+        "reason": "user confirmed: Geist is the project's chosen typeface across all pages, intentional brand decision"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "C:\\Users\\zgarm\\OneDrive\\Desktop\\printer_automation\\apps\\admin\\src\\components\\AdminLayout.css"
+        ],
+        "createdAt": "2026-10-16T02:29:06.433Z",
+        "reason": "user confirmed: intentional sidebar active state indicator, standard navigation affordance communicating 'you are here' — not an AI-generated flourish"
+      }
+    ]
+  }
+}

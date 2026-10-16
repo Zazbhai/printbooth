@@ -528,6 +528,121 @@ article[class*="shadow-custom"]:hover {
   }
 }
 
+/* ──────── Login Dark Theme ──────── */
+.dark .login-page,
+.capitalio-dashboard.dark .login-page {
+  background: var(--clr-bg-1) !important;
+}
+
+.dark .login-card,
+.capitalio-dashboard.dark .login-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+  box-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .login-role-tabs,
+.capitalio-dashboard.dark .login-role-tabs {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .login-role-tab.active,
+.capitalio-dashboard.dark .login-role-tab.active {
+  background: var(--clr-surface-3) !important;
+  color: var(--clr-text-1) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dark .login-role-tab,
+.dark .login-role-tab:hover,
+.capitalio-dashboard.dark .login-role-tab,
+.capitalio-dashboard.dark .login-role-tab:hover {
+  color: var(--clr-text-3) !important;
+}
+
+/* ──────── Alerts Dark Theme ──────── */
+.dark .alert-item,
+.capitalio-dashboard.dark .alert-item {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .alert-item--critical,
+.capitalio-dashboard.dark .alert-item--critical {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.dark .alert-item--critical .alert-item__title,
+.capitalio-dashboard.dark .alert-item--critical .alert-item__title {
+  color: #fca5a5 !important;
+}
+
+.dark .alert-item--warning,
+.capitalio-dashboard.dark .alert-item--warning {
+  background: rgba(255, 122, 0, 0.1) !important;
+  border-color: rgba(255, 122, 0, 0.3) !important;
+}
+
+.dark .alert-item--warning .alert-item__title,
+.capitalio-dashboard.dark .alert-item--warning .alert-item__title {
+  color: #fcd34d !important;
+}
+
+.dark .alert-item--info,
+.capitalio-dashboard.dark .alert-item--info {
+  background: rgba(99, 102, 241, 0.1) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+.dark .alert-item--info .alert-item__title,
+.capitalio-dashboard.dark .alert-item--info .alert-item__title {
+  color: #a5b4fc !important;
+}
+
+.dark .alert-item__desc,
+.capitalio-dashboard.dark .alert-item__desc {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .alert-item__meta,
+.capitalio-dashboard.dark .alert-item__meta {
+  color: var(--clr-text-4) !important;
+}
+
+/* ──────── Hardware Telemetry Dark Theme ──────── */
+.dark .telemetry-card,
+.capitalio-dashboard.dark .telemetry-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .telemetry-gauge__value,
+.capitalio-dashboard.dark .telemetry-gauge__value {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .telemetry-gauge__label,
+.capitalio-dashboard.dark .telemetry-gauge__label {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .table-interactive-row:hover,
+.capitalio-dashboard.dark .table-interactive-row:hover {
+  background-color: var(--clr-accent-dim) !important;
+}
+
+/* ──────── User Directory Dark Theme ──────── */
+.dark .user-directory-search-input,
+.capitalio-dashboard.dark .user-directory-search-input {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
 /* ──────── Company IPO & Combined Fleet Analytics ──────── */
 .ipo-banner {
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.88));

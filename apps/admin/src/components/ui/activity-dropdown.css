@@ -652,3 +652,136 @@
   background: #1e293b;
   transform: translateY(-1px);
 }
+
+/* ═══════════════════════════════════════
+   ACTIVITY DROPDOWN — DARK THEME OVERRIDES
+   ═══════════════════════════════════════ */
+
+.dark .activity-dropdown-root,
+.capitalio-dashboard.dark .activity-dropdown-root {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .activity-item,
+.capitalio-dashboard.dark .activity-item {
+  border-color: transparent !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .activity-item:hover,
+.dark .activity-item.item-open,
+.capitalio-dashboard.dark .activity-item:hover,
+.capitalio-dashboard.dark .activity-item.item-open {
+  background: var(--clr-accent-dim) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .activity-item.is-unread,
+.capitalio-dashboard.dark .activity-item.is-unread {
+  background: var(--clr-accent-dim) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .activity-item.is-read,
+.capitalio-dashboard.dark .activity-item.is-read {
+  background: transparent !important;
+}
+
+.dark .activity-item__title,
+.capitalio-dashboard.dark .activity-item__title {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .activity-item__desc,
+.capitalio-dashboard.dark .activity-item__desc {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .activity-modal-backdrop,
+.capitalio-dashboard.dark .activity-modal-backdrop {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .activity-modal-card,
+.capitalio-dashboard.dark .activity-modal-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .activity-modal-close-btn,
+.dark .activity-modal-close-btn:hover,
+.capitalio-dashboard.dark .activity-modal-close-btn,
+.capitalio-dashboard.dark .activity-modal-close-btn:hover {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .activity-modal-close-btn:hover,
+.capitalio-dashboard.dark .activity-modal-close-btn:hover {
+  background: var(--clr-surface-2) !important;
+}
+
+.dark .activity-modal-description,
+.capitalio-dashboard.dark .activity-modal-description {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .activity-modal-context-box,
+.capitalio-dashboard.dark .activity-modal-context-box {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .context-label,
+.capitalio-dashboard.dark .context-label {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .context-value,
+.capitalio-dashboard.dark .context-value {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .activity-modal-footer,
+.capitalio-dashboard.dark .activity-modal-footer {
+  background: var(--clr-bg-2) !important;
+  border-top-color: var(--clr-border) !important;
+}
+
+.dark .activity-modal-unread-toggle,
+.dark .activity-modal-unread-toggle:hover,
+.capitalio-dashboard.dark .activity-modal-unread-toggle,
+.capitalio-dashboard.dark .activity-modal-unread-toggle:hover {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-2) !important;
+}
+
+.dark .activity-modal-unread-toggle:hover,
+.capitalio-dashboard.dark .activity-modal-unread-toggle:hover {
+  background: var(--clr-surface-3) !important;
+  border-color: var(--clr-border-strong) !important;
+}
+
+.dark .activity-modal-done-btn,
+.dark .activity-modal-done-btn:hover,
+.capitalio-dashboard.dark .activity-modal-done-btn,
+.capitalio-dashboard.dark .activity-modal-done-btn:hover {
+  background: var(--clr-accent) !important;
+  color: var(--clr-bg-1) !important;
+  box-shadow: 0 2px 8px var(--clr-accent-glow) !important;
+}
+
+.dark .activity-modal-close-all-btn:hover,
+.capitalio-dashboard.dark .activity-modal-close-all-btn:hover {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: var(--clr-error) !important;
+}
+
+.dark .activity-item__meta,
+.capitalio-dashboard.dark .activity-item__meta {
+  color: var(--clr-text-4) !important;
+}

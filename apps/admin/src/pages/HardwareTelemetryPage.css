@@ -311,3 +311,48 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ═══════════════════════════════════════
+   HARDWARE TELEMETRY — DARK THEME OVERRIDES
+   ═══════════════════════════════════════ */
+
+.dark .ht-summary-row,
+.dark .ht-grid,
+.capitalio-dashboard.dark .ht-summary-row,
+.capitalio-dashboard.dark .ht-grid {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .telemetry-card,
+.capitalio-dashboard.dark .telemetry-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ht-stat-box,
+.capitalio-dashboard.dark .ht-stat-box {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .ht-stat-box .ht-stat__val,
+.capitalio-dashboard.dark .ht-stat-box .ht-stat__val {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ht-stat-box .ht-stat__label,
+.capitalio-dashboard.dark .ht-stat-box .ht-stat__label {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .ht-empty-state,
+.capitalio-dashboard.dark .ht-empty-state {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .ht-empty-state code,
+.capitalio-dashboard.dark .ht-empty-state code {
+  background: var(--clr-surface-3) !important;
+  color: var(--clr-text-2) !important;
+}

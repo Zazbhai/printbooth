@@ -17,8 +17,11 @@ import {
   HardDrives,
   UsersThree,
   Megaphone,
+  Sun,
+  Moon,
 } from '@phosphor-icons/react'
 import { useAuth } from '@/lib/authContext'
+import { useTheme } from '@/lib/themeContext'
 import { getAdminAlerts } from '@/lib/api'
 import { getHelpDeskStats, fetchHelpDeskTickets } from '@/lib/helpdesk'
 import { getInstallationStats, fetchInstallationRequests } from '@/lib/installations'
@@ -27,6 +30,7 @@ import './AdminLayout.css'
 export default function AdminLayout() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { isDark, toggleTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const [badgeCounts, setBadgeCounts] = useState<{
@@ -244,6 +248,16 @@ export default function AdminLayout() {
               <span className="sidebar__user-role">Platform Operator</span>
             </div>
           </div>
+          <button
+            type="button"
+            className="sidebar__theme-toggle"
+            onClick={toggleTheme}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            <span>{isDark ? 'Light' : 'Dark'}</span>
+          </button>
           <button className="sidebar__logout" onClick={handleLogout} id="admin-logout-btn" title="Sign Out of Platform Admin">
             <SignOut size={16} />
             <span>Log out</span>

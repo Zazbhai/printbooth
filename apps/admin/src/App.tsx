@@ -27,6 +27,7 @@ import MerchantPagesPage from './pages/merchant/MerchantPagesPage'
 import LoginPage from './pages/LoginPage'
 import { AuthProvider, RequireRole, useAuth } from '@/lib/authContext'
 import { MerchantProvider } from '@/lib/merchantContext'
+import { ThemeProvider } from '@/lib/themeContext'
 
 function PageTitleUpdater() {
   const location = useLocation()
@@ -101,7 +102,8 @@ export default function App() {
   return (
     <AuthProvider>
       <MerchantProvider>
-        <PageTitleUpdater />
+        <ThemeProvider>
+          <PageTitleUpdater />
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
@@ -167,6 +169,7 @@ export default function App() {
 
           <Route path="*" element={<RootRedirect />} />
         </Routes>
+        </ThemeProvider>
       </MerchantProvider>
     </AuthProvider>
   )

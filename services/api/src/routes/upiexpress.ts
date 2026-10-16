@@ -211,10 +211,23 @@ export async function createUpiExpressOrder(
     effectiveClientTxnId = generateUniqueClientTxnId('PB')
   }
 
+  // Normalize the quoted total to exact integer paise ONCE, before anything
+  // is sent to the provider. Float dust from price math (e.g. 10.0049999)
+  // must never leak into the charged amount — the QR must encode exactly
+  // what the customer was quoted, down to the paise.
+  const requestedPaise = Math.round(Number(amount) * 100)
+  if (!Number.isFinite(requestedPaise) || requestedPaise <= 0) {
+    return {
+      success: false,
+      error: `Invalid payment amount: ${String(amount)}`,
+    }
+  }
+  const normalizedAmount = (requestedPaise / 100).toFixed(2)
+
   const payload: Record<string, string> = {
     key: apiKey,
     client_txn_id: effectiveClientTxnId,
-    amount: Number(amount).toFixed(2),
+    amount: normalizedAmount,
     customer_name: customerName || 'PrintBooth Customer',
     customer_email: customerEmail || 'customer@example.com',
     customer_mobile: customerMobile || '9876543210',
@@ -291,9 +304,15 @@ export async function createUpiExpressOrder(
           payload.client_txn_id = effectiveClientTxnId
           payload.p_info = note || `PrintBooth Station ${kioskId || 'PB-001'} Order ${effectiveClientTxnId}`
         } else if (errMsg.toLowerCase().includes('unique amount')) {
-          const currentAmt = Number(payload.amount) || Number(amount)
-          payload.amount = (currentAmt + 0.01).toFixed(2)
-          console.warn(`[UPIExpress] Unique amount conflict. Retrying with adjusted amount ${payload.amount}...`)
+          // NEVER silently change the charged amount to satisfy the gateway's
+          // uniqueness constraint — the QR must encode exactly what the
+          // customer was quoted. Retry with a fresh transaction ID and the
+          // SAME amount; if the gateway still refuses, the order fails with a
+          // clear error instead of overcharging by a few paise.
+          console.warn(`[UPIExpress] Unique amount conflict for ₹${payload.amount}. Retrying with fresh transaction ID and unchanged amount...`)
+          effectiveClientTxnId = generateUniqueClientTxnId('PB')
+          payload.client_txn_id = effectiveClientTxnId
+          payload.p_info = note || `PrintBooth Station ${kioskId || 'PB-001'} Order ${effectiveClientTxnId}`
         }
 
         if (attempt < MAX_ATTEMPTS) {
@@ -327,7 +346,10 @@ export async function createUpiExpressOrder(
     const paymentUrl = rawData.payment_link || rawData.payment_url || ''
     const rawUpiIntent = String(rawData.upiintent || rawData.upi_intent_url || rawData.upi_intent || '').trim()
 
-    const reqAmount = Number(amount)
+    // Exact quoted total, normalized to integer paise BEFORE the provider call
+    // above. Never re-derive this from floats — reqAmount is the single
+    // source of truth for what the customer was quoted and what the QR encodes.
+    const reqAmount = requestedPaise / 100
     const apiAmount = Number(rawData.amount || reqAmount)
     const apiTotal = Number(rawData.total || apiAmount)
 
@@ -342,7 +364,8 @@ export async function createUpiExpressOrder(
       return Math.round(amt * 100)
     }
 
-    const requestedPaise = toPaise(reqAmount)
+    // `requestedPaise` (integer paise, normalized before the provider call)
+    // is reused here — reqAmount above is derived from it, so they agree exactly.
 
     console.log('\n========== AMOUNT CHECK ==========')
     console.log(`Requested amount: ₹${reqAmount.toFixed(2)} (${requestedPaise} paise)`)

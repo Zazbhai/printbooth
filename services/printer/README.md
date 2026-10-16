@@ -83,10 +83,13 @@ Create `/etc/systemd/system/printbooth-printer.service`:
 [Unit]
 Description=PrintBooth CUPS Printer Daemon
 After=network.target cups.service
+Requires=cups.service
 
 [Service]
 Type=simple
 User=pi
+# Ensure CUPS lpadmin group permissions are active on boot
+SupplementaryGroups=lpadmin
 WorkingDirectory=/home/pi/printer_automation/services/printer
 ExecStart=/usr/bin/python3 kiosk_daemon.py
 Restart=always

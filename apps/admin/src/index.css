@@ -429,3 +429,263 @@ html { scroll-padding-top: 80px; scroll-behavior: smooth; }
   }
 }
 
+
+/* ═══════════════════════════════════════
+   DARK THEME — Obsidian + Acid-Yellow
+   ═══════════════════════════════════════ */
+
+/* Global dark CSS variable overrides for .capitalio-dashboard */
+.capitalio-dashboard.dark,
+.dark .capitalio-dashboard {
+  --clr-bg-1: #06110D;
+  --clr-bg-2: #091a12;
+  --clr-surface-1: #091a12;
+  --clr-surface-2: #0d1f16;
+  --clr-surface-3: #0f2a1c;
+  --clr-border: rgba(200, 255, 0, 0.12);
+  --clr-border-strong: rgba(200, 255, 0, 0.25);
+  --clr-text-1: #ffffff;
+  --clr-text-2: #e2e8f0;
+  --clr-text-3: #94a3b8;
+  --clr-text-4: #64748b;
+  --clr-accent: #c8ff00;
+  --clr-accent-light: #e6ff66;
+  --clr-accent-dim: rgba(200, 255, 0, 0.08);
+  --clr-accent-glow: rgba(200, 255, 0, 0.22);
+  --clr-success: #00da92;
+  --clr-warning: #ff7a00;
+  --clr-error: #ef4444;
+  --clr-info: #6366f1;
+  --clr-muted: #0d1f16;
+}
+
+/* Merchant dark theme — green accents instead of acid-yellow */
+.merchant-layout.dark .capitalio-dashboard,
+.merchant-layout .capitalio-dashboard.dark {
+  --clr-accent: #059669;
+  --clr-accent-light: #10b981;
+  --clr-accent-dim: rgba(5, 150, 105, 0.12);
+  --clr-accent-glow: rgba(5, 150, 105, 0.3);
+  --clr-border: rgba(16, 185, 129, 0.15);
+  --clr-border-strong: rgba(16, 185, 129, 0.3);
+}
+
+/* Buttons — dark theme overrides */
+.dark .btn-primary,
+.capitalio-dashboard.dark .btn-primary {
+  background: var(--clr-accent) !important;
+  color: #06110D !important;
+  border-color: transparent !important;
+}
+
+.dark .btn-primary:hover,
+.capitalio-dashboard.dark .btn-primary:hover {
+  background: var(--clr-accent-light) !important;
+}
+
+.dark .btn-secondary,
+.dark .btn-secondary:hover,
+.capitalio-dashboard.dark .btn-secondary,
+.capitalio-dashboard.dark .btn-secondary:hover {
+  background: var(--clr-surface-2) !important;
+  color: var(--clr-text-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .btn-danger,
+.dark .btn-danger:hover,
+.capitalio-dashboard.dark .btn-danger,
+.capitalio-dashboard.dark .btn-danger:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: var(--clr-error) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Badges — dark theme overrides */
+.dark .badge-online,
+.dark .badge-success,
+.capitalio-dashboard.dark .badge-online,
+.capitalio-dashboard.dark .badge-success {
+  background: rgba(0, 218, 146, 0.15) !important;
+  color: var(--clr-success) !important;
+  border-color: rgba(0, 218, 146, 0.3) !important;
+}
+
+.dark .badge-warning,
+.capitalio-dashboard.dark .badge-warning {
+  background: rgba(255, 122, 0, 0.15) !important;
+  color: var(--clr-warning) !important;
+  border-color: rgba(255, 122, 0, 0.3) !important;
+}
+
+.dark .badge-offline,
+.dark .badge-error,
+.capitalio-dashboard.dark .badge-offline,
+.capitalio-dashboard.dark .badge-error {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: var(--clr-error) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Forms — dark theme overrides */
+.dark .form-input,
+.dark .form-input:focus,
+.capitalio-dashboard.dark .form-input,
+.capitalio-dashboard.dark .form-input:focus {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .form-input::placeholder,
+.capitalio-dashboard.dark .form-input::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .form-input:focus,
+.capitalio-dashboard.dark .form-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+/* Table — dark theme overrides */
+.dark .data-table thead tr th,
+.capitalio-dashboard.dark .data-table thead tr th {
+  background: var(--clr-surface-2) !important;
+  color: var(--clr-text-2) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .data-table tbody tr td,
+.capitalio-dashboard.dark .data-table tbody tr td {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .data-table tbody tr:hover td,
+.capitalio-dashboard.dark .data-table tbody tr:hover td {
+  background: var(--clr-accent-dim) !important;
+}
+
+/* Glass card — dark theme overrides */
+.dark .glass-card,
+.capitalio-dashboard.dark .glass-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .glass-card::before,
+.capitalio-dashboard.dark .glass-card::before {
+  background: linear-gradient(90deg, transparent, rgba(200, 255, 0, 0.08), transparent) !important;
+}
+
+.dark .glass-card::after,
+.capitalio-dashboard.dark .glass-card::after {
+  background: linear-gradient(180deg, transparent, rgba(200, 255, 0, 0.04), transparent) !important;
+}
+
+.merchant-layout.dark .glass-card::before,
+.merchant-layout .capitalio-dashboard.dark .glass-card::before {
+  background: linear-gradient(90deg, transparent, rgba(5, 150, 105, 0.1), transparent) !important;
+}
+
+.merchant-layout.dark .glass-card::after,
+.merchant-layout .capitalio-dashboard.dark .glass-card::after {
+  background: linear-gradient(180deg, transparent, rgba(5, 150, 105, 0.05), transparent) !important;
+}
+
+/* Focus ring — dark theme */
+.dark :focus-visible,
+.capitalio-dashboard.dark :focus-visible {
+  outline-color: var(--clr-accent) !important;
+}
+
+/* Sidebar — dark theme overrides */
+.dark .sidebar,
+.dark .admin-sidebar,
+.dark .merchant-layout .admin-sidebar,
+.capitalio-dashboard.dark .admin-sidebar {
+  background: var(--clr-bg-1) !important;
+  border-right-color: var(--clr-border) !important;
+}
+
+.dark .sidebar__footer,
+.capitalio-dashboard.dark .sidebar__footer {
+  background: var(--clr-bg-2) !important;
+  border-top-color: var(--clr-border) !important;
+}
+
+/* Brand tag — dark theme */
+.dark .sidebar__brand-tag,
+.dark .sidebar__brand-tag:not(.merchant-tag):not(.tag-blocked),
+.capitalio-dashboard.dark .sidebar__brand-tag,
+.capitalio-dashboard.dark .sidebar__brand-tag:not(.merchant-tag):not(.tag-blocked) {
+  background: rgba(200, 255, 0, 0.12) !important;
+  color: var(--clr-accent) !important;
+  border-color: rgba(200, 255, 0, 0.25) !important;
+}
+
+.dark .sidebar__brand-tag.merchant-tag,
+.capitalio-dashboard.dark .sidebar__brand-tag.merchant-tag {
+  background: rgba(5, 150, 105, 0.15) !important;
+  color: var(--clr-accent) !important;
+  border-color: rgba(5, 150, 105, 0.3) !important;
+}
+
+.dark .sidebar__brand-tag.tag-blocked,
+.capitalio-dashboard.dark .sidebar__brand-tag.tag-blocked {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: var(--clr-error) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Merchant button override in dark */
+.merchant-layout.dark .btn-primary,
+.merchant-layout .capitalio-dashboard.dark .btn-primary {
+  background: var(--clr-accent) !important;
+  color: #fff !important;
+}
+
+.merchant-layout.dark .btn-primary:hover,
+.merchant-layout .capitalio-dashboard.dark .btn-primary:hover {
+  background: var(--clr-accent-light) !important;
+}
+
+/* Merchant theme toggle hover in dark */
+.merchant-layout.dark .sidebar__theme-toggle:hover,
+.merchant-layout .capitalio-dashboard.dark .sidebar__theme-toggle:hover {
+  color: var(--clr-accent) !important;
+  background: var(--clr-accent-dim) !important;
+}
+
+/* ═══════════════════════════════════════
+   MERCHANT INLINE COLORS — DARK THEME
+   Override hardcoded inline colors from MerchantLayout.tsx
+   ═══════════════════════════════════════ */
+
+.dark .merchant-portal-shell [style*="color: #dc2626"],
+.capitalio-dashboard.dark .merchant-portal-shell [style*="color: #dc2626"] {
+  color: var(--clr-accent) !important;
+}
+
+.dark .merchant-portal-shell [style*="color: #fca5a5"],
+.capitalio-dashboard.dark .merchant-portal-shell [style*="color: #fca5a5"] {
+  color: var(--clr-error) !important;
+}
+
+.dark .merchant-portal-shell [style*="color: #fff"],
+.dark .merchant-portal-shell [style*="color:#fff"],
+.capitalio-dashboard.dark .merchant-portal-shell [style*="color: #fff"],
+.capitalio-dashboard.dark .merchant-portal-shell [style*="color:#fff"] {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-portal-shell [style*="rgba(220, 38, 38, 0.2)"],
+.capitalio-dashboard.dark .merchant-portal-shell [style*="rgba(220, 38, 38, 0.2)"] {
+  background: rgba(239, 68, 68, 0.12) !important;
+}
+
+.dark .merchant-portal-shell [style*="rgba(220, 38, 38, 0.4)"],
+.capitalio-dashboard.dark .merchant-portal-shell [style*="rgba(220, 38, 38, 0.4)"] {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}

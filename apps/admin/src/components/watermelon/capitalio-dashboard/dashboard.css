@@ -108,6 +108,29 @@ body:has(.capitalio-dashboard) [data-slot="sidebar"][data-mobile="true"] {
   --premium-foreground: #5a3300;
 }
 
+/* ─── Merchant Dark Theme Override ─── */
+.merchant-layout .capitalio-dashboard.dark,
+.capitalio-dashboard.merchant-theme.dark {
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --ring: rgba(5, 150, 105, 0.3);
+  --accent-foreground: #059669;
+  --chart-1: #059669;
+  --chart-4: #10b981;
+  --sidebar-primary: #059669;
+  --sidebar-badge: #0f2a1c;
+  --sidebar-border: rgba(5, 150, 105, 0.10);
+  --sidebar-ring: rgba(5, 150, 105, 0.3);
+  --sidebar-divider: rgba(5, 150, 105, 0.08);
+  --sidebar-active-shadow: 0 0 12px rgba(5, 150, 105, 0.15), inset 0 0 6px rgba(5, 150, 105, 0.1);
+  --border: rgba(5, 150, 105, 0.12);
+  --border-strong: rgba(5, 150, 105, 0.25);
+  --premium-from: #6ee7b7;
+  --premium-mid: #34d399;
+  --premium-to: #059669;
+  --premium-foreground: #064e3b;
+}
+
 /* custom classes */
 .shadow-custom {
   box-shadow: inset 4px 0 4px 0 rgb(0 0 0 / 1%);

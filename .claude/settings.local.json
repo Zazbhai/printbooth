@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(\"C:\\\\Users\\\\zgarm\\\\.claude\\\\plugins\\\\cache\\\\impeccable\\\\impeccable\\\\4.6.0\\\\skills\\\\impeccable/scripts/impeccable.cmd\" context:*)",
+      "Bash(git check-ignore:*)"
+    ]
+  }
+}

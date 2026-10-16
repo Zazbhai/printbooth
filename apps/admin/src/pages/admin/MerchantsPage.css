@@ -1569,3 +1569,78 @@
 }
 
 
+
+/* ═══ MERCHANTS — DARK THEME ═══ */
+
+.dark .merchants-layout, .dark .merchants-page, .dark .merchants-stats, .dark .merchants-toolbar, .dark .merchants-search-wrap, .dark .merchant-card, .dark .merchant-card__header, .dark .merchant-card__body, .dark .merchant-card__footer, .dark .merchant-detail-modal, .dark .merchant-detail-modal__overlay, .dark .merchant-detail-modal__content, .dark .merchant-detail-modal__header, .dark .merchant-detail-modal__footer, .dark .merchant-detail-grid {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-card, .dark .merchant-detail-modal__content {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .merchants-stats, .dark .merchant-card__header, .dark .merchant-card__body, .dark .merchant-card__footer {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .merchants-search-input {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchants-search-input::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .merchants-search-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .merchant-card__name { color: var(--clr-text-1) !important; }
+.dark .merchant-card__venue { color: var(--clr-text-3) !important; }
+.dark .merchant-card__email { color: var(--clr-text-3) !important; }
+
+.dark .merchant-detail-modal__overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .merchant-detail-modal__header {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .merchant-detail-modal__footer {
+  border-top-color: var(--clr-border) !important;
+  background: var(--clr-bg-2) !important;
+}
+
+.dark .merchant-detail-grid {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .merchant-detail-grid .detail-label {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .merchant-detail-grid .detail-val {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .data-table thead tr th {
+  background: var(--clr-surface-2) !important;
+  color: var(--clr-text-2) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .data-table tbody tr td {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .data-table tbody tr:hover td {
+  background: var(--clr-accent-dim) !important;
+}

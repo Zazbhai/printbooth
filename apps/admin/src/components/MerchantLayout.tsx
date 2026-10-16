@@ -16,6 +16,8 @@ import {
 } from '@phosphor-icons/react'
 import { useActiveMerchant } from '@/lib/merchantContext'
 import { useAuth } from '@/lib/authContext'
+import { useTheme } from '@/lib/themeContext'
+import { Sun, Moon } from '@phosphor-icons/react'
 import MerchantBroadcastPopup from './merchant/MerchantBroadcastPopup'
 import FirstLoginPasswordModal from './merchant/FirstLoginPasswordModal'
 import MerchantBlockedNotice from './merchant/MerchantBlockedNotice'
@@ -24,6 +26,7 @@ import './AdminLayout.css'
 export default function MerchantLayout() {
   const navigate = useNavigate()
   const { user, isAdmin, logout } = useAuth()
+  const { isDark, toggleTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { activeKioskId, setActiveKioskId, activeMerchant, merchants, merchantKiosks, isHardwareOnline } = useActiveMerchant()
   const isBlocked = Boolean(activeMerchant?.isBlocked || activeMerchant?.status === 'BLOCKED')
@@ -330,6 +333,17 @@ export default function MerchantLayout() {
                 </span>
               </div>
             </div>
+
+            <button
+              type="button"
+              className="sidebar__theme-toggle merchant-toggle"
+              onClick={toggleTheme}
+              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              <span>{isDark ? 'Light' : 'Dark'}</span>
+            </button>
 
             <button
               type="button"

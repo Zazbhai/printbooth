@@ -35,6 +35,14 @@ class KioskDaemon:
         TEMP_DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
         print(f"[KioskDaemon] Initialized for Kiosk ID: {self.kiosk_id}")
         print(f"[KioskDaemon] API URL: {self.api_url}")
+        
+        # Purge any ghost jobs from previous sessions or reboots
+        print("[KioskDaemon] Purging stale CUPS queue on startup...")
+        purge_result = self.printer.purge_all_jobs()
+        if purge_result.get("success"):
+            print(f"[KioskDaemon] ✓ CUPS queue purged: {purge_result.get('message', 'OK')}")
+        else:
+            print(f"[KioskDaemon] ⚠ CUPS purge notice: {purge_result.get('error', 'Could not purge')}")
 
     def fetch_pending_orders(self):
         """Fetch PAID orders awaiting print dispatch for this kiosk."""

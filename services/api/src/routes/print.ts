@@ -177,6 +177,8 @@ interface WindowsQueueItem {
 
 const windowsPrintQueue: WindowsQueueItem[] = []
 let isWindowsPrintingActive = false
+// Atomic lock to prevent race condition in queue processing
+let queueProcessingLock = false
 
 function enqueueWindowsPrintJob(job: PrintJobState) {
   windowsPrintQueue.push({ job })
@@ -185,14 +187,21 @@ function enqueueWindowsPrintJob(job: PrintJobState) {
 }
 
 function processNextWindowsPrintJob() {
-  if (isWindowsPrintingActive || windowsPrintQueue.length === 0) {
+  // Atomic check-and-set to prevent race conditions
+  if (queueProcessingLock || isWindowsPrintingActive || windowsPrintQueue.length === 0) {
+    return
+  }
+  
+  queueProcessingLock = true
+  
+  const next = windowsPrintQueue.shift()
+  if (!next) {
+    queueProcessingLock = false
     return
   }
 
-  const next = windowsPrintQueue.shift()
-  if (!next) return
-
   isWindowsPrintingActive = true
+  queueProcessingLock = false
   const { job } = next
 
   dispatchWindowsPrintJobInternal(job, () => {
@@ -354,8 +363,10 @@ const recentlyDispatchedOrders = new Map<string, number>()
  * Prioritizes relaying the job to the connected Raspberry Pi kiosk (via WebSocket),
  * which controls the physical CUPS printer.
  * Never executes on the developer host machine unless explicitly opted in via ALLOW_HOST_WINDOWS_PRINT=true.
+ * 
+ * CRITICAL FIX: Uses Redis-based atomic deduplication to survive API restarts
  */
-export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = false) {
+export async function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = false) {
   const now = Date.now()
   const isSubOrder = Boolean(job.orderId && job.orderId.includes('_sub_'))
 
@@ -391,20 +402,39 @@ export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = fal
     if (job.releasePin) checkKeys.push(job.releasePin)
   }
 
-  const isDuplicate = !forceReprint && checkKeys.some(k => {
-    const t = recentlyDispatchedOrders.get(k)
-    return t && (now - t) < 60000
-  })
-
-  if (isDuplicate) {
-    console.log(`[Print Dispatch] ℹ Order ${job.orderId} (${job.orderNumber || ''}) was already dispatched recently. Skipping duplicate dispatch.`)
-    return
+  // CRITICAL FIX: Redis-based atomic deduplication (survives API restart)
+  if (!forceReprint) {
+    try {
+      for (const k of checkKeys) {
+        const dedupKey = `print:dispatch:${k}`
+        const alreadyDispatched = await cacheGet<string>(dedupKey)
+        if (alreadyDispatched) {
+          console.log(`[Print Dispatch] ℹ Order ${job.orderId} (${job.orderNumber || ''}) was already dispatched (found in Redis). Skipping duplicate dispatch.`)
+          return
+        }
+      }
+      // Atomic mark as dispatched with 2-minute TTL
+      for (const k of checkKeys) {
+        await cacheSet(`print:dispatch:${k}`, String(now), 120)
+      }
+    } catch (redisErr) {
+      console.warn('[Print Dispatch] Redis deduplication check failed, falling back to in-memory:', redisErr)
+      // Fallback to in-memory check if Redis is unavailable
+      const isDuplicate = checkKeys.some(k => {
+        const t = recentlyDispatchedOrders.get(k)
+        return t && (now - t) < 60000
+      })
+      if (isDuplicate) {
+        console.log(`[Print Dispatch] ℹ Order ${job.orderId} (${job.orderNumber || ''}) was already dispatched recently (in-memory fallback). Skipping duplicate dispatch.`)
+        return
+      }
+      for (const k of checkKeys) {
+        recentlyDispatchedOrders.set(k, now)
+      }
+    }
   }
 
-  for (const k of checkKeys) {
-    recentlyDispatchedOrders.set(k, now)
-  }
-
+  // Clean up old in-memory entries (memory leak prevention)
   if (recentlyDispatchedOrders.size > 200) {
     for (const [k, t] of recentlyDispatchedOrders.entries()) {
       if (now - t > 180000) recentlyDispatchedOrders.delete(k)
@@ -449,10 +479,23 @@ export function dispatchPrintJob(job: PrintJobState, forceReprint: boolean = fal
 
   // In real mode: Kiosk WebSocket is not currently active.
   // Keep order in PRINTING status so the Raspberry Pi agent picks it up via HTTP poll (/api/jobs/poll).
+  // CRITICAL FIX: Add 5-minute timeout to prevent jobs stuck forever
   job.status = 'PRINTING'
   syncJobState(job)
   updateDbOrderStatus(job.orderId, 'PRINTING')
   console.log(`[Print Dispatch] 📥 Order ${job.orderId} queued for Raspberry Pi kiosk (${targetKiosk}). Awaiting HTTP poll (/api/jobs/poll)...`)
+  
+  // Set timeout to mark job as failed if Pi doesn't fetch within 5 minutes
+  setTimeout(async () => {
+    const currentJob = printJobs.get(job.orderId)
+    if (currentJob && currentJob.status === 'PRINTING' && !currentJob.completedAt) {
+      console.warn(`[Print Dispatch Timeout] ⏱️ Order ${job.orderId} timed out after 5 minutes. Pi did not fetch job.`)
+      currentJob.status = 'FAILED'
+      currentJob.error = 'Print job timeout: Raspberry Pi kiosk did not respond within 5 minutes'
+      syncJobState(currentJob)
+      await updateDbOrderStatus(job.orderId, 'FAILED')
+    }
+  }, 5 * 60 * 1000)
 }
 
 async function updateDbOrderStatus(orderId: string, status: string) {
@@ -536,7 +579,22 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
       }
     }
 
-    const copies = Math.max(1, Math.min(Number(req.body.copies) || 1, 99))
+    const pageCopiesRaw = req.body.pageCopies || req.body.page_copies
+    const pageCopies = pageCopiesRaw
+      ? (typeof pageCopiesRaw === 'string' ? pageCopiesRaw : JSON.stringify(pageCopiesRaw))
+      : undefined
+
+    const pageColoursRaw = req.body.pageColours || req.body.page_colours
+    const pageColours = pageColoursRaw
+      ? (typeof pageColoursRaw === 'string' ? pageColoursRaw : JSON.stringify(pageColoursRaw))
+      : undefined
+
+    // CRITICAL FIX: When per-page copies are specified, global copies MUST be 1
+    // to prevent multiplication (e.g., 3 global × 3 page-specific = 9 copies)
+    const copies = pageCopies
+      ? 1
+      : Math.max(1, Math.min(Number(req.body.copies) || 1, 99))
+    
     const rawCol = String(req.body.colourMode || req.body.colour || 'BW').toUpperCase().replace('&', '')
     const colourMode = (rawCol === 'COLOUR' || rawCol === 'COLOR') ? 'COLOUR' : 'BW'
     const pageRange = resolveEffectivePageRange(
@@ -563,16 +621,6 @@ printRouter.post('/execute', printExecutionLimiter, upload.single('file'), async
     const contrastMode = (req.body.contrastMode || req.body.contrast || 'BALANCED').toUpperCase()
     const customScalePercent = Number(req.body.customScalePercent || req.body.custom_scale || req.body.customScale) || 100
     const pageBorder = req.body.pageBorder === 'true' || req.body.pageBorder === true
-
-    const pageCopiesRaw = req.body.pageCopies || req.body.page_copies
-    const pageCopies = pageCopiesRaw
-      ? (typeof pageCopiesRaw === 'string' ? pageCopiesRaw : JSON.stringify(pageCopiesRaw))
-      : undefined
-
-    const pageColoursRaw = req.body.pageColours || req.body.page_colours
-    const pageColours = pageColoursRaw
-      ? (typeof pageColoursRaw === 'string' ? pageColoursRaw : JSON.stringify(pageColoursRaw))
-      : undefined
 
     const rawPin = req.body.releasePin || req.body.otp || req.body.pickupCode
     let releasePin = rawPin ? String(rawPin).trim() : undefined
@@ -1340,6 +1388,7 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
       copies: primaryJob.copies,
       colourMode: primaryJob.colourMode,
       totalPrints: totalPrintCount,
+      kioskRelayed: isKioskRelayConnected(primaryJob.kioskId || kioskId),
       message: `PIN verified! Dispatched ${matchedJobs.length} document(s) with exact specified settings to printer.`,
     }
   }
@@ -1694,6 +1743,7 @@ export async function handleVerifyPinLogic(rawKioskId: string, rawPin: string) {
   return {
     success: true,
     valid: true,
+    kioskRelayed: isKioskRelayConnected(kioskId),
     message: 'PIN verified successfully! Physical printing initiated.',
     order: {
       orderId: order.orderId,

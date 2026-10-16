@@ -1526,3 +1526,74 @@
   }
 }
 
+
+/* ═══ INSTALLATION REQUESTS — DARK THEME ═══ */
+
+.dark .inst-layout, .dark .inst-page, .dark .inst-toolbar, .dark .inst-search-wrap, .dark .inst-card, .dark .inst-card__header, .dark .inst-card__body, .dark .inst-card__footer, .dark .inst-detail-modal, .dark .inst-detail-modal__overlay, .dark .inst-detail-modal__content, .dark .inst-detail-modal__header, .dark .inst-detail-modal__footer, .dark .inst-form-card {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .inst-card, .dark .inst-detail-modal__content, .dark .inst-form-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .inst-toolbar {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .inst-search-input {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .inst-search-input::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .inst-search-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .inst-card__title { color: var(--clr-text-1) !important; }
+.dark .inst-card__desc { color: var(--clr-text-3) !important; }
+.dark .inst-card__venue { color: var(--clr-text-3) !important; }
+
+.dark .inst-detail-modal__overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .inst-detail-modal__header {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .inst-detail-modal__footer {
+  border-top-color: var(--clr-border) !important;
+  background: var(--clr-bg-2) !important;
+}
+
+.dark .inst-form-input, .dark .inst-form-textarea, .dark .inst-form-select {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .inst-form-input::placeholder, .dark .inst-form-textarea::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .inst-form-input:focus, .dark .inst-form-textarea:focus, .dark .inst-form-select:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .inst-form-label {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .inst-form-help {
+  color: var(--clr-text-4) !important;
+}

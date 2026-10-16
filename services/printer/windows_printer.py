@@ -20,6 +20,7 @@ import sys
 import os
 import io
 import json
+import time
 import argparse
 from typing import List, Optional, Callable, Tuple
 
@@ -455,15 +456,22 @@ def print_file(
             else:
                 devmode.Color = win32con.DMCOLOR_COLOR
 
+            # 5. Explicit Copies in DEVMODE: Always 1.
+            # Python's print loop manually iterates through copies page-by-page.
+            # If devmode.Copies is > 1 (e.g. from printer driver default settings),
+            # the Brother Windows driver multiplies every single page emitted by Python!
+            devmode.Copies = 1
+
             # Ensure all modified DEVMODE fields are marked valid in Fields bitmask
             devmode.Fields |= (
                 win32con.DM_COLOR
                 | win32con.DM_PAPERSIZE
                 | win32con.DM_ORIENTATION
                 | win32con.DM_DUPLEX
+                | win32con.DM_COPIES
             )
 
-            # 5. DPI / Print Quality
+            # 6. DPI / Print Quality
             try:
                 devmode.PrintQuality = int(dpi) if str(dpi).isdigit() else 600
                 devmode.Fields |= win32con.DM_PRINTQUALITY
@@ -496,7 +504,10 @@ def print_file(
             total_pages = len(pdf)
             selected_pages = parse_page_range(page_range, total_pages)
 
-        total_output = sum(page_copy_map.get(idx + 1, copies) for idx in selected_pages)
+        # Expected output (pre-sheet estimate; recomputed exactly after N-Up
+        # sheet composition below — sheets are the single source of truth).
+        expected_output = sum(page_copy_map.get(idx + 1, copies) for idx in selected_pages)
+        total_output = expected_output
         completed = 0
 
         print(
@@ -507,6 +518,11 @@ def print_file(
             f"Color Mode: {'B&W (Monochrome)' if all_pages_bw else 'Colour (Mixed/Full)'}",
             flush=True,
         )
+        print(
+            f"COPIES_TRACE order={{file:{os.path.basename(file_path)}}} copies={copies} "
+            f"page_copies={json.dumps(page_copy_map, sort_keys=True)} total_output={total_output} backend=gdi",
+            flush=True,
+        )
 
         if devmode:
             try:
@@ -514,9 +530,14 @@ def print_file(
                 dc = win32ui.CreateDCFromHandle(hdc)
             except Exception as dc_err:
                 print(f"[PrinterEngine] win32gui.CreateDC fallback ({dc_err})", flush=True)
+                print("[PrinterEngine] DEVMODE_UNAVAILABLE: using manual GDI copy loop as sole copy control (driver Copies ignored).", flush=True)
                 dc = win32ui.CreateDC()
                 dc.CreatePrinterDC(resolved_printer)
         else:
+            # DEVMODE unavailable: driver default Copies could be >1. Never pass
+            # copies via CreatePrinterDC — the manual StartPage/EndPage loop below
+            # remains the sole copy multiplier.
+            print("[PrinterEngine] DEVMODE_UNAVAILABLE: using manual GDI copy loop as sole copy control (driver Copies ignored).", flush=True)
             dc = win32ui.CreateDC()
             dc.CreatePrinterDC(resolved_printer)
 
@@ -711,7 +732,7 @@ def print_file(
 
                 x = sx + (sw - w) // 2
                 y = sy + (sh - h) // 2
-                items.append({"dib": ImageWin.Dib(resized), "rect": (x, y, x + w, y + h)})
+                items.append({"dib": ImageWin.Dib(resized), "rect": (x, y, x + w, y + h), "target_copies": p["target_copies"], "page_human": p["page_human"]})
 
             max_c = max(p["target_copies"] for p in chunk)
             sheets.append({
@@ -732,7 +753,12 @@ def print_file(
                 for current_copy in range(1, s["target_copies"] + 1):
                     dc.StartPage()
                     for item in s["items"]:
-                        item["dib"].draw(dc.GetHandleOutput(), item["rect"])
+                        # N-Up sheets with mixed per-page copies: blank slots whose
+                        # target count is below the current impression so low-copy
+                        # pages are NOT overprinted (e.g. p1:1 + p2:3 in 2-Up emits
+                        # 3 sheets with p1 drawn only on sheet 1).
+                        if item.get("target_copies", s["target_copies"]) >= current_copy:
+                            item["dib"].draw(dc.GetHandleOutput(), item["rect"])
                     dc.EndPage()
                     time.sleep(0.12)  # Synchronous pacing pause so printer hardware receives pages in sync
 
@@ -1106,6 +1132,21 @@ def main():
                         parsed_page_copies[int(p.strip())] = int(c.strip())
             except Exception:
                 parsed_page_copies = None
+    if isinstance(parsed_page_copies, dict):
+        # Clamp per-page copies to 1-99 so stale/oversize maps can't overprint.
+        clamped: dict = {}
+        for k, v in parsed_page_copies.items():
+            try:
+                clamped[int(k)] = max(1, min(int(v), 99))
+            except Exception:
+                continue
+        parsed_page_copies = clamped if clamped else None
+
+    cli_copies = max(1, min(int(args.copies or 1), 99))
+    cli_n_up = int(args.pages_per_sheet or 1)
+    if cli_n_up not in (1, 2, 4, 6, 9, 16):
+        print(f"[PrinterEngine] Invalid --pages-per-sheet {args.pages_per_sheet}; clamping to 1.", flush=True)
+        cli_n_up = 1
 
     parsed_page_colours = None
     if args.page_colours:
@@ -1124,7 +1165,7 @@ def main():
     try:
         result = print_file(
             file_path=args.file,
-            copies=args.copies,
+            copies=cli_copies,
             colour=args.colour,
             page_range=args.pages,
             printer_name=args.printer,
@@ -1136,7 +1177,7 @@ def main():
             dpi=args.dpi,
             scaling=args.scaling,
             orientation=args.orientation,
-            pages_per_sheet=args.pages_per_sheet,
+            pages_per_sheet=cli_n_up,
             margins=args.margins,
             contrast_mode=args.contrast_mode,
             custom_scale_percent=args.custom_scale,

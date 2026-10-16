@@ -501,3 +501,143 @@
 @media (prefers-reduced-motion: reduce) {
   .pricing-page-wrap, .preset-tab, .cstep-btn { animation: none; transition: none; }
 }
+
+/* ═══════════════════════════════════════
+   MERCHANT PRICING — DARK THEME OVERRIDES
+   ═══════════════════════════════════════ */
+
+.dark .pricing-page-wrap,
+.capitalio-dashboard.dark .pricing-page-wrap {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .pricing-section,
+.capitalio-dashboard.dark .pricing-section {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .pricing-section__title,
+.capitalio-dashboard.dark .pricing-section__title {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .pricing-section__desc,
+.capitalio-dashboard.dark .pricing-section__desc {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .pricing-form-grid,
+.capitalio-dashboard.dark .pricing-form-grid {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .pricing-input-group,
+.capitalio-dashboard.dark .pricing-input-group {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .pricing-input-group label,
+.capitalio-dashboard.dark .pricing-input-group label {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .pricing-input-field,
+.capitalio-dashboard.dark .pricing-input-field {
+  background: var(--clr-surface-3) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .pricing-input-field:focus,
+.capitalio-dashboard.dark .pricing-input-field:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .pricing-input-field::placeholder,
+.capitalio-dashboard.dark .pricing-input-field::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .cstep-btn,
+.capitalio-dashboard.dark .cstep-btn {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-2) !important;
+}
+
+.dark .cstep-btn:hover,
+.capitalio-dashboard.dark .cstep-btn:hover {
+  background: var(--clr-accent-dim) !important;
+  color: var(--clr-accent) !important;
+  border-color: var(--clr-border-strong) !important;
+}
+
+.dark .cstep-btn.active,
+.capitalio-dashboard.dark .cstep-btn.active {
+  background: var(--clr-accent) !important;
+  color: var(--clr-bg-1) !important;
+  border-color: var(--clr-accent) !important;
+}
+
+.dark .preset-tab,
+.capitalio-dashboard.dark .preset-tab {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-2) !important;
+}
+
+.dark .preset-tab:hover,
+.capitalio-dashboard.dark .preset-tab:hover {
+  background: var(--clr-accent-dim) !important;
+  color: var(--clr-accent) !important;
+}
+
+.dark .preset-tab.active,
+.capitalio-dashboard.dark .preset-tab.active {
+  background: var(--clr-accent) !important;
+  color: var(--clr-bg-1) !important;
+  border-color: var(--clr-accent) !important;
+}
+
+.dark .pricing-submit-btn,
+.dark .pricing-save-btn,
+.capitalio-dashboard.dark .pricing-submit-btn,
+.capitalio-dashboard.dark .pricing-save-btn {
+  background: var(--clr-accent) !important;
+  color: var(--clr-bg-1) !important;
+}
+
+.dark .pricing-cancel-btn,
+.dark .pricing-reset-btn,
+.capitalio-dashboard.dark .pricing-cancel-btn,
+.capitalio-dashboard.dark .pricing-reset-btn {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-2) !important;
+}
+
+.dark .pricing-cancel-btn:hover,
+.dark .pricing-reset-btn:hover,
+.capitalio-dashboard.dark .pricing-cancel-btn:hover,
+.capitalio-dashboard.dark .pricing-reset-btn:hover {
+  background: var(--clr-surface-3) !important;
+}
+
+.dark .pricing-comparison,
+.capitalio-dashboard.dark .pricing-comparison {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .pricing-comparison__item,
+.capitalio-dashboard.dark .pricing-comparison__item {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .pricing-comparison__item span:first-child,
+.capitalio-dashboard.dark .pricing-comparison__item span:first-child {
+  color: var(--clr-text-3) !important;
+}

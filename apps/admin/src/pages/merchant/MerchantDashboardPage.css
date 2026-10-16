@@ -1062,3 +1062,163 @@
 
 
 
+
+/* ═══════════════════════════════════════
+   MERCHANT DASHBOARD — DARK THEME OVERRIDES
+   ═══════════════════════════════════════ */
+
+.dark .merchant-dashboard,
+.dark .merchant-portal-shell,
+.capitalio-dashboard.dark .merchant-dashboard,
+.capitalio-dashboard.dark .merchant-portal-shell {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .card-header,
+.capitalio-dashboard.dark .card-header {
+  background: var(--clr-surface-2) !important;
+  border-bottom-color: var(--clr-border) !important;
+  color: var(--clr-text-2) !important;
+}
+
+.dark .card-header__title,
+.capitalio-dashboard.dark .card-header__title {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .card-header__sub,
+.capitalio-dashboard.dark .card-header__sub {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .card-body,
+.capitalio-dashboard.dark .card-body {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-earnings-section,
+.dark .merchant-kiosk-section,
+.dark .merchant-merch-section,
+.dark .merchant-activity-section,
+.capitalio-dashboard.dark .merchant-earnings-section,
+.capitalio-dashboard.dark .merchant-kiosk-section,
+.capitalio-dashboard.dark .merchant-merch-section,
+.capitalio-dashboard.dark .merchant-activity-section {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-venue-card,
+.dark .merchant-stat-card,
+.dark .merchant-earnings-card,
+.capitalio-dashboard.dark .merchant-venue-card,
+.capitalio-dashboard.dark .merchant-stat-card,
+.capitalio-dashboard.dark .merchant-earnings-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .merchant-stat-card__value,
+.capitalio-dashboard.dark .merchant-stat-card__value {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-stat-card__label,
+.capitalio-dashboard.dark .merchant-stat-card__label {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .merchant-stat-card__value.green,
+.capitalio-dashboard.dark .merchant-stat-card__value.green {
+  color: var(--clr-success) !important;
+}
+
+.dark .merchant-stat-card__value.red,
+.capitalio-dashboard.dark .merchant-stat-card__value.red {
+  color: var(--clr-error) !important;
+}
+
+.dark .merchant-earnings-card__value,
+.capitalio-dashboard.dark .merchant-earnings-card__value {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-earnings-card__label,
+.capitalio-dashboard.dark .merchant-earnings-card__label {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .merchant-venue-card__title,
+.capitalio-dashboard.dark .merchant-venue-card__title {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-venue-card__desc,
+.capitalio-dashboard.dark .merchant-venue-card__desc {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .merchant-venue-card__amount,
+.capitalio-dashboard.dark .merchant-venue-card__amount {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-venue-card__change,
+.capitalio-dashboard.dark .merchant-venue-card__change {
+  color: var(--clr-success) !important;
+}
+
+.dark .merchant-venue-card__change.positive,
+.capitalio-dashboard.dark .merchant-venue-card__change.positive {
+  color: var(--clr-success) !important;
+}
+
+.dark .merchant-venue-card__change.negative,
+.capitalio-dashboard.dark .merchant-venue-card__change.negative {
+  color: var(--clr-error) !important;
+}
+
+.dark .merchant-activity-item,
+.capitalio-dashboard.dark .merchant-activity-item {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .merchant-activity-item__title,
+.capitalio-dashboard.dark .merchant-activity-item__title {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-activity-item__desc,
+.capitalio-dashboard.dark .merchant-activity-item__desc {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .merchant-activity-item__meta,
+.capitalio-dashboard.dark .merchant-activity-item__meta {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .merchant-activity-item__icon,
+.capitalio-dashboard.dark .merchant-activity-item__icon {
+  color: var(--clr-accent) !important;
+}
+
+/* Merchant top stats bar dark */
+.dark .merchant-top-stats,
+.capitalio-dashboard.dark .merchant-top-stats {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .merchant-top-stats__item,
+.capitalio-dashboard.dark .merchant-top-stats__item {
+  border-left-color: var(--clr-border) !important;
+}
+
+.dark .merchant-top-stats__label,
+.capitalio-dashboard.dark .merchant-top-stats__label {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .merchant-top-stats__value,
+.capitalio-dashboard.dark .merchant-top-stats__value {
+  color: var(--clr-text-1) !important;
+}

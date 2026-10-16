@@ -359,6 +359,37 @@
   color: #dc2626;
 }
 
+/* ──────── Theme Toggle ──────── */
+.sidebar__theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: all var(--dur-normal);
+}
+
+.sidebar__theme-toggle:hover {
+  background: #f1f5f9;
+  color: #dc2626;
+}
+
+.merchant-layout .sidebar__theme-toggle:hover {
+  color: #059669;
+  background: rgba(5, 150, 105, 0.08);
+}
+
+.merchant-layout .sidebar__theme-toggle.merchant-toggle:hover {
+  color: #059669;
+}
+
 /* ──────── Main Content ──────── */
 .admin-main {
   margin-left: var(--sidebar-width);
@@ -554,4 +585,135 @@
     color: #dc2626;
     font-weight: 700;
   }
+}
+
+/* ═══════════════════════════════════════
+   MERCHANT PORTAL — DARK THEME OVERRIDES
+   Green accent instead of acid-yellow
+   ═══════════════════════════════════════ */
+
+/* Merchant portal shell background */
+.merchant-portal-shell.dark,
+.merchant-layout .capitalio-dashboard.dark {
+  background: var(--clr-bg-1) !important;
+}
+
+/* Merchant top header */
+.merchant-portal-shell.dark .mobile-header,
+.merchant-layout .capitalio-dashboard.dark .mobile-header {
+  background: var(--clr-surface-1) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+/* Admin emulation topbar dark */
+.merchant-portal-shell.dark .admin-emulation-topbar,
+.merchant-layout .capitalio-dashboard.dark .admin-emulation-topbar {
+  background: var(--clr-surface-3) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.merchant-portal-shell.dark .admin-emulation-topbar__tag,
+.merchant-layout .capitalio-dashboard.dark .admin-emulation-topbar__tag {
+  background: rgba(5, 150, 105, 0.2) !important;
+  color: var(--clr-accent) !important;
+  border-color: rgba(5, 150, 105, 0.4) !important;
+}
+
+.merchant-portal-shell.dark .admin-emulation-topbar__text,
+.merchant-layout .capitalio-dashboard.dark .admin-emulation-topbar__text {
+  color: var(--clr-text-2) !important;
+}
+
+.merchant-portal-shell.dark .admin-emulation-topbar__btn,
+.merchant-layout .capitalio-dashboard.dark .admin-emulation-topbar__btn {
+  color: var(--clr-text-3) !important;
+}
+
+.merchant-portal-shell.dark .admin-emulation-topbar__btn:hover,
+.merchant-layout .capitalio-dashboard.dark .admin-emulation-topbar__btn:hover {
+  color: var(--clr-accent) !important;
+  background: var(--clr-accent-dim) !important;
+}
+
+/* Merchant venue scope card dark */
+.merchant-portal-shell.dark aside [style*="rgba(220, 38, 38, 0.04)"],
+.merchant-layout .capitalio-dashboard.dark aside [style*="rgba(220, 38, 38, 0.04)"] {
+  background: rgba(5, 150, 105, 0.08) !important;
+  border-color: rgba(5, 150, 105, 0.2) !important;
+}
+
+/* Merchant Suspended warning dark */
+.merchant-portal-shell.dark .merchant-suspended-banner,
+.merchant-layout .capitalio-dashboard.dark .merchant-suspended-banner {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #fca5a5 !important;
+}
+
+/* Merchant status dot dark */
+.dark .merchant-layout .status-dot.online,
+.capitalio-dashboard.dark .merchant-layout .status-dot.online {
+  background: var(--clr-success) !important;
+  box-shadow: 0 0 0 3px rgba(0, 218, 146, 0.2) !important;
+}
+
+/* Merchant portal switch pill dark */
+.dark .portal-switch-pill,
+.capitalio-dashboard.dark .portal-switch-pill {
+  background: var(--clr-surface-2) !important;
+  color: var(--clr-text-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .portal-switch-pill:hover,
+.capitalio-dashboard.dark .portal-switch-pill:hover {
+  background: var(--clr-accent-dim) !important;
+  color: var(--clr-accent) !important;
+  border-color: var(--clr-border-strong) !important;
+}
+
+.dark .portal-switch-pill--compact,
+.capitalio-dashboard.dark .portal-switch-pill--compact {
+  background: var(--clr-surface-2) !important;
+  color: var(--clr-text-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .portal-switch-pill--compact:hover,
+.capitalio-dashboard.dark .portal-switch-pill--compact:hover {
+  background: var(--clr-accent-dim) !important;
+  color: var(--clr-accent) !important;
+}
+
+/* Merchant dashboard cards dark */
+.merchant-portal-shell.dark .card-header,
+.merchant-layout .capitalio-dashboard.dark .card-header {
+  background: var(--clr-surface-2) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+/* Merchant bottom nav dark */
+.merchant-portal-shell.dark .mobile-bottom-nav,
+.merchant-layout .capitalio-dashboard.dark .mobile-bottom-nav {
+  background: var(--clr-surface-1) !important;
+  border-top-color: var(--clr-border) !important;
+}
+
+.merchant-portal-shell.dark .bottom-nav__item,
+.merchant-portal-shell.dark .bottom-nav__item span,
+.merchant-layout .capitalio-dashboard.dark .bottom-nav__item,
+.merchant-layout .capitalio-dashboard.dark .bottom-nav__item span {
+  color: var(--clr-text-3) !important;
+}
+
+.merchant-portal-shell.dark .bottom-nav__item.active,
+.merchant-portal-shell.dark .bottom-nav__item.active span,
+.merchant-layout .capitalio-dashboard.dark .bottom-nav__item.active,
+.merchant-layout .capitalio-dashboard.dark .bottom-nav__item.active span {
+  color: var(--clr-accent) !important;
+}
+
+.dark .merchant-layout .bottom-nav__item.active,
+.capitalio-dashboard.dark .merchant-layout .bottom-nav__item.active {
+  color: var(--clr-accent) !important;
 }

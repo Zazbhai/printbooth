@@ -506,3 +506,59 @@
 @media (max-width: 400px) {
   .rzp-stats { grid-template-columns: 1fr; }
 }
+
+/* ═══ PAYMENT SETTINGS — DARK THEME ═══ */
+
+.dark .payment-settings-layout, .dark .payment-settings-page, .dark .ps-toolbar, .dark .ps-card, .dark .ps-card__header, .dark .ps-card__body, .dark .ps-form, .dark .ps-input-group, .dark .ps-key-input, .dark .ps-status-badge, .dark .ps-test-box {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ps-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .ps-card__header {
+  background: var(--clr-surface-2) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .ps-input-field, .dark .ps-key-input {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ps-input-field::placeholder, .dark .ps-key-input::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .ps-input-field:focus, .dark .ps-key-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .ps-form-label {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .ps-form-help {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .ps-test-box {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .ps-status-badge--active {
+  background: rgba(0, 218, 146, 0.15) !important;
+  color: var(--clr-success) !important;
+  border-color: rgba(0, 218, 146, 0.3) !important;
+}
+
+.dark .ps-status-badge--inactive {
+  background: rgba(100, 116, 139, 0.15) !important;
+  color: var(--clr-text-3) !important;
+  border-color: rgba(100, 116, 139, 0.3) !important;
+}

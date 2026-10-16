@@ -901,3 +901,123 @@
     overflow-x: auto;
   }
 }
+
+.dark .users-layout, .dark .users-page-wrap, .dark .users-table-card, .dark .users-toolbar, .dark .users-search-wrap, .dark .user-card, .dark .user-card__header, .dark .user-card__footer, .dark .users-form-card, .dark .users-form-row, .dark .users-form-col, .dark .users-pagination, .dark .users-pagination__btn, .dark .users-modal-overlay, .dark .users-modal-card, .dark .users-modal-body, .dark .users-modal-footer { color: var(--clr-text-1) !important; }
+.dark .users-table-card, .dark .users-form-card, .dark .users-modal-card, .dark .user-card { background: var(--clr-surface-1) !important; border-color: var(--clr-border) !important; }
+.dark .users-toolbar, .dark .users-modal-body, .dark .users-modal-footer, .dark .users-form-card { background: var(--clr-surface-1) !important; border-color: var(--clr-border) !important; }
+.dark .users-search-input { background: var(--clr-surface-2) !important; border-color: var(--clr-border) !important; color: var(--clr-text-1) !important; }
+.dark .users-search-input::placeholder { color: var(--clr-text-4) !important; }
+.dark .users-search-input:focus { border-color: var(--clr-accent) !important; box-shadow: 0 0 0 2px var(--clr-accent-dim) !important; }
+.dark .users-form-input, .dark .users-form-select { background: var(--clr-surface-2) !important; border-color: var(--clr-border) !important; color: var(--clr-text-1) !important; }
+.dark .users-form-input::placeholder { color: var(--clr-text-4) !important; }
+.dark .users-form-input:focus, .dark .users-form-select:focus { border-color: var(--clr-accent) !important; box-shadow: 0 0 0 2px var(--clr-accent-dim) !important; }
+.dark .users-form-label { color: var(--clr-text-2) !important; }
+.dark .users-form-help { color: var(--clr-text-4) !important; }
+.dark .user-card__name { color: var(--clr-text-1) !important; }
+.dark .user-card__email { color: var(--clr-text-3) !important; }
+.dark .user-card__role { color: var(--clr-text-2) !important; }
+.dark .users-modal-overlay { background: rgba(0, 0, 0, 0.6) !important; }
+.dark .data-table thead tr th { background: var(--clr-surface-2) !important; color: var(--clr-text-2) !important; border-bottom-color: var(--clr-border) !important; }
+.dark .data-table tbody tr td { border-bottom-color: var(--clr-border) !important; }
+.dark .data-table tbody tr:hover td { background: var(--clr-accent-dim) !important; }
+.dark .users-pagination__btn.active { background: var(--clr-accent) !important; color: var(--clr-bg-1) !important; }
+.dark .users-pagination__btn:not(.active):hover { background: var(--clr-surface-3) !important; }
+.dark .users-table-card .data-table { background: var(--clr-surface-1) !important; }
+.aUDARK
+
+/* ═══ ADMIN USERS — DARK THEME ═══ */
+
+.dark .users-layout, .dark .users-page-wrap, .dark .users-table-card, .dark .users-toolbar, .dark .users-search-wrap, .dark .user-card, .dark .user-card__header, .dark .user-card__footer, .dark .users-form-card, .dark .users-form-row, .dark .users-form-col, .dark .users-pagination, .dark .users-modal-overlay, .dark .users-modal-card, .dark .users-modal-body, .dark .users-modal-footer {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .users-table-card, .dark .users-form-card, .dark .users-modal-card, .dark .user-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .users-toolbar, .dark .users-modal-body, .dark .users-modal-footer, .dark .users-form-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .users-search-input {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .users-search-input::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .users-search-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .users-form-input, .dark .users-form-select {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .users-form-input::placeholder, .dark .users-form-select::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .users-form-input:focus, .dark .users-form-select:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .users-form-label {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .users-form-help {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .user-card__name {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .user-card__email {
+  color: var(--clr-text-3) !important;
+}
+
+.dark .user-card__role {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .users-modal-overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .data-table thead tr th {
+  background: var(--clr-surface-2) !important;
+  color: var(--clr-text-2) !important;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .data-table tbody tr td {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .data-table tbody tr:hover td {
+  background: var(--clr-accent-dim) !important;
+}
+
+.dark .users-pagination__btn.active {
+  background: var(--clr-accent) !important;
+  color: var(--clr-bg-1) !important;
+}
+
+.dark .users-pagination__btn:not(.active):hover {
+  background: var(--clr-surface-3) !important;
+}
+
+.dark .users-table-card .data-table {
+  background: var(--clr-surface-1) !important;
+}

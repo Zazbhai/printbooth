@@ -606,3 +606,73 @@
   display: flex;
   flex-direction: column;
 }
+
+/* ═══ ADVERTISEMENTS — DARK THEME ═══ */
+
+.dark .ads-layout, .dark .ads-page, .dark .ads-toolbar, .dark .ads-search-wrap, .dark .ad-card, .dark .ad-card__header, .dark .ad-card__body, .dark .ad-card__footer, .dark .ad-edit-modal, .dark .ad-edit-modal__overlay, .dark .ad-edit-modal__content, .dark .ad-edit-modal__header, .dark .ad-edit-modal__footer, .dark .ad-preview-card {
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ad-card, .dark .ad-edit-modal__content, .dark .ad-preview-card {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .ads-toolbar {
+  background: var(--clr-surface-1) !important;
+  border-color: var(--clr-border) !important;
+}
+
+.dark .ads-search-input {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ads-search-input::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .ads-search-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .ad-card__title { color: var(--clr-text-1) !important; }
+.dark .ad-card__desc { color: var(--clr-text-3) !important; }
+
+.dark .ad-edit-modal__overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .ad-edit-modal__header {
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.dark .ad-edit-modal__footer {
+  border-top-color: var(--clr-border) !important;
+  background: var(--clr-bg-2) !important;
+}
+
+.dark .ad-form-input, .dark .ad-form-textarea, .dark .ad-form-select, .dark .ad-form-file {
+  background: var(--clr-surface-2) !important;
+  border-color: var(--clr-border) !important;
+  color: var(--clr-text-1) !important;
+}
+
+.dark .ad-form-input::placeholder, .dark .ad-form-textarea::placeholder {
+  color: var(--clr-text-4) !important;
+}
+
+.dark .ad-form-input:focus, .dark .ad-form-textarea:focus, .dark .ad-form-select:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow: 0 0 0 2px var(--clr-accent-dim) !important;
+}
+
+.dark .ad-form-label {
+  color: var(--clr-text-2) !important;
+}
+
+.dark .ad-form-help {
+  color: var(--clr-text-4) !important;
+}

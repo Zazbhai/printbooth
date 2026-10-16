@@ -2918,6 +2918,15 @@ export function advanceSessionOnPinVerified(kioskId: string, _pin: string, order
  * Called when hardware printing completes.
  * Advances session to DONE state, triggering auto-rotation to next encrypted QR.
  */
+/**
+ * Removes all debounce cache entries for a completed session so late webhooks
+ * are not silently swallowed by a stale entry.
+ */
+function clearPaymentDebounceForSession(session: KioskSession): void {
+  if (session.orderId) recentlyTriggeredPayments.delete(session.orderId)
+  if (session.sessionId) recentlyTriggeredPayments.delete(session.sessionId)
+}
+
 export function completeKioskSession(kioskId: string, orderId?: string): void {
   const normKiosk = kioskId.toUpperCase()
   const session = getActiveSession(normKiosk)
@@ -2928,9 +2937,14 @@ export function completeKioskSession(kioskId: string, orderId?: string): void {
   session.phaseStep = 6
   session.completedAt = Date.now()
   if (orderId) session.orderId = orderId
+  clearPaymentDebounceForSession(session)
   saveSession(session)
   console.log(`[KioskSession] ✓ Session ${session.sessionId} completed on kiosk ${normKiosk}`)
 }
+
+// In-memory debounce cache to prevent concurrent webhooks (e.g. Razorpay + UPI Express + status poll)
+// from double-triggering hardware print for the same order or session
+const recentlyTriggeredPayments = new Map<string, number>()
 
 /**
  * Automatically triggers hardware printing for an active kiosk session
@@ -2938,6 +2952,24 @@ export function completeKioskSession(kioskId: string, orderId?: string): void {
  */
 export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, paymentDetails?: any): boolean {
   if (!orderId && !kioskId) return false
+
+  const now = Date.now()
+  const cleanOrderId = (orderId || '').trim()
+
+  // Clean entries older than 5 minutes (300,000ms)
+  if (recentlyTriggeredPayments.size > 200) {
+    for (const [k, t] of recentlyTriggeredPayments.entries()) {
+      if (now - t > 300000) recentlyTriggeredPayments.delete(k)
+    }
+  }
+
+  if (cleanOrderId && recentlyTriggeredPayments.has(cleanOrderId)) {
+    const elapsed = now - (recentlyTriggeredPayments.get(cleanOrderId) || 0)
+    if (elapsed < 300000) {
+      console.log(`[KioskSession] ℹ Order ${cleanOrderId} was already triggered for print ${Math.round(elapsed / 1000)}s ago. Skipping duplicate trigger.`)
+      return true
+    }
+  }
 
   console.log(`[KioskSession] ⚡ triggerSessionPrintOnPayment invoked: orderId=${orderId}, kioskId=${kioskId || 'N/A'}`)
 
@@ -2973,6 +3005,14 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
   if (!targetSession) {
     console.warn(`[KioskSession] No active session found to auto-print for order ${orderId} (kiosk ${kioskId})`)
     return false
+  }
+
+  if (targetSession.sessionId && recentlyTriggeredPayments.has(targetSession.sessionId)) {
+    const elapsed = now - (recentlyTriggeredPayments.get(targetSession.sessionId) || 0)
+    if (elapsed < 300000) {
+      console.log(`[KioskSession] ℹ Session ${targetSession.sessionId} was already triggered for print ${Math.round(elapsed / 1000)}s ago. Skipping duplicate trigger.`)
+      return true
+    }
   }
 
   // Idempotency: if already printing or done, don't re-dispatch
@@ -3145,6 +3185,14 @@ export function triggerSessionPrintOnPayment(orderId: string, kioskId?: string, 
     } catch (err: any) {
       console.error(`[KioskSession] Error in dispatchPrintJob for session ${targetSession.sessionId}:`, err)
     }
+  }
+
+  // Register debounce entries *after* all file-existence checks so a missing file
+  // does not lock the session out from retrying for 5 minutes.
+  recentlyTriggeredPayments.set(effectiveOrderId, now)
+  recentlyTriggeredPayments.set(targetSession.sessionId, now)
+  if (targetSession.orderId && targetSession.orderId !== effectiveOrderId) {
+    recentlyTriggeredPayments.set(targetSession.orderId, now)
   }
 
   saveSession(targetSession)
