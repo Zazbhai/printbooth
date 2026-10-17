@@ -3,7 +3,7 @@ import { Kiosk } from '../models/Kiosk.js'
 import { fallbackKiosks } from '../fallbackData.js'
 import { cachePurgePattern } from '../redis.js'
 import { isDbConnected } from '../db.js'
-import { exec, spawn } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import util from 'node:util'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -16,7 +16,6 @@ import { NetworkDetectorService } from './networkDetector.js'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const execAsync = util.promisify(exec)
 
 export interface IPythonPrintParams {
   filePath: string
@@ -513,17 +512,28 @@ export class CupsAutomationService {
       path.resolve(process.cwd(), '../printer/cups_printer.py'),
     ]
     const pythonScript = candidatePaths.find((p) => fs.existsSync(p)) || candidatePaths[0]
-    const colorFlag = params.colourMode === 'COLOUR' ? '--color' : '--bw'
-    const duplexFlag = params.duplex === 'DUPLEX' ? '--duplex' : '--single'
     const copies = params.copies || 1
     const paper = params.paperSize || 'A4'
-    const printerArg = params.printerName ? `--printer "${params.printerName}"` : ''
-    const titleArg = params.jobTitle ? `--title "${params.jobTitle}"` : ''
 
-    const cmd = `python "${pythonScript}" print --file "${params.filePath}" --copies ${copies} ${colorFlag} ${duplexFlag} --paper ${paper} ${printerArg} ${titleArg}`
+    // Use execFile with an argument array to avoid shell injection.
+    // Never interpolate user input (printerName, jobTitle, filePath) into a shell string.
+    const args: string[] = [
+      'print',
+      '--file', params.filePath,
+      '--copies', String(copies),
+    ]
+    args.push(params.colourMode === 'COLOUR' ? '--color' : '--bw')
+    args.push(params.duplex === 'DUPLEX' ? '--duplex' : '--single')
+    args.push('--paper', paper)
+    if (params.printerName) {
+      args.push('--printer', params.printerName)
+    }
+    if (params.jobTitle) {
+      args.push('--title', params.jobTitle)
+    }
 
     try {
-      const { stdout } = await execAsync(cmd)
+      const { stdout } = await util.promisify(execFile)(process.platform === 'win32' ? 'python' : 'python3', args, { cwd: path.resolve(__dirname, '../../..') })
       return JSON.parse(stdout.trim())
     } catch (err: any) {
       console.error('[CUPS Python Execution Error]:', err)

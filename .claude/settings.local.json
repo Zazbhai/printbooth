@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npx tsc:*)",
       "Bash(\"C:\\\\Users\\\\zgarm\\\\.claude\\\\plugins\\\\cache\\\\impeccable\\\\impeccable\\\\4.6.0\\\\skills\\\\impeccable/scripts/impeccable.cmd\" context:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(python -m py_compile cups_controller.py)",
+      "Bash(bash -n \"C:\\\\Users\\\\zgarm\\\\OneDrive\\\\Desktop\\\\printer_automation\\\\kiosk\\\\scripts\\\\start_kiosk.sh\")"
     ]
   }
 }

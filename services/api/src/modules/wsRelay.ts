@@ -210,10 +210,8 @@ export function initWebSocketRelay(server: http.Server): WebSocketServer {
         return
       }
 
+      // Accept secrets only via headers (never URL query params — logged in access logs & proxy history)
       let secret =
-        url.searchParams.get('secret') ||
-        url.searchParams.get('apiKey') ||
-        url.searchParams.get('key') ||
         (req.headers['x-kiosk-secret'] as string) ||
         ''
       if (!secret && req.headers['authorization']?.startsWith('Bearer ')) {
@@ -509,7 +507,9 @@ async function handleJsonMessage(client: WsClientInfo, msg: WsMessage) {
 
       const fileId = `file_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
       const safeExt = path.extname(fileName).toLowerCase() || '.pdf'
-      const finalPath = path.join(WS_UPLOADS_DIR, `${fileId}_${fileName}`)
+      // Sanitize fileName to prevent path traversal attacks
+      const safeFileName = path.basename(fileName)
+      const finalPath = path.join(WS_UPLOADS_DIR, `${fileId}_${safeFileName}`)
       const buffer = Buffer.from(fileData, 'base64')
       fs.writeFileSync(finalPath, buffer)
 
@@ -818,8 +818,19 @@ async function handleJsonMessage(client: WsClientInfo, msg: WsMessage) {
 
 /**
  * Handles binary frame streams directly (e.g. raw PDF bytes).
+ * Enforces a maximum file size to prevent disk exhaustion attacks.
  */
 function handleBinaryFrame(client: WsClientInfo, data: Buffer) {
+  // Enforce a 50MB maximum frame size
+  const maxFrameSize = 50 * 1024 * 1024
+  if (data.length > maxFrameSize) {
+    console.warn(`[WSS Relay] Binary frame too large (${data.length} bytes) from client ${client.id}, rejecting`)
+    sendJson(client.ws, {
+      type: 'ERROR',
+      payload: { error: `Binary frame too large: ${data.length} bytes (max ${maxFrameSize})` },
+    })
+    return
+  }
   const fileId = `bin_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
   const filePath = path.join(WS_UPLOADS_DIR, `${fileId}.pdf`)
   fs.writeFileSync(filePath, data)
