@@ -353,9 +353,11 @@ export async function createUpiExpressOrder(
     const apiAmount = Number(rawData.amount || reqAmount)
     const apiTotal = Number(rawData.total || apiAmount)
 
-    // NEVER modify, rewrite, or alter the provider's upiintent URL (matching test.ts).
-    // The exact upiintent returned by UPI Express is used directly for QR code generation.
-    const upiIntentUrl = rawUpiIntent
+    // Sanitize the UPI intent URL so the QR encodes exactly the quoted amount.
+    // UPI Express may add a convenience fee and return a `total` or `am` param
+    // that is higher than what the customer was quoted.  Match the behaviour
+    // in test.py `validate_amount` — force the intent `am=` param to the exact
+    // requested amount.
     const upiIntentObj: Record<string, any> = typeof rawData.upi_intent === 'object' ? { ...rawData.upi_intent } : {}
 
     const toPaise = (value: number | string): number => {
@@ -364,24 +366,27 @@ export async function createUpiExpressOrder(
       return Math.round(amt * 100)
     }
 
-    // `requestedPaise` (integer paise, normalized before the provider call)
-    // is reused here — reqAmount above is derived from it, so they agree exactly.
-
+    // Log the full amount breakdown for debugging
     console.log('\n========== AMOUNT CHECK ==========')
     console.log(`Requested amount: ₹${reqAmount.toFixed(2)} (${requestedPaise} paise)`)
     console.log(`API amount:       ₹${apiAmount.toFixed(2)}`)
     console.log(`Convenience fee:  ₹${rawData.convenience_fee || 0}`)
     console.log(`API total:        ₹${apiTotal.toFixed(2)}`)
-    console.log(`UPI Intent:       ${upiIntentUrl}`)
+    console.log(`UPI Intent (raw): ${rawUpiIntent}`)
     console.log('==================================')
 
+    // Detect any mismatch between provider total and the quoted amount
+    let amountMismatch = false
     if (rawData.total !== undefined) {
       const totalPaise = toPaise(rawData.total)
       if (totalPaise !== requestedPaise) {
-        console.warn(`[UPIExpress] Amount discrepancy: requested ₹${(requestedPaise / 100).toFixed(2)}, provider total is ₹${(totalPaise / 100).toFixed(2)}`)
+        console.warn(`[UPIExpress] Amount discrepancy: provider total is ₹${(totalPaise / 100).toFixed(2)} vs quoted ₹${reqAmount.toFixed(2)}. Sanitizing intent URL.`)
+        amountMismatch = true
       }
     }
 
+    // Sanitize the intent URL: force `am=` to the exact requested amount
+    let upiIntentUrl = rawUpiIntent
     if (upiIntentUrl && upiIntentUrl.startsWith('upi://pay?')) {
       try {
         const parsedUrl = new URL(upiIntentUrl)
@@ -389,9 +394,14 @@ export async function createUpiExpressOrder(
         if (intentAmount) {
           const intentPaise = toPaise(intentAmount)
           if (intentPaise !== requestedPaise) {
-            console.warn(`[UPIExpress] Amount discrepancy: requested ₹${(requestedPaise / 100).toFixed(2)}, intent has ₹${(intentPaise / 100).toFixed(2)}`)
+            console.warn(`[UPIExpress] Intent amount mismatch: intent has ₹${(intentPaise / 100).toFixed(2)} vs quoted ₹${reqAmount.toFixed(2)}. Sanitizing intent URL.`)
+            amountMismatch = true
           }
         }
+        // Always enforce the exact quoted amount in the intent URL
+        parsedUrl.searchParams.set('am', reqAmount.toFixed(2))
+        upiIntentUrl = parsedUrl.toString()
+        console.log(`[UPIExpress] Intent sanitized: am=${reqAmount.toFixed(2)}`)
       } catch (err: any) {
         console.warn('[UPIExpress] URL parsing warning:', err.message)
       }
